@@ -1,4 +1,4 @@
-module k8s-registry-lib
+module github.com/cloudogu/k8s-registry-lib
 
 go 1.22.0
 
