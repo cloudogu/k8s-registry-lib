@@ -1,5 +1,5 @@
 ARTIFACT_ID=k8s-apply-lib
-VERSION=0.0.1
+VERSION=0.1.0
 GOTAG?=1.22
 MAKEFILES_VERSION=9.0.4
 .DEFAULT_GOAL:=default
@@ -15,8 +15,6 @@ include build/make/static-analysis.mk
 include build/make/clean.mk
 include build/make/release.mk
 include build/make/mocks.mk
-
-PRE_COMPILE=vet
 
 .PHONY: default
 default: unit-test
