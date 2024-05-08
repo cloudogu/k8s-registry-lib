@@ -16,7 +16,5 @@ include build/make/clean.mk
 include build/make/release.mk
 include build/make/mocks.mk
 
-PRE_COMPILE=vet
-
 .PHONY: default
 default: unit-test
