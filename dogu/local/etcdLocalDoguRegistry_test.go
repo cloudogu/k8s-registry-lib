@@ -1,4 +1,4 @@
-package localregistry
+package local
 
 import (
 	"fmt"
