@@ -1,16 +1,41 @@
 package global
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/cloudogu/cesapp-lib/registry"
-	"github.com/cloudogu/k8s-registry-lib/dogu/local"
 )
 
+// ConfigurationRegistry is able to manage the configuration of a single context
+type ConfigurationRegistry interface {
+	// Set sets a configuration value in current context
+	Set(ctx context.Context, key, value string) error
+	// SetWithLifetime sets a configuration value in current context with the given lifetime
+	SetWithLifetime(ctx context.Context, key, value string, timeToLiveInSeconds int) error
+	// Refresh resets the time to live of a key
+	Refresh(ctx context.Context, key string, timeToLiveInSeconds int) error
+	// Get returns a configuration value from the current context
+	Get(ctx context.Context, key string) (string, error)
+	// GetAll returns a map of key value pairs
+	GetAll(ctx context.Context) (map[string]string, error)
+	// Delete removes a configuration key and value from the current context
+	Delete(ctx context.Context, key string) error
+	// DeleteRecursive removes a configuration key or directory from the current context
+	DeleteRecursive(ctx context.Context, key string) error
+	// Exists returns true if configuration key exists in the current context
+	Exists(ctx context.Context, key string) (bool, error)
+	// RemoveAll remove all configuration keys
+	RemoveAll(ctx context.Context) error
+	// GetOrFalse return false and empty string when the configuration value does not exist.
+	// Otherwise, return true and the configuration value, even when the configuration value is an empty string.
+	GetOrFalse(ctx context.Context, key string) (bool, string, error)
+}
+
 type Config struct {
-	etcdRegistry          local.ConfigurationRegistry
-	clusterNativeRegistry local.ConfigurationRegistry
+	etcdRegistry          registry.ConfigurationContext
+	clusterNativeRegistry ConfigurationRegistry
 }
 
 func NewConfig() (*Config, error) {
@@ -23,7 +48,7 @@ func newCombinedRegistry(prefix string) (*Config, error) {
 		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
 	}
 
-	var reg local.ConfigurationRegistry
+	var reg registry.ConfigurationContext
 	isGlobalRegistry := true // TODO implement + if-else / switch-case
 
 	if isGlobalRegistry {
@@ -38,8 +63,8 @@ func newCombinedRegistry(prefix string) (*Config, error) {
 	}, nil
 }
 
-func (c Config) Set(key, value string) error {
-	cnErr := c.clusterNativeRegistry.Set(key, value)
+func (c Config) Set(ctx context.Context, key, value string) error {
+	cnErr := c.clusterNativeRegistry.Set(ctx, key, value)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -52,8 +77,8 @@ func (c Config) Set(key, value string) error {
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) SetWithLifetime(key, value string, timeToLiveInSeconds int) error {
-	cnErr := c.clusterNativeRegistry.SetWithLifetime(key, value, timeToLiveInSeconds)
+func (c Config) SetWithLifetime(ctx context.Context, key, value string, timeToLiveInSeconds int) error {
+	cnErr := c.clusterNativeRegistry.SetWithLifetime(ctx, key, value, timeToLiveInSeconds)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -66,8 +91,8 @@ func (c Config) SetWithLifetime(key, value string, timeToLiveInSeconds int) erro
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) Refresh(key string, timeToLiveInSeconds int) error {
-	cnErr := c.clusterNativeRegistry.Refresh(key, timeToLiveInSeconds)
+func (c Config) Refresh(ctx context.Context, key string, timeToLiveInSeconds int) error {
+	cnErr := c.clusterNativeRegistry.Refresh(ctx, key, timeToLiveInSeconds)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -80,8 +105,8 @@ func (c Config) Refresh(key string, timeToLiveInSeconds int) error {
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) Delete(key string) error {
-	cnErr := c.clusterNativeRegistry.Delete(key)
+func (c Config) Delete(ctx context.Context, key string) error {
+	cnErr := c.clusterNativeRegistry.Delete(ctx, key)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -94,8 +119,8 @@ func (c Config) Delete(key string) error {
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) DeleteRecursive(key string) error {
-	cnErr := c.clusterNativeRegistry.DeleteRecursive(key)
+func (c Config) DeleteRecursive(ctx context.Context, key string) error {
+	cnErr := c.clusterNativeRegistry.DeleteRecursive(ctx, key)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -108,8 +133,8 @@ func (c Config) DeleteRecursive(key string) error {
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) RemoveAll() error {
-	cnErr := c.clusterNativeRegistry.RemoveAll()
+func (c Config) RemoveAll(ctx context.Context) error {
+	cnErr := c.clusterNativeRegistry.RemoveAll(ctx)
 	if cnErr != nil {
 		cnErr = fmt.Errorf("tbd: %w", cnErr)
 	}
@@ -122,7 +147,7 @@ func (c Config) RemoveAll() error {
 	return errors.Join(cnErr, etcdErr)
 }
 
-func (c Config) Get(key string) (string, error) {
+func (c Config) Get(ctx context.Context, key string) (string, error) {
 	//logger := log.FromContext(ctx).
 	//	WithName("CombinedLocalDoguRegistry.GetCurrent").
 	//	WithValues("dogu.name", simpleDoguName)
@@ -140,19 +165,20 @@ func (c Config) Get(key string) (string, error) {
 	//}
 	//
 	//return dogu, nil
+	return "", nil
 }
 
-func (c Config) GetAll() (map[string]string, error) {
+func (c Config) GetAll(ctx context.Context) (map[string]string, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (c Config) Exists(key string) (bool, error) {
+func (c Config) Exists(ctx context.Context, key string) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (c Config) GetOrFalse(key string) (bool, string, error) {
+func (c Config) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -24,11 +24,6 @@ type LocalDoguRegistry interface {
 	IsEnabled(ctx context.Context, simpleDoguName string) (bool, error)
 }
 
-// ConfigurationRegistry is able to manage the configuration of a single context
-type ConfigurationRegistry interface {
-	registry.ConfigurationContext
-}
-
 type configMapClient interface {
 	corev1client.ConfigMapInterface
 }
