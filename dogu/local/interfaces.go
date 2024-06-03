@@ -2,7 +2,6 @@ package local
 
 import (
 	"context"
-
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/cloudogu/cesapp-lib/core"
@@ -23,6 +22,11 @@ type LocalDoguRegistry interface {
 	GetCurrentOfAll(ctx context.Context) ([]*core.Dogu, error)
 	// IsEnabled checks if the current spec of the referenced dogu is reachable.
 	IsEnabled(ctx context.Context, simpleDoguName string) (bool, error)
+}
+
+// ConfigurationRegistry is able to manage the configuration of a single context
+type ConfigurationRegistry interface {
+	registry.ConfigurationContext
 }
 
 type configMapClient interface {
