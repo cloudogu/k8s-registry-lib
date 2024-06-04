@@ -40,28 +40,43 @@ type Config struct {
 	clusterNativeRegistry ConfigurationRegistry
 }
 
-func NewConfig() (*Config, error) {
-	return newCombinedRegistry("config/_global")
-}
-
-func newCombinedRegistry(prefix string) (*Config, error) {
-	etcdRegistry, err := registry.New(core.Registry{}) // TODO IMPLEMENT PARAM
+func NewGlobalConfig(regConfig core.Registry) (*Config, error) {
+	etcdRegistry, err := registry.New(regConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
 	}
 
-	var reg registry.ConfigurationContext
-	isGlobalRegistry := true // TODO implement + if-else / switch-case
+	return &Config{
+		etcdRegistry: etcdRegistry.GlobalConfig(),
+		clusterNativeRegistry: &clusterNativeConfigRegistry{
+			prefix: "/config/_global",
+		},
+	}, nil
+}
 
-	if isGlobalRegistry {
-		reg = etcdRegistry.GlobalConfig()
+func NewDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
+	etcdRegistry, err := registry.New(regConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
 	}
 
 	return &Config{
-		etcdRegistry: reg,
+		etcdRegistry: etcdRegistry.DoguConfig(doguName),
 		clusterNativeRegistry: &clusterNativeConfigRegistry{
-			prefix: prefix,
+			prefix: fmt.Sprintf("/config/%s", doguName),
 		},
+	}, nil
+}
+
+func NewEncryptedDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
+	etcdRegistry, err := registry.New(regConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
+	}
+
+	return &Config{
+		etcdRegistry:          newEncryptedEtcdRegistry(etcdRegistry.DoguConfig(doguName)),
+		clusterNativeRegistry: nil, // TODO implement
 	}, nil
 }
 
