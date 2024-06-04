@@ -68,12 +68,12 @@ func newCombinedRegistry(prefix string) (*Config, error) {
 func (c Config) Set(ctx context.Context, key, value string) error {
 	cnErr := c.clusterNativeRegistry.Set(ctx, key, value)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to set key in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.Set(key, value)
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to set key in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -82,12 +82,12 @@ func (c Config) Set(ctx context.Context, key, value string) error {
 func (c Config) SetWithLifetime(ctx context.Context, key, value string, timeToLiveInSeconds int) error {
 	cnErr := c.clusterNativeRegistry.SetWithLifetime(ctx, key, value, timeToLiveInSeconds)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to set key with lifetime in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.SetWithLifetime(key, value, timeToLiveInSeconds)
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to set key with lifetime in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -96,12 +96,12 @@ func (c Config) SetWithLifetime(ctx context.Context, key, value string, timeToLi
 func (c Config) Refresh(ctx context.Context, key string, timeToLiveInSeconds int) error {
 	cnErr := c.clusterNativeRegistry.Refresh(ctx, key, timeToLiveInSeconds)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to refresh key lifetime in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.Refresh(key, timeToLiveInSeconds)
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to refresh key lifetime in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -110,12 +110,12 @@ func (c Config) Refresh(ctx context.Context, key string, timeToLiveInSeconds int
 func (c Config) Delete(ctx context.Context, key string) error {
 	cnErr := c.clusterNativeRegistry.Delete(ctx, key)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to delete key in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.Delete(key)
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to delete key in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -124,12 +124,12 @@ func (c Config) Delete(ctx context.Context, key string) error {
 func (c Config) DeleteRecursive(ctx context.Context, key string) error {
 	cnErr := c.clusterNativeRegistry.DeleteRecursive(ctx, key)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to delete recursive in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.DeleteRecursive(key)
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to delete recursive in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -138,12 +138,12 @@ func (c Config) DeleteRecursive(ctx context.Context, key string) error {
 func (c Config) RemoveAll(ctx context.Context) error {
 	cnErr := c.clusterNativeRegistry.RemoveAll(ctx)
 	if cnErr != nil {
-		cnErr = fmt.Errorf("tbd: %w", cnErr)
+		cnErr = fmt.Errorf("failed to remove all in cluster native registry: %w", cnErr)
 	}
 
 	etcdErr := c.etcdRegistry.RemoveAll()
 	if etcdErr != nil {
-		etcdErr = fmt.Errorf("tbd: %w", etcdErr)
+		etcdErr = fmt.Errorf("failed to remove all in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
@@ -154,14 +154,13 @@ func (c Config) Get(ctx context.Context, key string) (string, error) {
 	value, err := c.clusterNativeRegistry.Get(ctx, key)
 
 	if k8sErrs.IsNotFound(err) {
-		logger.Error(err, "TBD; falling back to ETCD")
+		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		value, err = c.etcdRegistry.Get(key)
 		if err != nil {
-			return "", fmt.Errorf("tbd: %w", err)
+			return "", fmt.Errorf("failed to get key from etcd: %w", err)
 		}
-
 	} else if err != nil {
-		return "", fmt.Errorf("tbd: %w", err)
+		return "", fmt.Errorf("failed to get key from cluster native registry: %w", err)
 	}
 
 	return value, nil
@@ -172,14 +171,14 @@ func (c Config) GetAll(ctx context.Context) (map[string]string, error) {
 	value, err := c.clusterNativeRegistry.GetAll(ctx)
 
 	if k8sErrs.IsNotFound(err) {
-		logger.Error(err, "TBD; falling back to ETCD")
+		logger.Error(err, "could not find all in cluster native registry, falling back to etcd")
 		value, err = c.etcdRegistry.GetAll()
 		if err != nil {
-			return nil, fmt.Errorf("tbd: %w", err)
+			return nil, fmt.Errorf("failed to get all from etcd: %w", err)
 		}
 
 	} else if err != nil {
-		return nil, fmt.Errorf("tbd: %w", err)
+		return nil, fmt.Errorf("failed to get all from cluster native registry: %w", err)
 	}
 
 	return value, nil
@@ -190,14 +189,14 @@ func (c Config) Exists(ctx context.Context, key string) (bool, error) {
 	exists, err := c.clusterNativeRegistry.Exists(ctx, key)
 
 	if k8sErrs.IsNotFound(err) {
-		logger.Error(err, "TBD; falling back to ETCD")
+		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		exists, err = c.etcdRegistry.Exists(key)
 		if err != nil {
-			return false, fmt.Errorf("tbd: %w", err)
+			return false, fmt.Errorf("failed to read key from etcd: %w", err)
 		}
 
 	} else if err != nil {
-		return false, fmt.Errorf("tbd: %w", err)
+		return false, fmt.Errorf("failed to read key from cluster native registry: %w", err)
 	}
 
 	return exists, nil
@@ -205,18 +204,18 @@ func (c Config) Exists(ctx context.Context, key string) (bool, error) {
 
 func (c Config) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
 	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetOrFalse")
-	exists, err := c.clusterNativeRegistry.Exists(ctx, key)
+	exists, value, err := c.clusterNativeRegistry.GetOrFalse(ctx, key)
 
 	if k8sErrs.IsNotFound(err) {
-		logger.Error(err, "TBD; falling back to ETCD")
-		exists, err = c.etcdRegistry.Exists(key)
+		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
+		exists, value, err = c.etcdRegistry.GetOrFalse(key)
 
 		if err != nil {
-			return false, "", fmt.Errorf("tbd: %w", err)
+			return false, "", fmt.Errorf("failed to get key from etcd: %w", err)
 		}
 	} else if err != nil {
-		return false, "", fmt.Errorf("tbd: %w", err)
+		return false, "", fmt.Errorf("failed to get key from cluster native registry: %w", err)
 	}
 
-	return exists, "", nil
+	return exists, value, nil
 }
