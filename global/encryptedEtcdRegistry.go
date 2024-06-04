@@ -12,11 +12,11 @@ type encryptedEtcdRegistry struct {
 	privateKey   *keys.PrivateKey
 }
 
-func newEncryptedEtcdRegistry(reg registry.ConfigurationContext) *encryptedEtcdRegistry {
+func newEncryptedEtcdRegistry(reg registry.ConfigurationContext, publicKey *keys.PublicKey, privateKey *keys.PrivateKey) *encryptedEtcdRegistry {
 	return &encryptedEtcdRegistry{
 		etcdRegistry: reg,
-		publicKey:    nil, // TODO implement
-		privateKey:   nil, // TODO implement
+		publicKey:    publicKey,
+		privateKey:   privateKey,
 	}
 }
 
