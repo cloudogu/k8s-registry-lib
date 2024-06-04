@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/cloudogu/cesapp-lib/registry"
+	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ConfigurationRegistry is able to manage the configuration of a single context
@@ -148,37 +150,73 @@ func (c Config) RemoveAll(ctx context.Context) error {
 }
 
 func (c Config) Get(ctx context.Context, key string) (string, error) {
-	//logger := log.FromContext(ctx).
-	//	WithName("CombinedLocalDoguRegistry.GetCurrent").
-	//	WithValues("dogu.name", simpleDoguName)
-	//dogu, err := c.clusterNativeRegistry.Get(key)
-	//if k8sErrs.IsNotFound(err) {
-	//	logger.Error(err, "current dogu.json not found in cluster-native local registry; falling back to ETCD")
-	//
-	//	dogu, err = cr.etcdRegistry.GetCurrent(ctx, simpleDoguName)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("failed to get current dogu.json of %q from ETCD local registry (legacy/fallback): %w", simpleDoguName, err)
-	//	}
-	//
-	//} else if err != nil {
-	//	return nil, fmt.Errorf("failed to get current dogu.json of %q from cluster-native local registry: %w", simpleDoguName, err)
-	//}
-	//
-	//return dogu, nil
-	return "", nil
+	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Get")
+	value, err := c.clusterNativeRegistry.Get(ctx, key)
+
+	if k8sErrs.IsNotFound(err) {
+		logger.Error(err, "TBD; falling back to ETCD")
+		value, err = c.etcdRegistry.Get(key)
+		if err != nil {
+			return "", fmt.Errorf("tbd: %w", err)
+		}
+
+	} else if err != nil {
+		return "", fmt.Errorf("tbd: %w", err)
+	}
+
+	return value, nil
 }
 
 func (c Config) GetAll(ctx context.Context) (map[string]string, error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetAll")
+	value, err := c.clusterNativeRegistry.GetAll(ctx)
+
+	if k8sErrs.IsNotFound(err) {
+		logger.Error(err, "TBD; falling back to ETCD")
+		value, err = c.etcdRegistry.GetAll()
+		if err != nil {
+			return nil, fmt.Errorf("tbd: %w", err)
+		}
+
+	} else if err != nil {
+		return nil, fmt.Errorf("tbd: %w", err)
+	}
+
+	return value, nil
 }
 
 func (c Config) Exists(ctx context.Context, key string) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Exists")
+	exists, err := c.clusterNativeRegistry.Exists(ctx, key)
+
+	if k8sErrs.IsNotFound(err) {
+		logger.Error(err, "TBD; falling back to ETCD")
+		exists, err = c.etcdRegistry.Exists(key)
+		if err != nil {
+			return false, fmt.Errorf("tbd: %w", err)
+		}
+
+	} else if err != nil {
+		return false, fmt.Errorf("tbd: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (c Config) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
-	//TODO implement me
-	panic("implement me")
+	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetOrFalse")
+	exists, err := c.clusterNativeRegistry.Exists(ctx, key)
+
+	if k8sErrs.IsNotFound(err) {
+		logger.Error(err, "TBD; falling back to ETCD")
+		exists, err = c.etcdRegistry.Exists(key)
+
+		if err != nil {
+			return false, "", fmt.Errorf("tbd: %w", err)
+		}
+	} else if err != nil {
+		return false, "", fmt.Errorf("tbd: %w", err)
+	}
+
+	return exists, "", nil
 }
