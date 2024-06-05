@@ -8,6 +8,8 @@ import (
 	"github.com/cloudogu/cesapp-lib/keys"
 	"github.com/cloudogu/cesapp-lib/registry"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -15,10 +17,6 @@ import (
 type ConfigurationRegistry interface {
 	// Set sets a configuration value in current context
 	Set(ctx context.Context, key, value string) error
-	// SetWithLifetime sets a configuration value in current context with the given lifetime
-	SetWithLifetime(ctx context.Context, key, value string, timeToLiveInSeconds int) error
-	// Refresh resets the time to live of a key
-	Refresh(ctx context.Context, key string, timeToLiveInSeconds int) error
 	// Get returns a configuration value from the current context
 	Get(ctx context.Context, key string) (string, error)
 	// GetAll returns a map of key value pairs
@@ -58,7 +56,7 @@ func NewGlobalConfig(regConfig core.Registry) (*Config, error) {
 func NewDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
 	etcdRegistry, err := registry.New(regConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
+		return nil, fmt.Errorf("failed to create etcd regist ry: %w", err)
 	}
 
 	return &Config{
@@ -69,13 +67,8 @@ func NewDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
 	}, nil
 }
 
-func NewEncryptedDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
-	etcdRegistry, err := registry.New(regConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
-	}
-
-	keyType, err := etcdRegistry.GlobalConfig().Get("key_provider")
+func NewEncryptedDoguConfig(etcdReg registry.Registry, secretClient corev1client.SecretInterface, doguName string) (*Config, error) {
+	keyType, err := etcdReg.GlobalConfig().Get("key_provider")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key provider type: %w", err)
 	}
@@ -85,20 +78,20 @@ func NewEncryptedDoguConfig(regConfig core.Registry, doguName string) (*Config, 
 		return nil, fmt.Errorf("failed to create key provider: %w", err)
 	}
 
-	publicKeyString, err := etcdRegistry.DoguConfig(doguName).Get("public.pem")
+	secret, err := secretClient.Get(context.Background(), fmt.Sprintf("private-%s", doguName), metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get public key for dogu %s: %w", doguName, err)
+		return nil, fmt.Errorf("failed to get private pem from dogu secret: %w", err)
 	}
 
-	publicKey, err := keyProvider.ReadPublicKeyFromString(publicKeyString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse public key: %w", err)
-	}
+	privateKeyString := secret.Data["private.pem"]
 
-	var privateKey *keys.PrivateKey // TODO IMPLEMENT
+	privateKey, err := keyProvider.FromPrivateKey(privateKeyString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
 
 	return &Config{
-		EtcdRegistry:          newEncryptedEtcdRegistry(etcdRegistry.DoguConfig(doguName), publicKey, privateKey),
+		EtcdRegistry:          newEncryptedEtcdRegistry(etcdReg.DoguConfig(doguName), privateKey.Public(), privateKey.Private()),
 		ClusterNativeRegistry: nil, // TODO implement
 	}, nil
 }
@@ -112,34 +105,6 @@ func (c Config) Set(ctx context.Context, key, value string) error {
 	etcdErr := c.EtcdRegistry.Set(key, value)
 	if etcdErr != nil {
 		etcdErr = fmt.Errorf("failed to set key in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
-}
-
-func (c Config) SetWithLifetime(ctx context.Context, key, value string, timeToLiveInSeconds int) error {
-	cnErr := c.ClusterNativeRegistry.SetWithLifetime(ctx, key, value, timeToLiveInSeconds)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to set key with lifetime in cluster native registry: %w", cnErr)
-	}
-
-	etcdErr := c.EtcdRegistry.SetWithLifetime(key, value, timeToLiveInSeconds)
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to set key with lifetime in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
-}
-
-func (c Config) Refresh(ctx context.Context, key string, timeToLiveInSeconds int) error {
-	cnErr := c.ClusterNativeRegistry.Refresh(ctx, key, timeToLiveInSeconds)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to refresh key lifetime in cluster native registry: %w", cnErr)
-	}
-
-	etcdErr := c.EtcdRegistry.Refresh(key, timeToLiveInSeconds)
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to refresh key lifetime in etcd registry: %w", etcdErr)
 	}
 
 	return errors.Join(cnErr, etcdErr)
