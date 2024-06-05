@@ -7,25 +7,17 @@ import (
 )
 
 type encryptedEtcdRegistry struct {
-	etcdRegistry registry.ConfigurationContext
-	publicKey    *keys.PublicKey
-	privateKey   *keys.PrivateKey
+	etcdRegistry etcdConfigContext
+	encrypt      func(value string) (string, error)
+	decrypt      func(value string) (string, error)
 }
 
 func newEncryptedEtcdRegistry(reg registry.ConfigurationContext, publicKey *keys.PublicKey, privateKey *keys.PrivateKey) *encryptedEtcdRegistry {
 	return &encryptedEtcdRegistry{
 		etcdRegistry: reg,
-		publicKey:    publicKey,
-		privateKey:   privateKey,
+		encrypt:      publicKey.Encrypt,
+		decrypt:      privateKey.Decrypt,
 	}
-}
-
-func (e encryptedEtcdRegistry) encrypt(value string) (string, error) {
-	return value, nil
-}
-
-func (e encryptedEtcdRegistry) decrypt(value string) (string, error) {
-	return value, nil
 }
 
 func (e encryptedEtcdRegistry) Set(key, value string) error {
