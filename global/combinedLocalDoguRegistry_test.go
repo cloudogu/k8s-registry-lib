@@ -511,3 +511,73 @@ func TestCombinedLocalDoguRegistry_GetCurrentOfAll(t *testing.T) {
 		})
 	}
 }
+
+func TestCombinedLocalDoguRegistry_UnregisterAllVersions(t *testing.T) {
+	tests := []struct {
+		name           string
+		cnRegistryFn   func(t *testing.T) LocalDoguRegistry
+		etcdRegistryFn func(t *testing.T) LocalDoguRegistry
+		doguName       string
+		wantErr        assert.ErrorAssertionFunc
+	}{
+		{
+			name: "should fail to unregister all versions in ETCD registry",
+			cnRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				cnRegMock := NewMockLocalDoguRegistry(t)
+				cnRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(nil)
+				return cnRegMock
+			},
+			etcdRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				etcdRegMock := NewMockLocalDoguRegistry(t)
+				etcdRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(assert.AnError)
+				return etcdRegMock
+			},
+			doguName: "ldap",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.Error(t, err, "failed to unregister all versions of dogu \"ldap\" in ETCD local registry (legacy): %v", assert.AnError)
+			},
+		},
+		{
+			name: "should fail to unregister all versions in both registries",
+			cnRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				cnRegMock := NewMockLocalDoguRegistry(t)
+				cnRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(assert.AnError)
+				return cnRegMock
+			},
+			etcdRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				etcdRegMock := NewMockLocalDoguRegistry(t)
+				etcdRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(assert.AnError)
+				return etcdRegMock
+			},
+			doguName: "ldap",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.Error(t, err, "failed to unregister all versions of dogu \"ldap\" in cluster-native local registry: %v", assert.AnError) &&
+					assert.Error(t, err, "failed to unregister all versions of dogu \"ldap\" in ETCD local registry (legacy): %v", assert.AnError)
+			},
+		},
+		{
+			name: "should succeed in unregistering all versions",
+			cnRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				cnRegMock := NewMockLocalDoguRegistry(t)
+				cnRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(nil)
+				return cnRegMock
+			},
+			etcdRegistryFn: func(t *testing.T) LocalDoguRegistry {
+				etcdRegMock := NewMockLocalDoguRegistry(t)
+				etcdRegMock.EXPECT().UnregisterAllVersions(testCtx, "ldap").Return(nil)
+				return etcdRegMock
+			},
+			doguName: "ldap",
+			wantErr:  assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := &CombinedLocalDoguRegistry{
+				cnRegistry:   tt.cnRegistryFn(t),
+				etcdRegistry: tt.etcdRegistryFn(t),
+			}
+			tt.wantErr(t, cr.UnregisterAllVersions(testCtx, tt.doguName), fmt.Sprintf("UnregisterAllVersions(%v, %v)", testCtx, tt.doguName))
+		})
+	}
+}
