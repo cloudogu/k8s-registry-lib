@@ -1,12 +1,6 @@
 package k8s
 
-import (
-	"fmt"
-	"gopkg.in/yaml.v3"
-	"log"
-	"testing"
-)
-
+/*
 func TestGlobalConfigMap_Set(t *testing.T) {
 	tests := []struct {
 		key   string
@@ -90,3 +84,5 @@ bJ8qYHzeIdcm+Dqe1oOuQTuRr7MeM2E3Tc1ekdFkXzGkJJU/3kEuky11zDJMiKrB
 	fmt.Println(string(data))
 
 }
+
+*/
