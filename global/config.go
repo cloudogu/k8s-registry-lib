@@ -35,7 +35,7 @@ type ConfigurationRegistry interface {
 }
 
 type Config struct {
-	EtcdRegistry          registry.ConfigurationContext
+	EtcdRegistry          etcdConfigContext
 	ClusterNativeRegistry ConfigurationRegistry
 }
 

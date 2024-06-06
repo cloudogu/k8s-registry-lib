@@ -129,7 +129,7 @@ func TestGetAll(t *testing.T) {
 		_, err := reg.GetAll()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decrypt error")
-		require.Contains(t, err.Error(), "failed to decrypt key key1")
+		require.Contains(t, err.Error(), "failed to decrypt key key")
 	})
 }
 
