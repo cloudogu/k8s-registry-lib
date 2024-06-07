@@ -1,28 +1,34 @@
-package k8s
+package config
 
 import (
 	"fmt"
 	"strings"
 )
 
-const globalConfigName = "global-config"
-
 type Change struct {
 	KeyPath string
 	Deleted bool
 }
 
-type ConfigData map[string]string
+type Data map[string]string
 
 type Config struct {
-	name          string
-	data          ConfigData
-	changeHistory []Change
+	Name          string
+	Data          Data
+	ChangeHistory []Change
+}
+
+func CreateConfig(name string, data Data) Config {
+	return Config{
+		Name:          name,
+		Data:          data,
+		ChangeHistory: make([]Change, 0),
+	}
 }
 
 func (c *Config) Set(key, value string) {
-	c.data[key] = value
-	c.changeHistory = append(c.changeHistory, Change{KeyPath: key, Deleted: false})
+	c.Data[key] = value
+	c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: false})
 }
 
 // Exists returns true if configuration key exists
@@ -47,21 +53,21 @@ func (c *Config) Get(key string) (string, error) {
 // GetOrFalse returns false and an empty string when the configuration value does not exist.
 // Otherwise, returns true and the configuration value, even when the configuration value is an empty string.
 func (c *Config) GetOrFalse(key string) (string, bool) {
-	value, ok := c.data[key]
+	value, ok := c.Data[key]
 
 	return value, ok
 }
 
 // GetAll returns a map of all key-value-pairs
-func (c *Config) GetAll() ConfigData {
-	return c.data
+func (c *Config) GetAll() Data {
+	return c.Data
 }
 
 // Delete removes the configuration key and value
 func (c *Config) Delete(key string) error {
 	var keys []string
 
-	for configKey := range c.data {
+	for configKey := range c.Data {
 		if strings.HasPrefix(configKey, key) {
 			keys = append(keys, configKey)
 		}
@@ -71,8 +77,8 @@ func (c *Config) Delete(key string) error {
 	case 0:
 		return nil
 	case 1:
-		delete(c.data, key)
-		c.changeHistory = append(c.changeHistory, Change{KeyPath: key, Deleted: true})
+		delete(c.Data, key)
+		c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: true})
 
 		return nil
 	default:
@@ -82,25 +88,25 @@ func (c *Config) Delete(key string) error {
 
 // DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
 func (c *Config) DeleteRecursive(key string) {
-	for configKey := range c.data {
+	for configKey := range c.Data {
 		if strings.HasPrefix(configKey, key) {
-			delete(c.data, configKey)
-			c.changeHistory = append(c.changeHistory, Change{KeyPath: configKey, Deleted: true})
+			delete(c.Data, configKey)
+			c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: configKey, Deleted: true})
 		}
 	}
+}
+
+func (c *Config) RemoveAll() {
+	c.DeleteRecursive("")
 }
 
 type GlobalConfig struct {
 	Config
 }
 
-func CreateGlobalConfig(cfgData ConfigData) GlobalConfig {
+func CreateGlobalConfig(cfg Config) GlobalConfig {
 	return GlobalConfig{
-		Config: Config{
-			name:          globalConfigName,
-			data:          cfgData,
-			changeHistory: make([]Change, 0),
-		},
+		Config: cfg,
 	}
 }
 
@@ -108,12 +114,8 @@ type DoguConfig struct {
 	Config
 }
 
-func CreateDoguConfig(doguname string, cfgData ConfigData) DoguConfig {
+func CreateDoguConfig(cfg Config) DoguConfig {
 	return DoguConfig{
-		Config: Config{
-			name:          fmt.Sprintf("%s-config", doguname),
-			data:          cfgData,
-			changeHistory: make([]Change, 0),
-		},
+		Config: cfg,
 	}
 }

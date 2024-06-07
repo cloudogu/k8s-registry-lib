@@ -42,17 +42,17 @@ type SensitiveDoguRegistry struct {
 	configRegistry
 }
 
-func NewGlobalConfig(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *GlobalRegistry {
+func NewGlobalConfigRegistry(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *GlobalRegistry {
 	return &GlobalRegistry{configRegistry{
 		EtcdRegistry:          etcdClient.GlobalConfig(),
 		ClusterNativeRegistry: k8s.CreateGlobalConfigRegistry(k8sClient),
 	}}
 }
 
-func NewDoguConfig(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *DoguRegistry {
+func NewDoguConfigRegistry(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *DoguRegistry {
 	return &DoguRegistry{configRegistry{
 		EtcdRegistry:          etcdClient.DoguConfig(doguName),
-		ClusterNativeRegistry: nil, // TODO implement
+		ClusterNativeRegistry: k8s.CreateDoguConfigRegistry(k8sClient, doguName),
 	}}
 }
 

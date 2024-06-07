@@ -4,15 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-)
-
-var (
-	ErrNotImplemented = errors.New("method is not implemented")
+	"github.com/cloudogu/k8s-registry-lib/config"
 )
 
 type globalConfigMapRepo interface {
-	GetGlobalConfig(context.Context) (GlobalConfig, error)
-	WriteGlobalConfigMap(context.Context, GlobalConfig) error
+	GetGlobalConfig(context.Context) (config.GlobalConfig, error)
+	WriteGlobalConfigMap(context.Context, config.GlobalConfig) error
 }
 
 type GlobalConfigRegistry struct {
@@ -25,9 +22,7 @@ func CreateGlobalConfigRegistry(configMapClient ConfigMapClient) GlobalConfigReg
 	}
 }
 
-func (gr GlobalConfigRegistry) Set(key, value string) error {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) Set(ctx context.Context, key, value string) error {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read global config: %w", err)
@@ -43,20 +38,8 @@ func (gr GlobalConfigRegistry) Set(key, value string) error {
 	return nil
 }
 
-// SetWithLifetime is not supported and will return an ErrNotImplemented error.
-func (gr GlobalConfigRegistry) SetWithLifetime(_, _ string, _ int) error {
-	return ErrNotImplemented
-}
-
-// Refresh is not supported and will return an ErrNotImplemented error.
-func (gr GlobalConfigRegistry) Refresh(_ string, _ int) error {
-	return ErrNotImplemented
-}
-
 // Exists returns true if configuration key exists
-func (gr GlobalConfigRegistry) Exists(key string) (bool, error) {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) Exists(ctx context.Context, key string) (bool, error) {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return false, fmt.Errorf("could not read global config: %w", err)
@@ -67,9 +50,7 @@ func (gr GlobalConfigRegistry) Exists(key string) (bool, error) {
 
 // Get returns the configuration value for the given key.
 // Returns an error if no values exists for the given key.
-func (gr GlobalConfigRegistry) Get(key string) (string, error) {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) Get(ctx context.Context, key string) (string, error) {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return "", fmt.Errorf("could not read global config: %w", err)
@@ -80,9 +61,7 @@ func (gr GlobalConfigRegistry) Get(key string) (string, error) {
 
 // GetOrFalse returns false and an empty string when the configuration value does not exist.
 // Otherwise, returns true and the configuration value, even when the configuration value is an empty string.
-func (gr GlobalConfigRegistry) GetOrFalse(key string) (bool, string, error) {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return false, "", fmt.Errorf("could not read global config: %w", err)
@@ -94,9 +73,7 @@ func (gr GlobalConfigRegistry) GetOrFalse(key string) (bool, string, error) {
 }
 
 // GetAll returns a map of all key-value-pairs
-func (gr GlobalConfigRegistry) GetAll() (map[string]string, error) {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) GetAll(ctx context.Context) (map[string]string, error) {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not read global config: %w", err)
@@ -106,9 +83,7 @@ func (gr GlobalConfigRegistry) GetAll() (map[string]string, error) {
 }
 
 // Delete removes the configuration key and value
-func (gr GlobalConfigRegistry) Delete(key string) error {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) Delete(ctx context.Context, key string) error {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read global config: %w", err)
@@ -128,9 +103,7 @@ func (gr GlobalConfigRegistry) Delete(key string) error {
 }
 
 // DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
-func (gr GlobalConfigRegistry) DeleteRecursive(key string) error {
-	ctx := context.Background()
-
+func (gr GlobalConfigRegistry) DeleteRecursive(ctx context.Context, key string) error {
 	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read global config: %w", err)
@@ -144,4 +117,9 @@ func (gr GlobalConfigRegistry) DeleteRecursive(key string) error {
 	}
 
 	return nil
+}
+
+// RemoveAll TODO: Implement
+func (gr GlobalConfigRegistry) RemoveAll(ctx context.Context) error {
+	return errors.New("NOT IMPLEMENTED")
 }
