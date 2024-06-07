@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/cloudogu/cesapp-lib/keys"
-	"github.com/cloudogu/cesapp-lib/registry"
+	"github.com/cloudogu/k8s-registry-lib/k8s"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -39,35 +37,34 @@ type Config struct {
 	ClusterNativeRegistry ConfigurationRegistry
 }
 
-func NewGlobalConfig(regConfig core.Registry) (*Config, error) {
-	etcdRegistry, err := registry.New(regConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd registry: %w", err)
-	}
-
-	return &Config{
-		EtcdRegistry: etcdRegistry.GlobalConfig(),
-		ClusterNativeRegistry: &clusterNativeConfigRegistry{
-			prefix: "/config/_global",
-		},
-	}, nil
+type globalGetter interface {
+	GlobalConfig() etcdConfigContext
 }
 
-func NewDoguConfig(regConfig core.Registry, doguName string) (*Config, error) {
-	etcdRegistry, err := registry.New(regConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd regist ry: %w", err)
-	}
-
-	return &Config{
-		EtcdRegistry: etcdRegistry.DoguConfig(doguName),
-		ClusterNativeRegistry: &clusterNativeConfigRegistry{
-			prefix: fmt.Sprintf("/config/%s", doguName),
-		},
-	}, nil
+type doguConfigGetter interface {
+	DoguConfig(dogu string) etcdConfigContext
 }
 
-func NewEncryptedDoguConfig(etcdReg registry.Registry, secretClient corev1client.SecretInterface, doguName string) (*Config, error) {
+type globalAndDoguConfigGetter interface {
+	globalGetter
+	doguConfigGetter
+}
+
+func NewGlobalConfig(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *Config {
+	return &Config{
+		EtcdRegistry:          etcdClient.GlobalConfig(),
+		ClusterNativeRegistry: k8s.CreateGlobalConfigRegistry(k8sClient),
+	}
+}
+
+func NewDoguConfig(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *Config {
+	return &Config{
+		EtcdRegistry:          etcdClient.DoguConfig(doguName),
+		ClusterNativeRegistry: nil, // TODO implement
+	}
+}
+
+func NewEncryptedDoguConfig(etcdReg globalAndDoguConfigGetter, secretClient k8s.SecretClient, doguName string) (*Config, error) {
 	keyType, err := etcdReg.GlobalConfig().Get("key_provider")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key provider type: %w", err)
