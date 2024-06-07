@@ -3,7 +3,6 @@ package etcd
 import (
 	"errors"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/global"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -14,9 +13,9 @@ func TestNewEncryptedEtcdRegistry(t *testing.T) {
 	assert.NotNil(t, reg)
 }
 
-func mockRegistry(t *testing.T, errEnc error, errDec error) (*EncryptedRegistry, *global.mockEtcdConfigContext) {
+func mockRegistry(t *testing.T, errEnc error, errDec error) (*EncryptedRegistry, *MockConfigurationContext) {
 	t.Helper()
-	configContext := &global.mockEtcdConfigContext{}
+	configContext := &MockConfigurationContext{}
 	return &EncryptedRegistry{
 		etcdRegistry: configContext,
 		encrypt: func(value string) (string, error) {
