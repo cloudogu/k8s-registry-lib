@@ -150,3 +150,15 @@ func (gcmr GlobalConfigMapRepo) updateGlobalConfigMap(ctx context.Context, confi
 
 	return nil
 }
+
+func (gcmr GlobalConfigMapRepo) Write(p []byte) (n int, err error) {
+	globalConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   globalConfigName,
+			Labels: gcmr.labels,
+		},
+		Data: map[string]string{
+			dataKeyName: string(p),
+		},
+	}
+}

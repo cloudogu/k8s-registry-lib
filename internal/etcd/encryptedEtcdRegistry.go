@@ -1,26 +1,25 @@
-package global
+package etcd
 
 import (
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/keys"
-	"github.com/cloudogu/cesapp-lib/registry"
 )
 
-type encryptedEtcdRegistry struct {
-	etcdRegistry etcdConfigContext
+type EncryptedRegistry struct {
+	etcdRegistry ConfigurationContext
 	encrypt      func(value string) (string, error)
 	decrypt      func(value string) (string, error)
 }
 
-func newEncryptedEtcdRegistry(reg registry.ConfigurationContext, publicKey *keys.PublicKey, privateKey *keys.PrivateKey) *encryptedEtcdRegistry {
-	return &encryptedEtcdRegistry{
+func NewEncryptedRegistry(reg ConfigurationContext, publicKey *keys.PublicKey, privateKey *keys.PrivateKey) *EncryptedRegistry {
+	return &EncryptedRegistry{
 		etcdRegistry: reg,
 		encrypt:      publicKey.Encrypt,
 		decrypt:      privateKey.Decrypt,
 	}
 }
 
-func (e encryptedEtcdRegistry) Set(key, value string) error {
+func (e EncryptedRegistry) Set(key, value string) error {
 	encryptedValue, err := e.encrypt(value)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt key %s: %w", key, err)
@@ -29,7 +28,7 @@ func (e encryptedEtcdRegistry) Set(key, value string) error {
 	return e.etcdRegistry.Set(key, encryptedValue)
 }
 
-func (e encryptedEtcdRegistry) SetWithLifetime(key, value string, timeToLiveInSeconds int) error {
+func (e EncryptedRegistry) SetWithLifetime(key, value string, timeToLiveInSeconds int) error {
 	encryptedValue, err := e.encrypt(value)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt key %s: %w", key, err)
@@ -38,11 +37,11 @@ func (e encryptedEtcdRegistry) SetWithLifetime(key, value string, timeToLiveInSe
 	return e.etcdRegistry.SetWithLifetime(key, encryptedValue, timeToLiveInSeconds)
 }
 
-func (e encryptedEtcdRegistry) Refresh(key string, timeToLiveInSeconds int) error {
+func (e EncryptedRegistry) Refresh(key string, timeToLiveInSeconds int) error {
 	return e.etcdRegistry.Refresh(key, timeToLiveInSeconds)
 }
 
-func (e encryptedEtcdRegistry) Get(key string) (string, error) {
+func (e EncryptedRegistry) Get(key string) (string, error) {
 	value, err := e.etcdRegistry.Get(key)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt key %s: %w", key, err)
@@ -51,7 +50,7 @@ func (e encryptedEtcdRegistry) Get(key string) (string, error) {
 	return e.decrypt(value)
 }
 
-func (e encryptedEtcdRegistry) GetAll() (map[string]string, error) {
+func (e EncryptedRegistry) GetAll() (map[string]string, error) {
 	all, err := e.etcdRegistry.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all keys: %w", err)
@@ -68,23 +67,23 @@ func (e encryptedEtcdRegistry) GetAll() (map[string]string, error) {
 	return all, nil
 }
 
-func (e encryptedEtcdRegistry) Delete(key string) error {
+func (e EncryptedRegistry) Delete(key string) error {
 	return e.etcdRegistry.Delete(key)
 }
 
-func (e encryptedEtcdRegistry) DeleteRecursive(key string) error {
+func (e EncryptedRegistry) DeleteRecursive(key string) error {
 	return e.etcdRegistry.DeleteRecursive(key)
 }
 
-func (e encryptedEtcdRegistry) Exists(key string) (bool, error) {
+func (e EncryptedRegistry) Exists(key string) (bool, error) {
 	return e.etcdRegistry.Exists(key)
 }
 
-func (e encryptedEtcdRegistry) RemoveAll() error {
+func (e EncryptedRegistry) RemoveAll() error {
 	return e.etcdRegistry.RemoveAll()
 }
 
-func (e encryptedEtcdRegistry) GetOrFalse(key string) (bool, string, error) {
+func (e EncryptedRegistry) GetOrFalse(key string) (bool, string, error) {
 	exists, value, err := e.etcdRegistry.GetOrFalse(key)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to decrypt key %s: %w", key, err)

@@ -28,16 +28,13 @@ type configMapClient interface {
 	corev1client.ConfigMapInterface
 }
 
-type etcdRegistry interface {
-	registry.Registry
-}
-
 type doguRegistry interface {
 	registry.DoguRegistry
 }
 
+type etcdRegistry interface {
+	registry.Registry
+}
+
 //nolint:unused
 //goland:noinspection GoUnusedType
-type etcdConfigContext interface {
-	registry.ConfigurationContext
-}

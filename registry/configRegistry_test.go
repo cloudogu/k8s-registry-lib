@@ -1,7 +1,8 @@
-package global
+package registry
 
 import (
 	"errors"
+	"github.com/cloudogu/k8s-registry-lib/global"
 	"github.com/stretchr/testify/assert"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,9 +48,9 @@ func TestConfigSet(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -117,9 +118,9 @@ func TestConfigDelete(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -183,9 +184,9 @@ func TestConfigDeleteRecursive(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -253,9 +254,9 @@ func TestConfigRemoveAll(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -326,9 +327,9 @@ func TestConfigGet(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -397,9 +398,9 @@ func TestConfigGetAll(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -468,9 +469,9 @@ func TestConfigExists(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
@@ -544,9 +545,9 @@ func TestConfigGetOrFalse(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			etcd := &mockEtcdConfigContext{}
-			clusterReg := &MockConfigurationRegistry{}
-			conf := &Config{
+			etcd := &global.mockEtcdConfigContext{}
+			clusterReg := &global.MockConfigurationRegistry{}
+			conf := &config{
 				EtcdRegistry:          etcd,
 				ClusterNativeRegistry: clusterReg,
 			}
