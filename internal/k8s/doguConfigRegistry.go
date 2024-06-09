@@ -8,6 +8,7 @@ import (
 
 type doguConfigMapRepo interface {
 	GetDoguConfig(ctx context.Context, doguName string) (config.DoguConfig, error)
+	DeleteDoguConfig(ctx context.Context, doguName string) error
 	WriteDoguConfigMap(ctx context.Context, cfg config.DoguConfig) error
 }
 
@@ -128,8 +129,11 @@ func (dr DoguConfigRegistry) RemoveAll(ctx context.Context) error {
 
 	doguConfig.RemoveAll()
 
-	err = dr.repo.WriteDoguConfigMap(ctx, doguConfig)
-	if err != nil {
+	if lErr := dr.repo.DeleteDoguConfig(ctx, doguConfig.Name); lErr != nil {
+		return fmt.Errorf("could not delete dogu config: %w", err)
+	}
+
+	if lErr := dr.repo.WriteDoguConfigMap(ctx, doguConfig); lErr != nil {
 		return fmt.Errorf("could not write dogu config after deleting all keys: %w", err)
 	}
 

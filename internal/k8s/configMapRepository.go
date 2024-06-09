@@ -87,6 +87,16 @@ func (cmr configMapRepo) getConfigByName(ctx context.Context, name string) (conf
 	return config.CreateConfig(name, cfgData), nil
 }
 
+func (cmr configMapRepo) deleteConfigMap(ctx context.Context, name string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := cmr.client.Delete(ctx, name, metav1.DeleteOptions{}); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("could not delete configmap in cluster: %w", err)
+		}
+
+		return nil
+	})
+}
+
 func (cmr configMapRepo) writeConfig(ctx context.Context, cfg config.Config) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		configMap, err := cmr.client.Get(ctx, cfg.Name, metav1.GetOptions{})
@@ -95,14 +105,14 @@ func (cmr configMapRepo) writeConfig(ctx context.Context, cfg config.Config) err
 		}
 
 		if k8sErrs.IsNotFound(err) {
-			return cmr.createGlobalConfigMap(ctx, cfg)
+			return cmr.createConfigMap(ctx, cfg)
 		}
 
-		return cmr.updateGlobalConfigMap(ctx, configMap, cfg)
+		return cmr.updateConfigMap(ctx, configMap, cfg)
 	})
 }
 
-func (cmr configMapRepo) createGlobalConfigMap(ctx context.Context, cfg config.Config) error {
+func (cmr configMapRepo) createConfigMap(ctx context.Context, cfg config.Config) error {
 	var buf bytes.Buffer
 
 	if err := cmr.converter.Write(&buf, cfg.Data); err != nil {
@@ -126,7 +136,7 @@ func (cmr configMapRepo) createGlobalConfigMap(ctx context.Context, cfg config.C
 	return nil
 }
 
-func (cmr configMapRepo) updateGlobalConfigMap(ctx context.Context, configMap *v1.ConfigMap, cfg config.Config) error {
+func (cmr configMapRepo) updateConfigMap(ctx context.Context, configMap *v1.ConfigMap, cfg config.Config) error {
 	if len(cfg.ChangeHistory) == 0 {
 		return nil
 	}

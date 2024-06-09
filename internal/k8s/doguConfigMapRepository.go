@@ -24,6 +24,10 @@ func (dcmr DoguConfigMapRepo) GetDoguConfig(ctx context.Context, doguName string
 	return config.CreateDoguConfig(cfg), nil
 }
 
+func (dcmr DoguConfigMapRepo) DeleteDoguConfig(ctx context.Context, doguName string) error {
+	return dcmr.deleteConfigMap(ctx, doguName)
+}
+
 func (dcmr DoguConfigMapRepo) WriteDoguConfigMap(ctx context.Context, cfg config.DoguConfig) error {
 	return dcmr.writeConfig(ctx, cfg.Config)
 }

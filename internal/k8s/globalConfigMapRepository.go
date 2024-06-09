@@ -26,6 +26,10 @@ func (gcmr GlobalConfigMapRepo) GetGlobalConfig(ctx context.Context) (config.Glo
 	return config.CreateGlobalConfig(cfg), nil
 }
 
+func (gcmr GlobalConfigMapRepo) DeleteGlobalConfigMap(ctx context.Context) error {
+	return gcmr.deleteConfigMap(ctx, globalName)
+}
+
 func (gcmr GlobalConfigMapRepo) WriteGlobalConfigMap(ctx context.Context, cfg config.GlobalConfig) error {
 	return gcmr.writeConfig(ctx, cfg.Config)
 }

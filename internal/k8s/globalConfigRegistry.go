@@ -2,13 +2,13 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/cloudogu/k8s-registry-lib/config"
 )
 
 type globalConfigMapRepo interface {
 	GetGlobalConfig(context.Context) (config.GlobalConfig, error)
+	DeleteGlobalConfigMap(ctx context.Context) error
 	WriteGlobalConfigMap(context.Context, config.GlobalConfig) error
 }
 
@@ -119,7 +119,21 @@ func (gr GlobalConfigRegistry) DeleteRecursive(ctx context.Context, key string) 
 	return nil
 }
 
-// RemoveAll TODO: Implement
 func (gr GlobalConfigRegistry) RemoveAll(ctx context.Context) error {
-	return errors.New("NOT IMPLEMENTED")
+	globalConfig, err := gr.repo.GetGlobalConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("could not read global config: %w", err)
+	}
+
+	globalConfig.RemoveAll()
+
+	if lErr := gr.repo.DeleteGlobalConfigMap(ctx); lErr != nil {
+		return fmt.Errorf("could not delete global config: %w", err)
+	}
+
+	if lErr := gr.repo.WriteGlobalConfigMap(ctx, globalConfig); lErr != nil {
+		return fmt.Errorf("could not write global config after deleting all keys: %w", err)
+	}
+
+	return nil
 }
