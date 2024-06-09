@@ -60,34 +60,35 @@ func (c *Config) GetOrFalse(key string) (string, bool) {
 
 // GetAll returns a map of all key-value-pairs
 func (c *Config) GetAll() Data {
-	return c.Data
+	dataCopy := make(Data)
+	for k, v := range c.Data {
+		dataCopy[k] = v
+	}
+
+	return dataCopy
 }
 
 // Delete removes the configuration key and value
 func (c *Config) Delete(key string) error {
-	var keys []string
-
 	for configKey := range c.Data {
-		if strings.HasPrefix(configKey, key) {
-			keys = append(keys, configKey)
+		if configKey == key {
+			delete(c.Data, key)
+			c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: true})
 		}
 	}
 
-	switch len(keys) {
-	case 0:
-		return nil
-	case 1:
-		delete(c.Data, key)
-		c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: true})
-
-		return nil
-	default:
-		return fmt.Errorf("key %s does not point to single value", key)
-	}
+	return nil
 }
 
 // DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
 func (c *Config) DeleteRecursive(key string) {
+	_ = c.Delete(key)
+
+	//scan for subkeys
+	if last := key[len(key)-1:]; last != keySeparator {
+		key = key + keySeparator
+	}
+
 	for configKey := range c.Data {
 		if strings.HasPrefix(configKey, key) {
 			delete(c.Data, configKey)
@@ -97,7 +98,7 @@ func (c *Config) DeleteRecursive(key string) {
 }
 
 func (c *Config) RemoveAll() {
-	c.DeleteRecursive("")
+	c.Data = make(Data)
 }
 
 type GlobalConfig struct {
