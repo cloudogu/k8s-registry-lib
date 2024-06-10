@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/keys"
 	"github.com/cloudogu/k8s-registry-lib/internal/etcd"
-	"github.com/cloudogu/k8s-registry-lib/k8s"
+	"github.com/cloudogu/k8s-registry-lib/internal/k8s"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,17 +42,17 @@ type SensitiveDoguRegistry struct {
 	configRegistry
 }
 
-func NewGlobalConfig(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *GlobalRegistry {
+func NewGlobalConfigRegistry(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *GlobalRegistry {
 	return &GlobalRegistry{configRegistry{
 		EtcdRegistry:          etcdClient.GlobalConfig(),
 		ClusterNativeRegistry: k8s.CreateGlobalConfigRegistry(k8sClient),
 	}}
 }
 
-func NewDoguConfig(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *DoguRegistry {
+func NewDoguConfigRegistry(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *DoguRegistry {
 	return &DoguRegistry{configRegistry{
 		EtcdRegistry:          etcdClient.DoguConfig(doguName),
-		ClusterNativeRegistry: nil, // TODO implement
+		ClusterNativeRegistry: k8s.CreateDoguConfigRegistry(k8sClient, doguName),
 	}}
 }
 
