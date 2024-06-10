@@ -81,7 +81,7 @@ func NewSensitiveDoguRegistry(etcdReg globalAndDoguConfigGetter, secretClient k8
 
 	return &SensitiveDoguRegistry{configRegistry{
 		EtcdRegistry:          etcd.NewEncryptedRegistry(etcdReg.DoguConfig(doguName), privateKey.Public(), privateKey.Private()),
-		ClusterNativeRegistry: nil, // TODO implement
+		ClusterNativeRegistry: k8s.CreateSensitiveDoguConfigRegistry(secretClient, doguName),
 	}}, nil
 }
 

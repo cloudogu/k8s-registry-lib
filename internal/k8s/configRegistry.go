@@ -6,33 +6,49 @@ import (
 	"github.com/cloudogu/k8s-registry-lib/config"
 )
 
-type doguConfigMapRepo interface {
-	GetDoguConfig(ctx context.Context, doguName string) (config.DoguConfig, error)
-	DeleteDoguConfig(ctx context.Context, doguName string) error
-	WriteDoguConfigMap(ctx context.Context, cfg config.DoguConfig) error
+const globalConfigMapName = "global"
+
+func createConfigName(doguName string) string {
+	return fmt.Sprintf("%s-config", doguName)
 }
 
-type DoguConfigRegistry struct {
-	doguName string
-	repo     doguConfigMapRepo
+type ConfigRepository interface {
+	get(ctx context.Context) (config.Config, error)
+	delete(ctx context.Context) error
+	write(ctx context.Context, cfg config.Config) error
 }
 
-func CreateDoguConfigRegistry(configMapClient ConfigMapClient, doguName string) DoguConfigRegistry {
-	return DoguConfigRegistry{
-		doguName: doguName,
-		repo:     CreateDoguConfigRepo(configMapClient),
+type ConfigRegistry struct {
+	repo ConfigRepository
+}
+
+func CreateGlobalConfigRegistry(cmClient ConfigMapClient) ConfigRegistry {
+	return ConfigRegistry{
+		repo: newConfigRepo(globalConfigMapName, &configMapClient{cmClient}, doguConfigType),
 	}
 }
 
-func (dr DoguConfigRegistry) Set(ctx context.Context, key, value string) error {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func CreateDoguConfigRegistry(cmClient ConfigMapClient, doguName string) ConfigRegistry {
+	return ConfigRegistry{
+		repo: newConfigRepo(createConfigName(doguName), &configMapClient{cmClient}, doguConfigType),
+	}
+}
+
+func CreateSensitiveDoguConfigRegistry(sc SecretClient, doguName string) ConfigRegistry {
+	return ConfigRegistry{
+		repo: newConfigRepo(createConfigName(doguName), &secretClient{sc}, doguConfigType),
+	}
+}
+
+func (dr ConfigRegistry) Set(ctx context.Context, key, value string) error {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
 
 	doguConfig.Set(key, value)
 
-	err = dr.repo.WriteDoguConfigMap(ctx, doguConfig)
+	err = dr.repo.write(ctx, doguConfig)
 	if err != nil {
 		return fmt.Errorf("could not write dogu config after updating value: %w", err)
 	}
@@ -41,8 +57,8 @@ func (dr DoguConfigRegistry) Set(ctx context.Context, key, value string) error {
 }
 
 // Exists returns true if configuration key exists
-func (dr DoguConfigRegistry) Exists(ctx context.Context, key string) (bool, error) {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) Exists(ctx context.Context, key string) (bool, error) {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return false, fmt.Errorf("could not read dogu config: %w", err)
 	}
@@ -52,8 +68,8 @@ func (dr DoguConfigRegistry) Exists(ctx context.Context, key string) (bool, erro
 
 // Get returns the configuration value for the given key.
 // Returns an error if no values exists for the given key.
-func (dr DoguConfigRegistry) Get(ctx context.Context, key string) (string, error) {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) Get(ctx context.Context, key string) (string, error) {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return "", fmt.Errorf("could not read dogu config: %w", err)
 	}
@@ -63,8 +79,8 @@ func (dr DoguConfigRegistry) Get(ctx context.Context, key string) (string, error
 
 // GetOrFalse returns false and an empty string when the configuration value does not exist.
 // Otherwise, returns true and the configuration value, even when the configuration value is an empty string.
-func (dr DoguConfigRegistry) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return false, "", fmt.Errorf("could not read dogu config: %w", err)
 	}
@@ -75,8 +91,8 @@ func (dr DoguConfigRegistry) GetOrFalse(ctx context.Context, key string) (bool, 
 }
 
 // GetAll returns a map of all key-value-pairs
-func (dr DoguConfigRegistry) GetAll(ctx context.Context) (map[string]string, error) {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) GetAll(ctx context.Context) (map[string]string, error) {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not read dogu config: %w", err)
 	}
@@ -85,8 +101,8 @@ func (dr DoguConfigRegistry) GetAll(ctx context.Context) (map[string]string, err
 }
 
 // Delete removes the configuration key and value
-func (dr DoguConfigRegistry) Delete(ctx context.Context, key string) error {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) Delete(ctx context.Context, key string) error {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
@@ -96,7 +112,7 @@ func (dr DoguConfigRegistry) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("could not delete value for key %s from dogu config: %w", key, err)
 	}
 
-	err = dr.repo.WriteDoguConfigMap(ctx, doguConfig)
+	err = dr.repo.write(ctx, doguConfig)
 	if err != nil {
 		return fmt.Errorf("could not write dogu config after deleting key %s: %w", key, err)
 	}
@@ -105,15 +121,15 @@ func (dr DoguConfigRegistry) Delete(ctx context.Context, key string) error {
 }
 
 // DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
-func (dr DoguConfigRegistry) DeleteRecursive(ctx context.Context, key string) error {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) DeleteRecursive(ctx context.Context, key string) error {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
 
 	doguConfig.DeleteRecursive(key)
 
-	err = dr.repo.WriteDoguConfigMap(ctx, doguConfig)
+	err = dr.repo.write(ctx, doguConfig)
 	if err != nil {
 		return fmt.Errorf("could not write dogu config after recursively deleting key %s: %w", key, err)
 	}
@@ -121,19 +137,19 @@ func (dr DoguConfigRegistry) DeleteRecursive(ctx context.Context, key string) er
 	return nil
 }
 
-func (dr DoguConfigRegistry) RemoveAll(ctx context.Context) error {
-	doguConfig, err := dr.repo.GetDoguConfig(ctx, dr.doguName)
+func (dr ConfigRegistry) RemoveAll(ctx context.Context) error {
+	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
 
 	doguConfig.RemoveAll()
 
-	if lErr := dr.repo.DeleteDoguConfig(ctx, doguConfig.Name); lErr != nil {
+	if lErr := dr.repo.delete(ctx); lErr != nil {
 		return fmt.Errorf("could not delete dogu config: %w", err)
 	}
 
-	if lErr := dr.repo.WriteDoguConfigMap(ctx, doguConfig); lErr != nil {
+	if lErr := dr.repo.write(ctx, doguConfig); lErr != nil {
 		return fmt.Errorf("could not write dogu config after deleting all keys: %w", err)
 	}
 

@@ -6,10 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudogu/k8s-registry-lib/config"
-	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,23 +14,26 @@ import (
 )
 
 var (
-	ErrConfigMapNotFound = errors.New("could not find config map")
+	ErrConfigNotFound = errors.New("could not find config")
 )
 
-type configMapType int
+type configType int
 
 const (
-	unknown configMapType = iota
+	unknown configType = iota
 	globalConfigType
 	doguConfigType
+	sensitiveConfigType
 )
 
-func (t configMapType) String() string {
+func (t configType) String() string {
 	switch t {
 	case globalConfigType:
 		return "global-config"
 	case doguConfigType:
 		return "dogu-config"
+	case sensitiveConfigType:
+		return "sensitive-config"
 	default:
 		return "unknown"
 	}
@@ -47,49 +47,55 @@ const (
 
 const dataKeyName = "config.yaml"
 
-type configMapRepo struct {
-	client    ConfigMapClient
-	labels    labels.Set
-	converter config.Converter
+type configClient interface {
+	Get(ctx context.Context, name string) (map[string]string, error)
+	Delete(ctx context.Context, name string) error
+	Create(ctx context.Context, name string, configData map[string]string, configType configType) error
+	Update(ctx context.Context, name string, configData map[string]string) error
 }
 
-func newConfigMapRepo(client ConfigMapClient, mapType configMapType) configMapRepo {
-	return configMapRepo{
-		client: client,
-		labels: labels.Set{
-			appLabelKey:  appLabelValueCes,
-			typeLabelKey: mapType.String(),
-		},
+type configRepo struct {
+	name       string
+	client     configClient
+	configType configType
+	converter  config.Converter
+}
+
+func newConfigRepo(name string, client configClient, configType configType) configRepo {
+	return configRepo{
+		name:       name,
+		client:     client,
+		configType: configType,
 	}
 }
 
-func (cmr configMapRepo) getConfigByName(ctx context.Context, name string) (config.Config, error) {
-	if strings.TrimSpace(name) == "" {
+func (cr configRepo) get(ctx context.Context) (config.Config, error) {
+	if strings.TrimSpace(cr.name) == "" {
 		return config.Config{}, errors.New("name is empty")
 	}
 
-	configMap, err := cmr.client.Get(ctx, name, metav1.GetOptions{})
+	configData, err := cr.client.Get(ctx, cr.name)
 	if err != nil {
 		if k8sErrs.IsNotFound(err) {
-			return config.Config{}, ErrConfigMapNotFound
+			return config.Config{}, ErrConfigNotFound
 		}
 
 		return config.Config{}, fmt.Errorf("unable to get config map from cluster: %w", err)
 	}
 
-	reader := strings.NewReader(configMap.Data[dataKeyName])
+	reader := strings.NewReader(configData[dataKeyName])
 
-	cfgData, err := cmr.converter.Read(reader)
+	cfgData, err := cr.converter.Read(reader)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("could not convert configmap data to config data: %w", err)
 	}
 
-	return config.CreateConfig(name, cfgData), nil
+	return config.CreateConfig(cr.name, cfgData), nil
 }
 
-func (cmr configMapRepo) deleteConfigMap(ctx context.Context, name string) error {
+func (cr configRepo) delete(ctx context.Context) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := cmr.client.Delete(ctx, name, metav1.DeleteOptions{}); client.IgnoreNotFound(err) != nil {
+		if err := cr.client.Delete(ctx, cr.name); client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("could not delete configmap in cluster: %w", err)
 		}
 
@@ -97,53 +103,47 @@ func (cmr configMapRepo) deleteConfigMap(ctx context.Context, name string) error
 	})
 }
 
-func (cmr configMapRepo) writeConfig(ctx context.Context, cfg config.Config) error {
+func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		configMap, err := cmr.client.Get(ctx, cfg.Name, metav1.GetOptions{})
+		configData, err := cr.client.Get(ctx, cfg.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("unable to get current configmap with name %s: %w", cfg.Name, err)
 		}
 
 		if k8sErrs.IsNotFound(err) {
-			return cmr.createConfigMap(ctx, cfg)
+			return cr.createConfig(ctx, cfg)
 		}
 
-		return cmr.updateConfigMap(ctx, configMap, cfg)
+		return cr.updateConfig(ctx, configData, cfg)
 	})
 }
 
-func (cmr configMapRepo) createConfigMap(ctx context.Context, cfg config.Config) error {
+func (cr configRepo) createConfig(ctx context.Context, cfg config.Config) error {
 	var buf bytes.Buffer
 
-	if err := cmr.converter.Write(&buf, cfg.Data); err != nil {
+	if err := cr.converter.Write(&buf, cfg.Data); err != nil {
 		return fmt.Errorf("unable to convert config data to configmap data: %w", err)
 	}
 
-	configMap := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   cfg.Name,
-			Labels: cmr.labels,
-		},
-		Data: map[string]string{
-			dataKeyName: buf.String(),
-		},
+	configData := map[string]string{
+		dataKeyName: buf.String(),
 	}
 
-	if _, err := cmr.client.Create(ctx, configMap, metav1.CreateOptions{}); err != nil {
+	if err := cr.client.Create(ctx, cr.name, configData, cr.configType); err != nil {
 		return fmt.Errorf("could not create configmap in cluster: %w", err)
 	}
 
 	return nil
 }
 
-func (cmr configMapRepo) updateConfigMap(ctx context.Context, configMap *v1.ConfigMap, cfg config.Config) error {
+func (cr configRepo) updateConfig(ctx context.Context, configData map[string]string, cfg config.Config) error {
 	if len(cfg.ChangeHistory) == 0 {
 		return nil
 	}
 
-	reader := strings.NewReader(configMap.Data[dataKeyName])
+	reader := strings.NewReader(configData[dataKeyName])
 
-	remoteConfigData, err := cmr.converter.Read(reader)
+	remoteConfigData, err := cr.converter.Read(reader)
 	if err != nil {
 		return fmt.Errorf("could not convert configmap data to config data: %w", err)
 	}
@@ -159,21 +159,17 @@ func (cmr configMapRepo) updateConfigMap(ctx context.Context, configMap *v1.Conf
 
 	var buf bytes.Buffer
 
-	if lErr := cmr.converter.Write(&buf, updatedRemoteConfigData); lErr != nil {
+	if lErr := cr.converter.Write(&buf, updatedRemoteConfigData); lErr != nil {
 		return fmt.Errorf("unable to convert config data to configmap data")
 	}
 
-	configMap.Data[dataKeyName] = buf.String()
+	configData[dataKeyName] = buf.String()
 
-	if _, lErr := cmr.client.Update(ctx, configMap, metav1.UpdateOptions{}); lErr != nil {
+	if lErr := cr.client.Update(ctx, cr.name, configData); lErr != nil {
 		return fmt.Errorf("could not update configmap in cluster: %w", lErr)
 	}
 
 	return nil
-}
-
-func (cmr configMapRepo) createConfigName(name string) string {
-	return fmt.Sprintf("%s-config", name)
 }
 
 func mergeConfigData(remoteCfgData config.Data, localCfg config.Config) (config.Data, error) {
