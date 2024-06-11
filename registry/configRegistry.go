@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/keys"
+	"github.com/cloudogu/cesapp-lib/registry"
 	"github.com/cloudogu/k8s-registry-lib/internal/etcd"
 	"github.com/cloudogu/k8s-registry-lib/internal/k8s"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
@@ -13,11 +14,11 @@ import (
 )
 
 type globalGetter interface {
-	GlobalConfig() etcd.ConfigurationContext
+	GlobalConfig() registry.ConfigurationContext
 }
 
 type doguConfigGetter interface {
-	DoguConfig(dogu string) etcd.ConfigurationContext
+	DoguConfig(dogu string) registry.ConfigurationContext
 }
 
 type globalAndDoguConfigGetter interface {
@@ -26,7 +27,7 @@ type globalAndDoguConfigGetter interface {
 }
 
 type configRegistry struct {
-	EtcdRegistry          etcd.ConfigurationContext
+	EtcdRegistry          registry.ConfigurationContext
 	ClusterNativeRegistry ConfigurationRegistry
 }
 
