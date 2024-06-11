@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudogu/k8s-registry-lib/config"
-	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,11 +79,7 @@ func (cr configRepo) get(ctx context.Context) (config.Config, error) {
 
 	cd, err := cr.client.Get(ctx, cr.name)
 	if err != nil {
-		if k8sErrs.IsNotFound(err) {
-			return config.Config{}, ErrConfigNotFound
-		}
-
-		return config.Config{}, fmt.Errorf("unable to get config map from cluster: %w", err)
+		return config.Config{}, fmt.Errorf("unable to get config-map '%s' from cluster: %w", cr.name, err)
 	}
 
 	reader := strings.NewReader(cd.get()[dataKeyName])
@@ -110,12 +105,12 @@ func (cr configRepo) delete(ctx context.Context) error {
 func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		cd, err := cr.client.Get(ctx, cfg.Name)
-		if client.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("unable to get current configmap with name %s: %w", cfg.Name, err)
-		}
+		if err != nil {
+			if errors.Is(err, ErrConfigNotFound) {
+				return cr.createConfig(ctx, cfg)
+			}
 
-		if k8sErrs.IsNotFound(err) {
-			return cr.createConfig(ctx, cfg)
+			return fmt.Errorf("unable to get current configmap with name %s: %w", cfg.Name, err)
 		}
 
 		return cr.updateConfig(ctx, cd, cfg)

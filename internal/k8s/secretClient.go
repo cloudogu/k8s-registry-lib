@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
@@ -10,10 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	errSecretNotFound = errors.New("could not find secret")
 )
 
 type SecretClient interface {
@@ -41,7 +36,7 @@ func (sc *secretClient) Get(ctx context.Context, name string) (configData, error
 	secret, err := sc.client.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if k8sErrs.IsNotFound(err) {
-			return nil, errSecretNotFound
+			return nil, ErrConfigNotFound
 		}
 
 		return nil, fmt.Errorf("unable to get secret from cluster: %w", err)

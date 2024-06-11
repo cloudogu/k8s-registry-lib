@@ -8,7 +8,6 @@ import (
 	"github.com/cloudogu/cesapp-lib/registry"
 	"github.com/cloudogu/k8s-registry-lib/internal/etcd"
 	"github.com/cloudogu/k8s-registry-lib/internal/k8s"
-	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -146,7 +145,7 @@ func (c configRegistry) Get(ctx context.Context, key string) (string, error) {
 	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Get")
 	value, err := c.ClusterNativeRegistry.Get(ctx, key)
 
-	if k8sErrs.IsNotFound(err) {
+	if errors.Is(err, k8s.ErrConfigNotFound) {
 		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		value, err = c.EtcdRegistry.Get(key)
 		if err != nil {
@@ -163,7 +162,7 @@ func (c configRegistry) GetAll(ctx context.Context) (map[string]string, error) {
 	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetAll")
 	value, err := c.ClusterNativeRegistry.GetAll(ctx)
 
-	if k8sErrs.IsNotFound(err) {
+	if errors.Is(err, k8s.ErrConfigNotFound) {
 		logger.Error(err, "could not find all in cluster native registry, falling back to etcd")
 		value, err = c.EtcdRegistry.GetAll()
 		if err != nil {
@@ -181,7 +180,7 @@ func (c configRegistry) Exists(ctx context.Context, key string) (bool, error) {
 	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Exists")
 	exists, err := c.ClusterNativeRegistry.Exists(ctx, key)
 
-	if k8sErrs.IsNotFound(err) {
+	if errors.Is(err, k8s.ErrConfigNotFound) {
 		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		exists, err = c.EtcdRegistry.Exists(key)
 		if err != nil {
@@ -199,7 +198,7 @@ func (c configRegistry) GetOrFalse(ctx context.Context, key string) (bool, strin
 	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetOrFalse")
 	exists, value, err := c.ClusterNativeRegistry.GetOrFalse(ctx, key)
 
-	if k8sErrs.IsNotFound(err) {
+	if errors.Is(err, k8s.ErrConfigNotFound) {
 		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		exists, value, err = c.EtcdRegistry.GetOrFalse(key)
 
