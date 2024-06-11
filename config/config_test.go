@@ -16,10 +16,7 @@ func TestCreateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := CreateConfig(tt.name, tt.data)
-			if cfg.Name != tt.name {
-				t.Errorf("expected name %s, got %s", tt.name, cfg.Name)
-			}
+			cfg := CreateConfig(tt.data)
 			if len(cfg.Data) != len(tt.data) {
 				t.Errorf("expected data length %d, got %d", len(tt.data), len(cfg.Data))
 			}
@@ -31,7 +28,7 @@ func TestCreateConfig(t *testing.T) {
 }
 
 func TestConfig_Set(t *testing.T) {
-	cfg := CreateConfig("test", Data{})
+	cfg := CreateConfig(Data{})
 	tests := []struct {
 		key   string
 		value string
@@ -74,7 +71,7 @@ func TestConfig_Exists(t *testing.T) {
 }
 
 func TestConfig_Get(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	tests := []struct {
 		key       string
 		expected  string
@@ -98,7 +95,7 @@ func TestConfig_Get(t *testing.T) {
 }
 
 func TestConfig_GetOrFalse(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	tests := []struct {
 		key      string
 		expected string
@@ -123,7 +120,7 @@ func TestConfig_GetOrFalse(t *testing.T) {
 
 func TestConfig_GetAll(t *testing.T) {
 	data := Data{"/key1": "value1", "/key2": "value2"}
-	cfg := CreateConfig("test", data)
+	cfg := CreateConfig(data)
 	got := cfg.GetAll()
 	for k, v := range data {
 		if got[k] != v {
@@ -137,7 +134,7 @@ func TestConfig_GetAll(t *testing.T) {
 
 func TestConfig_Delete(t *testing.T) {
 	data := Data{"/key1": "value1", "/key2": "value2"}
-	cfg := CreateConfig("test", data)
+	cfg := CreateConfig(data)
 	tests := []struct {
 		key      string
 		expected error
@@ -183,7 +180,7 @@ func TestConfig_DeleteRecursive(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		cfg := CreateConfig("test", maps.Clone(data))
+		cfg := CreateConfig(maps.Clone(data))
 		l := len(cfg.Data)
 
 		cfg.DeleteRecursive(tc.keyToDelete)
@@ -200,7 +197,7 @@ func TestConfig_DeleteRecursive(t *testing.T) {
 
 func TestConfig_RemoveAll(t *testing.T) {
 	data := Data{"/key1": "value1", "/key2": "value2"}
-	cfg := CreateConfig("test", data)
+	cfg := CreateConfig(data)
 	cfg.RemoveAll()
 
 	if len(cfg.Data) != 0 {
@@ -209,24 +206,18 @@ func TestConfig_RemoveAll(t *testing.T) {
 }
 
 func TestCreateGlobalConfig(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	globalCfg := CreateGlobalConfig(cfg)
 
-	if globalCfg.Name != cfg.Name {
-		t.Errorf("expected name %s, got %s", cfg.Name, globalCfg.Name)
-	}
 	if len(globalCfg.Data) != len(cfg.Data) {
 		t.Errorf("expected data length %d, got %d", len(cfg.Data), len(globalCfg.Data))
 	}
 }
 
 func TestCreateDoguConfig(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	doguCfg := CreateDoguConfig(cfg)
 
-	if doguCfg.Name != cfg.Name {
-		t.Errorf("expected name %s, got %s", cfg.Name, doguCfg.Name)
-	}
 	if len(doguCfg.Data) != len(cfg.Data) {
 		t.Errorf("expected data length %d, got %d", len(cfg.Data), len(doguCfg.Data))
 	}
