@@ -16,7 +16,7 @@ type Converter interface {
 }
 
 func mapToConfig(sourceMap map[string]any, targetMapPtr *Data, parentPath string) error {
-	if targetMapPtr == nil {
+	if *targetMapPtr == nil {
 		*targetMapPtr = make(map[string]string)
 	}
 
