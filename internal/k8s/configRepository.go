@@ -69,6 +69,7 @@ func newConfigRepo(name string, client configClient, configType configType) conf
 		name:       name,
 		client:     client,
 		configType: configType,
+		converter:  &config.YamlConverter{},
 	}
 }
 
