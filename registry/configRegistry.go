@@ -146,7 +146,7 @@ func (c configRegistry) Get(ctx context.Context, key string) (string, error) {
 	value, err := c.ClusterNativeRegistry.Get(ctx, key)
 
 	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
+		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		value, err = c.EtcdRegistry.Get(key)
 		if err != nil {
 			return "", fmt.Errorf("failed to get key from etcd: %w", err)
@@ -181,7 +181,7 @@ func (c configRegistry) Exists(ctx context.Context, key string) (bool, error) {
 	exists, err := c.ClusterNativeRegistry.Exists(ctx, key)
 
 	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
+		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		exists, err = c.EtcdRegistry.Exists(key)
 		if err != nil {
 			return false, fmt.Errorf("failed to read key from etcd: %w", err)
@@ -199,7 +199,7 @@ func (c configRegistry) GetOrFalse(ctx context.Context, key string) (bool, strin
 	exists, value, err := c.ClusterNativeRegistry.GetOrFalse(ctx, key)
 
 	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Error(err, fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
+		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
 		exists, value, err = c.EtcdRegistry.GetOrFalse(key)
 
 		if err != nil {

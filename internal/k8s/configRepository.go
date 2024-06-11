@@ -89,7 +89,7 @@ func (cr configRepo) get(ctx context.Context) (config.Config, error) {
 		return config.Config{}, fmt.Errorf("could not convert configmap data to config data: %w", err)
 	}
 
-	return config.CreateConfig(cr.name, cfgData), nil
+	return config.CreateConfig(cfgData), nil
 }
 
 func (cr configRepo) delete(ctx context.Context) error {
@@ -104,13 +104,13 @@ func (cr configRepo) delete(ctx context.Context) error {
 
 func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		cd, err := cr.client.Get(ctx, cfg.Name)
+		cd, err := cr.client.Get(ctx, cr.name)
 		if err != nil {
 			if errors.Is(err, ErrConfigNotFound) {
 				return cr.createConfig(ctx, cfg)
 			}
 
-			return fmt.Errorf("unable to get current configmap with name %s: %w", cfg.Name, err)
+			return fmt.Errorf("unable to get current configmap with name %s: %w", cr.name, err)
 		}
 
 		return cr.updateConfig(ctx, cd, cfg)

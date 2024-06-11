@@ -13,14 +13,12 @@ type Change struct {
 type Data map[string]string
 
 type Config struct {
-	Name          string
 	Data          Data
 	ChangeHistory []Change
 }
 
-func CreateConfig(name string, data Data) Config {
+func CreateConfig(data Data) Config {
 	return Config{
-		Name:          name,
 		Data:          data,
 		ChangeHistory: make([]Change, 0),
 	}

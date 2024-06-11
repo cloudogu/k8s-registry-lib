@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/cloudogu/k8s-registry-lib/config"
 )
@@ -43,7 +44,12 @@ func CreateSensitiveDoguConfigRegistry(sc SecretClient, doguName string) ConfigR
 func (dr ConfigRegistry) Set(ctx context.Context, key, value string) error {
 	doguConfig, err := dr.repo.get(ctx)
 	if err != nil {
-		return fmt.Errorf("could not read dogu config: %w", err)
+		if !errors.Is(err, ErrConfigNotFound) {
+			return fmt.Errorf("could not read dogu config: %w", err)
+		}
+
+		//create new, empty doguConfig
+		doguConfig = config.CreateConfig(make(config.Data))
 	}
 
 	doguConfig.Set(key, value)
