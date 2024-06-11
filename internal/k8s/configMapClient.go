@@ -24,8 +24,16 @@ type configMapClient struct {
 	client ConfigMapClient
 }
 
-func (cmc *configMapClient) Get(ctx context.Context, name string) (map[string]string, error) {
-	configMap, err := cmc.client.Get(ctx, name, metav1.GetOptions{})
+type configMapData struct {
+	cm *v1.ConfigMap
+}
+
+func (c *configMapData) get() map[string]string {
+	return c.cm.Data
+}
+
+func (cmc *configMapClient) Get(ctx context.Context, name string) (configData, error) {
+	cm, err := cmc.client.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if k8sErrs.IsNotFound(err) {
 			return nil, errConfigMapNotFound
@@ -34,7 +42,7 @@ func (cmc *configMapClient) Get(ctx context.Context, name string) (map[string]st
 		return nil, fmt.Errorf("unable to get config-map from cluster: %w", err)
 	}
 
-	return configMap.Data, nil
+	return &configMapData{cm}, nil
 }
 
 func (cmc *configMapClient) Delete(ctx context.Context, name string) error {
@@ -64,15 +72,13 @@ func (cmc *configMapClient) Create(ctx context.Context, name string, configData 
 	return nil
 }
 
-func (cmc *configMapClient) Update(ctx context.Context, name string, configData map[string]string) error {
-	configMap, err := cmc.client.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to update config-map from cluster: %w", err)
+func (cmc *configMapClient) Update(ctx context.Context, conf configData) error {
+	co, ok := conf.(*configMapData)
+	if !ok {
+		return fmt.Errorf("configData could not cast as configMap")
 	}
 
-	configMap.Data = configData
-
-	if _, lErr := cmc.client.Update(ctx, configMap, metav1.UpdateOptions{}); lErr != nil {
+	if _, lErr := cmc.client.Update(ctx, co.cm, metav1.UpdateOptions{}); lErr != nil {
 		return fmt.Errorf("could not update configmap in cluster: %w", lErr)
 	}
 

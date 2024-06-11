@@ -24,7 +24,20 @@ type secretClient struct {
 	client SecretClient
 }
 
-func (sc *secretClient) Get(ctx context.Context, name string) (map[string]string, error) {
+type configSecretData struct {
+	s *v1.Secret
+}
+
+func (c *configSecretData) get() map[string]string {
+	data := make(map[string]string)
+	for k, v := range c.s.Data {
+		data[k] = string(v)
+	}
+
+	return data
+}
+
+func (sc *secretClient) Get(ctx context.Context, name string) (configData, error) {
 	secret, err := sc.client.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if k8sErrs.IsNotFound(err) {
@@ -34,12 +47,7 @@ func (sc *secretClient) Get(ctx context.Context, name string) (map[string]string
 		return nil, fmt.Errorf("unable to get secret from cluster: %w", err)
 	}
 
-	data := make(map[string]string)
-	for k, v := range secret.Data {
-		data[k] = string(v)
-	}
-
-	return data, nil
+	return &configSecretData{secret}, nil
 }
 
 func (sc *secretClient) Delete(ctx context.Context, name string) error {
@@ -63,22 +71,20 @@ func (sc *secretClient) Create(ctx context.Context, name string, configData map[
 	}
 
 	if _, err := sc.client.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
-		return fmt.Errorf("could not create configmap in cluster: %w", err)
+		return fmt.Errorf("could not create secret in cluster: %w", err)
 	}
 
 	return nil
 }
 
-func (sc *secretClient) Update(ctx context.Context, name string, configData map[string]string) error {
-	secret, err := sc.client.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to update secret from cluster: %w", err)
+func (sc *secretClient) Update(ctx context.Context, cd configData) error {
+	sd, ok := cd.(*configSecretData)
+	if !ok {
+		return fmt.Errorf("configData could not cast as secret")
 	}
 
-	secret.StringData = configData
-
-	if _, lErr := sc.client.Update(ctx, secret, metav1.UpdateOptions{}); lErr != nil {
-		return fmt.Errorf("could not update configmap in cluster: %w", lErr)
+	if _, lErr := sc.client.Update(ctx, sd.s, metav1.UpdateOptions{}); lErr != nil {
+		return fmt.Errorf("could not update secret in cluster: %w", lErr)
 	}
 
 	return nil

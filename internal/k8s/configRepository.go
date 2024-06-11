@@ -47,11 +47,15 @@ const (
 
 const dataKeyName = "config.yaml"
 
+type configData interface {
+	get() map[string]string
+}
+
 type configClient interface {
-	Get(ctx context.Context, name string) (map[string]string, error)
+	Get(ctx context.Context, name string) (configData, error)
 	Delete(ctx context.Context, name string) error
 	Create(ctx context.Context, name string, configData map[string]string, configType configType) error
-	Update(ctx context.Context, name string, configData map[string]string) error
+	Update(ctx context.Context, configData configData) error
 }
 
 type configRepo struct {
@@ -74,7 +78,7 @@ func (cr configRepo) get(ctx context.Context) (config.Config, error) {
 		return config.Config{}, errors.New("name is empty")
 	}
 
-	configData, err := cr.client.Get(ctx, cr.name)
+	cd, err := cr.client.Get(ctx, cr.name)
 	if err != nil {
 		if k8sErrs.IsNotFound(err) {
 			return config.Config{}, ErrConfigNotFound
@@ -83,7 +87,7 @@ func (cr configRepo) get(ctx context.Context) (config.Config, error) {
 		return config.Config{}, fmt.Errorf("unable to get config map from cluster: %w", err)
 	}
 
-	reader := strings.NewReader(configData[dataKeyName])
+	reader := strings.NewReader(cd.get()[dataKeyName])
 
 	cfgData, err := cr.converter.Read(reader)
 	if err != nil {
@@ -105,7 +109,7 @@ func (cr configRepo) delete(ctx context.Context) error {
 
 func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		configData, err := cr.client.Get(ctx, cfg.Name)
+		cd, err := cr.client.Get(ctx, cfg.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("unable to get current configmap with name %s: %w", cfg.Name, err)
 		}
@@ -114,7 +118,7 @@ func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 			return cr.createConfig(ctx, cfg)
 		}
 
-		return cr.updateConfig(ctx, configData, cfg)
+		return cr.updateConfig(ctx, cd, cfg)
 	})
 }
 
@@ -125,23 +129,23 @@ func (cr configRepo) createConfig(ctx context.Context, cfg config.Config) error 
 		return fmt.Errorf("unable to convert config data to configmap data: %w", err)
 	}
 
-	configData := map[string]string{
+	cd := map[string]string{
 		dataKeyName: buf.String(),
 	}
 
-	if err := cr.client.Create(ctx, cr.name, configData, cr.configType); err != nil {
+	if err := cr.client.Create(ctx, cr.name, cd, cr.configType); err != nil {
 		return fmt.Errorf("could not create configmap in cluster: %w", err)
 	}
 
 	return nil
 }
 
-func (cr configRepo) updateConfig(ctx context.Context, configData map[string]string, cfg config.Config) error {
+func (cr configRepo) updateConfig(ctx context.Context, cd configData, cfg config.Config) error {
 	if len(cfg.ChangeHistory) == 0 {
 		return nil
 	}
 
-	reader := strings.NewReader(configData[dataKeyName])
+	reader := strings.NewReader(cd.get()[dataKeyName])
 
 	remoteConfigData, err := cr.converter.Read(reader)
 	if err != nil {
@@ -163,9 +167,9 @@ func (cr configRepo) updateConfig(ctx context.Context, configData map[string]str
 		return fmt.Errorf("unable to convert config data to configmap data")
 	}
 
-	configData[dataKeyName] = buf.String()
+	cd.get()[dataKeyName] = buf.String()
 
-	if lErr := cr.client.Update(ctx, cr.name, configData); lErr != nil {
+	if lErr := cr.client.Update(ctx, cd); lErr != nil {
 		return fmt.Errorf("could not update configmap in cluster: %w", lErr)
 	}
 
