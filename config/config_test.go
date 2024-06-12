@@ -52,7 +52,7 @@ func TestConfig_Set(t *testing.T) {
 }
 
 func TestConfig_Exists(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	tests := []struct {
 		key      string
 		expected bool
@@ -86,30 +86,6 @@ func TestConfig_Get(t *testing.T) {
 			value, err := cfg.Get(tt.key)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error %v, got %v", tt.expectErr, err)
-			}
-			if value != tt.expected {
-				t.Errorf("expected value %s, got %s", tt.expected, value)
-			}
-		})
-	}
-}
-
-func TestConfig_GetOrFalse(t *testing.T) {
-	cfg := CreateConfig(Data{"/key1": "value1"})
-	tests := []struct {
-		key      string
-		expected string
-		exists   bool
-	}{
-		{"/key1", "value1", true},
-		{"/key2", "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
-			value, exists := cfg.GetOrFalse(tt.key)
-			if exists != tt.exists {
-				t.Errorf("expected exists %v, got %v", tt.exists, exists)
 			}
 			if value != tt.expected {
 				t.Errorf("expected value %s, got %s", tt.expected, value)

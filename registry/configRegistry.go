@@ -12,7 +12,7 @@ func createConfigName(doguName string) string {
 	return fmt.Sprintf("%s-config", doguName)
 }
 
-type ConfigRepository interface {
+type configRepository interface {
 	get(ctx context.Context) (config.Config, error)
 	delete(ctx context.Context) error
 	write(ctx context.Context, cfg config.Config) error

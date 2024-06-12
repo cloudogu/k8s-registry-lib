@@ -8,7 +8,7 @@ import (
 )
 
 type configWriter struct {
-	repo ConfigRepository
+	repo configRepository
 }
 
 func (cw configWriter) Set(ctx context.Context, key, value string) error {
