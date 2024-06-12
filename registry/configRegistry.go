@@ -2,32 +2,20 @@ package registry
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/cloudogu/cesapp-lib/keys"
-	"github.com/cloudogu/cesapp-lib/registry"
-	"github.com/cloudogu/k8s-registry-lib/internal/etcd"
-	"github.com/cloudogu/k8s-registry-lib/internal/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/cloudogu/k8s-registry-lib/config"
 )
 
-type globalGetter interface {
-	GlobalConfig() registry.ConfigurationContext
+const globalConfigMapName = "global"
+
+func createConfigName(doguName string) string {
+	return fmt.Sprintf("%s-config", doguName)
 }
 
-type doguConfigGetter interface {
-	DoguConfig(dogu string) registry.ConfigurationContext
-}
-
-type globalAndDoguConfigGetter interface {
-	globalGetter
-	doguConfigGetter
-}
-
-type configRegistry struct {
-	EtcdRegistry          registry.ConfigurationContext
-	ClusterNativeRegistry ConfigurationRegistry
+type ConfigRepository interface {
+	get(ctx context.Context) (config.Config, error)
+	delete(ctx context.Context) error
+	write(ctx context.Context, cfg config.Config) error
 }
 
 type GlobalRegistry struct {
@@ -42,172 +30,64 @@ type SensitiveDoguRegistry struct {
 	configRegistry
 }
 
-func NewGlobalConfigRegistry(etcdClient globalGetter, k8sClient k8s.ConfigMapClient) *GlobalRegistry {
+type configRegistry struct {
+	configReader
+	configWriter
+}
+
+func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
+	repo := newConfigRepo(globalConfigMapName, &configMapClient{k8sClient}, globalConfigType)
 	return &GlobalRegistry{configRegistry{
-		EtcdRegistry:          etcdClient.GlobalConfig(),
-		ClusterNativeRegistry: k8s.CreateGlobalConfigRegistry(k8sClient),
+		configReader{repo: repo},
+		configWriter{repo: repo},
 	}}
 }
 
-func NewDoguConfigRegistry(doguName string, etcdClient doguConfigGetter, k8sClient k8s.ConfigMapClient) *DoguRegistry {
+func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegistry {
+	repo := newConfigRepo(createConfigName(doguName), &configMapClient{k8sClient}, doguConfigType)
 	return &DoguRegistry{configRegistry{
-		EtcdRegistry:          etcdClient.DoguConfig(doguName),
-		ClusterNativeRegistry: k8s.CreateDoguConfigRegistry(k8sClient, doguName),
+		configReader{repo: repo},
+		configWriter{repo: repo},
 	}}
 }
 
-func NewSensitiveDoguRegistry(etcdReg globalAndDoguConfigGetter, secretClient k8s.SecretClient, doguName string) (*SensitiveDoguRegistry, error) {
-	keyType, err := etcdReg.GlobalConfig().Get("key_provider")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get key provider type: %w", err)
-	}
-
-	keyProvider, err := keys.NewKeyProvider(keyType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create key provider: %w", err)
-	}
-
-	secret, err := secretClient.Get(context.Background(), fmt.Sprintf("private-%s", doguName), metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get private pem from dogu secret: %w", err)
-	}
-
-	privateKeyString := secret.Data["private.pem"]
-
-	privateKey, err := keyProvider.FromPrivateKey(privateKeyString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-
+func NewSensitiveDoguRegistry(sc SecretClient, doguName string) *SensitiveDoguRegistry {
+	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
 	return &SensitiveDoguRegistry{configRegistry{
-		EtcdRegistry:          etcd.NewEncryptedRegistry(etcdReg.DoguConfig(doguName), privateKey.Public(), privateKey.Private()),
-		ClusterNativeRegistry: k8s.CreateSensitiveDoguConfigRegistry(secretClient, doguName),
-	}}, nil
+		configReader{repo: repo},
+		configWriter{repo: repo},
+	}}
 }
 
-func (c configRegistry) Set(ctx context.Context, key, value string) error {
-	cnErr := c.ClusterNativeRegistry.Set(ctx, key, value)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to set key in cluster native registry: %w", cnErr)
-	}
-
-	etcdErr := c.EtcdRegistry.Set(key, value)
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to set key in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
+type GlobalReader struct {
+	configReader
 }
 
-func (c configRegistry) Delete(ctx context.Context, key string) error {
-	cnErr := c.ClusterNativeRegistry.Delete(ctx, key)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to delete key in cluster native registry: %w", cnErr)
-	}
-
-	etcdErr := c.EtcdRegistry.Delete(key)
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to delete key in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
+type DoguReader struct {
+	configReader
 }
 
-func (c configRegistry) DeleteRecursive(ctx context.Context, key string) error {
-	cnErr := c.ClusterNativeRegistry.DeleteRecursive(ctx, key)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to delete recursive in cluster native registry: %w", cnErr)
-	}
-
-	etcdErr := c.EtcdRegistry.DeleteRecursive(key)
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to delete recursive in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
+type SensitiveDoguReader struct {
+	configReader
 }
 
-func (c configRegistry) RemoveAll(ctx context.Context) error {
-	cnErr := c.ClusterNativeRegistry.RemoveAll(ctx)
-	if cnErr != nil {
-		cnErr = fmt.Errorf("failed to remove all in cluster native registry: %w", cnErr)
+func NewGlobalConfigReader(k8sClient ConfigMapClient) *GlobalReader {
+	repo := newConfigRepo(globalConfigMapName, &configMapClient{k8sClient}, globalConfigType)
+	return &GlobalReader{
+		configReader{repo: repo},
 	}
-
-	etcdErr := c.EtcdRegistry.RemoveAll()
-	if etcdErr != nil {
-		etcdErr = fmt.Errorf("failed to remove all in etcd registry: %w", etcdErr)
-	}
-
-	return errors.Join(cnErr, etcdErr)
 }
 
-func (c configRegistry) Get(ctx context.Context, key string) (string, error) {
-	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Get")
-	value, err := c.ClusterNativeRegistry.Get(ctx, key)
-
-	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
-		value, err = c.EtcdRegistry.Get(key)
-		if err != nil {
-			return "", fmt.Errorf("failed to get key from etcd: %w", err)
-		}
-	} else if err != nil {
-		return "", fmt.Errorf("failed to get key from cluster native registry: %w", err)
+func NewDoguConfigReader(doguName string, k8sClient ConfigMapClient) *DoguReader {
+	repo := newConfigRepo(createConfigName(doguName), &configMapClient{k8sClient}, doguConfigType)
+	return &DoguReader{
+		configReader{repo: repo},
 	}
-
-	return value, nil
 }
 
-func (c configRegistry) GetAll(ctx context.Context) (map[string]string, error) {
-	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetAll")
-	value, err := c.ClusterNativeRegistry.GetAll(ctx)
-
-	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Error(err, "could not find all in cluster native registry, falling back to etcd")
-		value, err = c.EtcdRegistry.GetAll()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get all from etcd: %w", err)
-		}
-
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get all from cluster native registry: %w", err)
+func NewSensitiveDoguReader(sc SecretClient, doguName string) *SensitiveDoguReader {
+	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
+	return &SensitiveDoguReader{
+		configReader{repo: repo},
 	}
-
-	return value, nil
-}
-
-func (c configRegistry) Exists(ctx context.Context, key string) (bool, error) {
-	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.Exists")
-	exists, err := c.ClusterNativeRegistry.Exists(ctx, key)
-
-	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
-		exists, err = c.EtcdRegistry.Exists(key)
-		if err != nil {
-			return false, fmt.Errorf("failed to read key from etcd: %w", err)
-		}
-
-	} else if err != nil {
-		return false, fmt.Errorf("failed to read key from cluster native registry: %w", err)
-	}
-
-	return exists, nil
-}
-
-func (c configRegistry) GetOrFalse(ctx context.Context, key string) (bool, string, error) {
-	logger := log.FromContext(ctx).WithName("ConfigurationRegistry.GetOrFalse")
-	exists, value, err := c.ClusterNativeRegistry.GetOrFalse(ctx, key)
-
-	if errors.Is(err, k8s.ErrConfigNotFound) {
-		logger.Info(fmt.Sprintf("could not find key '%s' in cluster native registry, falling back to etcd", key))
-		exists, value, err = c.EtcdRegistry.GetOrFalse(key)
-
-		if err != nil {
-			return false, "", fmt.Errorf("failed to get key from etcd: %w", err)
-		}
-	} else if err != nil {
-		return false, "", fmt.Errorf("failed to get key from cluster native registry: %w", err)
-	}
-
-	return exists, value, nil
 }

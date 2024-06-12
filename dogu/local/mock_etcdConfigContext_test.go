@@ -393,7 +393,7 @@ func (_m *mockEtcdConfigContext) RemoveAll() error {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for RemoveAll")
+		panic("no return value specified for DeleteAll")
 	}
 
 	var r0 error
@@ -406,14 +406,14 @@ func (_m *mockEtcdConfigContext) RemoveAll() error {
 	return r0
 }
 
-// mockEtcdConfigContext_RemoveAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveAll'
+// mockEtcdConfigContext_RemoveAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteAll'
 type mockEtcdConfigContext_RemoveAll_Call struct {
 	*mock.Call
 }
 
 // RemoveAll is a helper method to define mock.On call
 func (_e *mockEtcdConfigContext_Expecter) RemoveAll() *mockEtcdConfigContext_RemoveAll_Call {
-	return &mockEtcdConfigContext_RemoveAll_Call{Call: _e.mock.On("RemoveAll")}
+	return &mockEtcdConfigContext_RemoveAll_Call{Call: _e.mock.On("DeleteAll")}
 }
 
 func (_c *mockEtcdConfigContext_RemoveAll_Call) Run(run func()) *mockEtcdConfigContext_RemoveAll_Call {

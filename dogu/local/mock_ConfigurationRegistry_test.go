@@ -352,11 +352,11 @@ func (_c *MockConfigurationRegistry_GetOrFalse_Call) RunAndReturn(run func(conte
 }
 
 // RemoveAll provides a mock function with given fields: ctx
-func (_m *MockConfigurationRegistry) RemoveAll(ctx context.Context) error {
+func (_m *MockConfigurationRegistry) DeleteAll(ctx context.Context) error {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for RemoveAll")
+		panic("no return value specified for DeleteAll")
 	}
 
 	var r0 error
@@ -369,7 +369,7 @@ func (_m *MockConfigurationRegistry) RemoveAll(ctx context.Context) error {
 	return r0
 }
 
-// MockConfigurationRegistry_RemoveAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveAll'
+// MockConfigurationRegistry_RemoveAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteAll'
 type MockConfigurationRegistry_RemoveAll_Call struct {
 	*mock.Call
 }
@@ -377,7 +377,7 @@ type MockConfigurationRegistry_RemoveAll_Call struct {
 // RemoveAll is a helper method to define mock.On call
 //   - ctx context.Context
 func (_e *MockConfigurationRegistry_Expecter) RemoveAll(ctx interface{}) *MockConfigurationRegistry_RemoveAll_Call {
-	return &MockConfigurationRegistry_RemoveAll_Call{Call: _e.mock.On("RemoveAll", ctx)}
+	return &MockConfigurationRegistry_RemoveAll_Call{Call: _e.mock.On("DeleteAll", ctx)}
 }
 
 func (_c *MockConfigurationRegistry_RemoveAll_Call) Run(run func(ctx context.Context)) *MockConfigurationRegistry_RemoveAll_Call {

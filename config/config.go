@@ -31,7 +31,7 @@ func (c *Config) Set(key, value string) {
 
 // Exists returns true if configuration key exists
 func (c *Config) Exists(key string) bool {
-	_, ok := c.GetOrFalse(key)
+	_, ok := c.Data[key]
 
 	return ok
 }
@@ -39,21 +39,13 @@ func (c *Config) Exists(key string) bool {
 // Get returns the configuration value for the given key.
 // Returns an error if no values exists for the given key.
 func (c *Config) Get(key string) (string, error) {
-	value, ok := c.GetOrFalse(key)
+	value, ok := c.Data[key]
 
 	if !ok {
 		return "", fmt.Errorf("value for %s does not exist", key)
 	}
 
 	return value, nil
-}
-
-// GetOrFalse returns false and an empty string when the configuration value does not exist.
-// Otherwise, returns true and the configuration value, even when the configuration value is an empty string.
-func (c *Config) GetOrFalse(key string) (string, bool) {
-	value, ok := c.Data[key]
-
-	return value, ok
 }
 
 // GetAll returns a map of all key-value-pairs
