@@ -52,7 +52,7 @@ func TestConfig_Set(t *testing.T) {
 }
 
 func TestConfig_Exists(t *testing.T) {
-	cfg := CreateConfig("test", Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"/key1": "value1"})
 	tests := []struct {
 		key      string
 		expected bool
