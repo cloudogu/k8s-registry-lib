@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 	"testing"
 )
@@ -11,7 +12,7 @@ func TestCreateConfig(t *testing.T) {
 		data Data
 	}{
 		{"empty data", Data{}},
-		{"non-empty data", Data{"/key1": "value1", "/key2": "value2"}},
+		{"non-empty data", Data{"key1": "value1", "key2": "value2"}},
 	}
 
 	for _, tt := range tests {
@@ -33,8 +34,8 @@ func TestConfig_Set(t *testing.T) {
 		key   string
 		value string
 	}{
-		{"/key1", "value1"},
-		{"/key2", "value2"},
+		{"key1", "value1"},
+		{"key2", "value2"},
 	}
 
 	for _, tt := range tests {
@@ -52,13 +53,13 @@ func TestConfig_Set(t *testing.T) {
 }
 
 func TestConfig_Exists(t *testing.T) {
-	cfg := CreateConfig(Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"key1": "value1"})
 	tests := []struct {
 		key      string
 		expected bool
 	}{
-		{"/key1", true},
-		{"/key2", false},
+		{"key1", true},
+		{"key2", false},
 	}
 
 	for _, tt := range tests {
@@ -71,13 +72,14 @@ func TestConfig_Exists(t *testing.T) {
 }
 
 func TestConfig_Get(t *testing.T) {
-	cfg := CreateConfig(Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"key1": "value1"})
 	tests := []struct {
 		key       string
 		expected  string
 		expectErr bool
 	}{
 		{"/key1", "value1", false},
+		{"key1", "value1", false},
 		{"/key2", "", true},
 	}
 
@@ -95,7 +97,7 @@ func TestConfig_Get(t *testing.T) {
 }
 
 func TestConfig_GetAll(t *testing.T) {
-	data := Data{"/key1": "value1", "/key2": "value2"}
+	data := Data{"key1": "value1", "key2": "value2"}
 	cfg := CreateConfig(data)
 	got := cfg.GetAll()
 	for k, v := range data {
@@ -109,7 +111,7 @@ func TestConfig_GetAll(t *testing.T) {
 }
 
 func TestConfig_Delete(t *testing.T) {
-	data := Data{"/key1": "value1", "/key2": "value2"}
+	data := Data{"key1": "value1", "key2": "value2", "key4": "value4"}
 	cfg := CreateConfig(data)
 	tests := []struct {
 		key      string
@@ -118,27 +120,27 @@ func TestConfig_Delete(t *testing.T) {
 		{"/key1", nil},
 		{"/key3", nil},
 		{"/key", nil},
+		{"key4", nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			err := cfg.Delete(tt.key)
-			if (err != nil) != (tt.expected != nil) {
-				t.Errorf("expected error %v, got %v", tt.expected, err)
-			}
+			cfg.Delete(tt.key)
+			_, ok := cfg.Data[tt.key]
+			assert.False(t, ok)
 		})
 	}
 }
 
 func TestConfig_DeleteRecursive(t *testing.T) {
 	data := Data{
-		"/key0":             "value1",
-		"/key1/subkey":      "subvalue",
-		"/key1/subkey2":     "subvalue2",
-		"/key2":             "value2",
-		"/key3/key2/key1":   "value3",
-		"/key3/key2/key11":  "value4",
-		"/key3/key22/key11": "value5",
+		"key0":             "value1",
+		"key1/subkey":      "subvalue",
+		"key1/subkey2":     "subvalue2",
+		"key2":             "value2",
+		"key3/key2/key1":   "value3",
+		"key3/key2/key11":  "value4",
+		"key3/key22/key11": "value5",
 	}
 
 	tests := []struct {
@@ -148,11 +150,12 @@ func TestConfig_DeleteRecursive(t *testing.T) {
 		{"/key0", 1},
 		{"/key", 0},
 		{"/key1/subkey", 1},
-		{"/key1/", 2},
+		{"key1/", 2},
 		{"/key1", 2},
-		{"/key2", 1},
+		{"key2", 1},
 		{"/key3/key2/", 2},
-		{"/key3/", 3},
+		{"key3/", 3},
+		{"", 7},
 	}
 
 	for _, tc := range tests {
@@ -171,10 +174,10 @@ func TestConfig_DeleteRecursive(t *testing.T) {
 	}
 }
 
-func TestConfig_RemoveAll(t *testing.T) {
-	data := Data{"/key1": "value1", "/key2": "value2"}
+func TestConfig_DeleteAll(t *testing.T) {
+	data := Data{"key1": "value1", "key2": "value2"}
 	cfg := CreateConfig(data)
-	cfg.RemoveAll()
+	cfg.DeleteAll()
 
 	if len(cfg.Data) != 0 {
 		t.Errorf("expected all keys to be deleted, got %d keys", len(cfg.Data))
@@ -182,7 +185,7 @@ func TestConfig_RemoveAll(t *testing.T) {
 }
 
 func TestCreateGlobalConfig(t *testing.T) {
-	cfg := CreateConfig(Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"key1": "value1"})
 	globalCfg := CreateGlobalConfig(cfg)
 
 	if len(globalCfg.Data) != len(cfg.Data) {
@@ -191,7 +194,7 @@ func TestCreateGlobalConfig(t *testing.T) {
 }
 
 func TestCreateDoguConfig(t *testing.T) {
-	cfg := CreateConfig(Data{"/key1": "value1"})
+	cfg := CreateConfig(Data{"key1": "value1"})
 	doguCfg := CreateDoguConfig(cfg)
 
 	if len(doguCfg.Data) != len(cfg.Data) {

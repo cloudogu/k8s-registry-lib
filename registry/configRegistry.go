@@ -51,7 +51,7 @@ func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegi
 	}}
 }
 
-func NewSensitiveDoguRegistry(sc SecretClient, doguName string) *SensitiveDoguRegistry {
+func NewSensitiveDoguRegistry(doguName string, sc SecretClient) *SensitiveDoguRegistry {
 	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
 	return &SensitiveDoguRegistry{configRegistry{
 		configReader{repo: repo},
@@ -85,7 +85,7 @@ func NewDoguConfigReader(doguName string, k8sClient ConfigMapClient) *DoguReader
 	}
 }
 
-func NewSensitiveDoguReader(sc SecretClient, doguName string) *SensitiveDoguReader {
+func NewSensitiveDoguReader(doguName string, sc SecretClient) *SensitiveDoguReader {
 	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
 	return &SensitiveDoguReader{
 		configReader{repo: repo},

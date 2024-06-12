@@ -351,7 +351,7 @@ func (_c *MockConfigurationRegistry_GetOrFalse_Call) RunAndReturn(run func(conte
 	return _c
 }
 
-// RemoveAll provides a mock function with given fields: ctx
+// DeleteAll provides a mock function with given fields: ctx
 func (_m *MockConfigurationRegistry) DeleteAll(ctx context.Context) error {
 	ret := _m.Called(ctx)
 
