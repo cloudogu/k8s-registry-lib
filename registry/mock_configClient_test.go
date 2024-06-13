@@ -21,17 +21,17 @@ func (_m *mockConfigClient) EXPECT() *mockConfigClient_Expecter {
 	return &mockConfigClient_Expecter{mock: &_m.Mock}
 }
 
-// Create provides a mock function with given fields: ctx, name, configData, configType3
-func (_m *mockConfigClient) Create(ctx context.Context, name string, configData map[string]string, configType3 configType) error {
-	ret := _m.Called(ctx, name, configData, configType3)
+// Create provides a mock function with given fields: ctx, name, dataStr
+func (_m *mockConfigClient) Create(ctx context.Context, name string, dataStr string) error {
+	ret := _m.Called(ctx, name, dataStr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]string, configType) error); ok {
-		r0 = rf(ctx, name, configData, configType3)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, name, dataStr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -47,15 +47,14 @@ type mockConfigClient_Create_Call struct {
 // Create is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-//   - configData map[string]string
-//   - configType3 configType
-func (_e *mockConfigClient_Expecter) Create(ctx interface{}, name interface{}, configData interface{}, configType3 interface{}) *mockConfigClient_Create_Call {
-	return &mockConfigClient_Create_Call{Call: _e.mock.On("Create", ctx, name, configData, configType3)}
+//   - dataStr string
+func (_e *mockConfigClient_Expecter) Create(ctx interface{}, name interface{}, dataStr interface{}) *mockConfigClient_Create_Call {
+	return &mockConfigClient_Create_Call{Call: _e.mock.On("Create", ctx, name, dataStr)}
 }
 
-func (_c *mockConfigClient_Create_Call) Run(run func(ctx context.Context, name string, configData map[string]string, configType3 configType)) *mockConfigClient_Create_Call {
+func (_c *mockConfigClient_Create_Call) Run(run func(ctx context.Context, name string, dataStr string)) *mockConfigClient_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(map[string]string), args[3].(configType))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -65,7 +64,7 @@ func (_c *mockConfigClient_Create_Call) Return(_a0 error) *mockConfigClient_Crea
 	return _c
 }
 
-func (_c *mockConfigClient_Create_Call) RunAndReturn(run func(context.Context, string, map[string]string, configType) error) *mockConfigClient_Create_Call {
+func (_c *mockConfigClient_Create_Call) RunAndReturn(run func(context.Context, string, string) error) *mockConfigClient_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -118,24 +117,22 @@ func (_c *mockConfigClient_Delete_Call) RunAndReturn(run func(context.Context, s
 }
 
 // Get provides a mock function with given fields: ctx, name
-func (_m *mockConfigClient) Get(ctx context.Context, name string) (configData, error) {
+func (_m *mockConfigClient) Get(ctx context.Context, name string) (clientData, error) {
 	ret := _m.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
 	}
 
-	var r0 configData
+	var r0 clientData
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (configData, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (clientData, error)); ok {
 		return rf(ctx, name)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) configData); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) clientData); ok {
 		r0 = rf(ctx, name)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(configData)
-		}
+		r0 = ret.Get(0).(clientData)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
@@ -166,27 +163,27 @@ func (_c *mockConfigClient_Get_Call) Run(run func(ctx context.Context, name stri
 	return _c
 }
 
-func (_c *mockConfigClient_Get_Call) Return(_a0 configData, _a1 error) *mockConfigClient_Get_Call {
+func (_c *mockConfigClient_Get_Call) Return(_a0 clientData, _a1 error) *mockConfigClient_Get_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *mockConfigClient_Get_Call) RunAndReturn(run func(context.Context, string) (configData, error)) *mockConfigClient_Get_Call {
+func (_c *mockConfigClient_Get_Call) RunAndReturn(run func(context.Context, string) (clientData, error)) *mockConfigClient_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Update provides a mock function with given fields: ctx, configData1
-func (_m *mockConfigClient) Update(ctx context.Context, configData1 configData) error {
-	ret := _m.Called(ctx, configData1)
+// Update provides a mock function with given fields: ctx, update
+func (_m *mockConfigClient) Update(ctx context.Context, update clientData) error {
+	ret := _m.Called(ctx, update)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, configData) error); ok {
-		r0 = rf(ctx, configData1)
+	if rf, ok := ret.Get(0).(func(context.Context, clientData) error); ok {
+		r0 = rf(ctx, update)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -201,14 +198,14 @@ type mockConfigClient_Update_Call struct {
 
 // Update is a helper method to define mock.On call
 //   - ctx context.Context
-//   - configData1 configData
-func (_e *mockConfigClient_Expecter) Update(ctx interface{}, configData1 interface{}) *mockConfigClient_Update_Call {
-	return &mockConfigClient_Update_Call{Call: _e.mock.On("Update", ctx, configData1)}
+//   - update clientData
+func (_e *mockConfigClient_Expecter) Update(ctx interface{}, update interface{}) *mockConfigClient_Update_Call {
+	return &mockConfigClient_Update_Call{Call: _e.mock.On("Update", ctx, update)}
 }
 
-func (_c *mockConfigClient_Update_Call) Run(run func(ctx context.Context, configData1 configData)) *mockConfigClient_Update_Call {
+func (_c *mockConfigClient_Update_Call) Run(run func(ctx context.Context, update clientData)) *mockConfigClient_Update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(configData))
+		run(args[0].(context.Context), args[1].(clientData))
 	})
 	return _c
 }
@@ -218,7 +215,7 @@ func (_c *mockConfigClient_Update_Call) Return(_a0 error) *mockConfigClient_Upda
 	return _c
 }
 
-func (_c *mockConfigClient_Update_Call) RunAndReturn(run func(context.Context, configData) error) *mockConfigClient_Update_Call {
+func (_c *mockConfigClient_Update_Call) RunAndReturn(run func(context.Context, clientData) error) *mockConfigClient_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

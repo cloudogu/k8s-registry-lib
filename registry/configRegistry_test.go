@@ -17,14 +17,11 @@ func TestNewGlobalConfigRegistry(t *testing.T) {
 		readerRepo := gcr.configReader.repo.(configRepo)
 		writerRepo := gcr.configWriter.repo.(configRepo)
 
-		assert.Equal(t, globalConfigType, readerRepo.configType)
-		assert.Equal(t, globalConfigType, writerRepo.configType)
-
 		assert.Equal(t, "global", readerRepo.name)
 		assert.Equal(t, "global", writerRepo.name)
 
-		assert.Equal(t, mockCmClient, readerRepo.client.(*configMapClient).client)
-		assert.Equal(t, mockCmClient, writerRepo.client.(*configMapClient).client)
+		assert.Equal(t, mockCmClient, readerRepo.client.(configMapClient).client)
+		assert.Equal(t, mockCmClient, writerRepo.client.(configMapClient).client)
 	})
 }
 
@@ -39,14 +36,11 @@ func TestNewDoguConfigRegistry(t *testing.T) {
 		readerRepo := dcr.configReader.repo.(configRepo)
 		writerRepo := dcr.configWriter.repo.(configRepo)
 
-		assert.Equal(t, doguConfigType, readerRepo.configType)
-		assert.Equal(t, doguConfigType, writerRepo.configType)
-
 		assert.Equal(t, "myDogu-config", readerRepo.name)
 		assert.Equal(t, "myDogu-config", writerRepo.name)
 
-		assert.Equal(t, mockCmClient, readerRepo.client.(*configMapClient).client)
-		assert.Equal(t, mockCmClient, writerRepo.client.(*configMapClient).client)
+		assert.Equal(t, mockCmClient, readerRepo.client.(configMapClient).client)
+		assert.Equal(t, mockCmClient, writerRepo.client.(configMapClient).client)
 	})
 }
 
@@ -61,14 +55,11 @@ func TestNewSensitiveDoguRegistry(t *testing.T) {
 		readerRepo := sdcr.configReader.repo.(configRepo)
 		writerRepo := sdcr.configWriter.repo.(configRepo)
 
-		assert.Equal(t, sensitiveConfigType, readerRepo.configType)
-		assert.Equal(t, sensitiveConfigType, writerRepo.configType)
-
 		assert.Equal(t, "myDogu-config", readerRepo.name)
 		assert.Equal(t, "myDogu-config", writerRepo.name)
 
-		assert.Equal(t, mockSecretClient, readerRepo.client.(*secretClient).client)
-		assert.Equal(t, mockSecretClient, writerRepo.client.(*secretClient).client)
+		assert.Equal(t, mockSecretClient, readerRepo.client.(secretClient).client)
+		assert.Equal(t, mockSecretClient, writerRepo.client.(secretClient).client)
 	})
 }
 
@@ -81,9 +72,9 @@ func TestNewGlobalConfigReader(t *testing.T) {
 		require.NotNil(t, gcr)
 
 		readerRepo := gcr.configReader.repo.(configRepo)
-		assert.Equal(t, globalConfigType, readerRepo.configType)
+
 		assert.Equal(t, "global", readerRepo.name)
-		assert.Equal(t, mockCmClient, readerRepo.client.(*configMapClient).client)
+		assert.Equal(t, mockCmClient, readerRepo.client.(configMapClient).client)
 	})
 }
 
@@ -96,9 +87,9 @@ func TestNewDoguConfigReader(t *testing.T) {
 		require.NotNil(t, dcr)
 
 		readerRepo := dcr.configReader.repo.(configRepo)
-		assert.Equal(t, doguConfigType, readerRepo.configType)
+
 		assert.Equal(t, "myDogu-config", readerRepo.name)
-		assert.Equal(t, mockCmClient, readerRepo.client.(*configMapClient).client)
+		assert.Equal(t, mockCmClient, readerRepo.client.(configMapClient).client)
 	})
 }
 
@@ -111,8 +102,8 @@ func TestNewSensitiveDoguReader(t *testing.T) {
 		require.NotNil(t, sdcr)
 
 		readerRepo := sdcr.configReader.repo.(configRepo)
-		assert.Equal(t, sensitiveConfigType, readerRepo.configType)
+
 		assert.Equal(t, "myDogu-config", readerRepo.name)
-		assert.Equal(t, mockSecretClient, readerRepo.client.(*secretClient).client)
+		assert.Equal(t, mockSecretClient, readerRepo.client.(secretClient).client)
 	})
 }
