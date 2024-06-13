@@ -28,6 +28,3 @@ vendor
 
 # Makefiles
 .env
-
-
-*mock_Converter_test.go
