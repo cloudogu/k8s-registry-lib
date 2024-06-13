@@ -36,7 +36,7 @@ type configRegistry struct {
 }
 
 func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
-	repo := newConfigRepo(globalConfigMapName, &configMapClient{k8sClient}, globalConfigType)
+	repo := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
 	return &GlobalRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -44,7 +44,7 @@ func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
 }
 
 func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegistry {
-	repo := newConfigRepo(createConfigName(doguName), &configMapClient{k8sClient}, doguConfigType)
+	repo := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
 	return &DoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -52,7 +52,7 @@ func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegi
 }
 
 func NewSensitiveDoguRegistry(sc SecretClient, doguName string) *SensitiveDoguRegistry {
-	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
+	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -72,21 +72,21 @@ type SensitiveDoguReader struct {
 }
 
 func NewGlobalConfigReader(k8sClient ConfigMapClient) *GlobalReader {
-	repo := newConfigRepo(globalConfigMapName, &configMapClient{k8sClient}, globalConfigType)
+	repo := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
 	return &GlobalReader{
 		configReader{repo: repo},
 	}
 }
 
 func NewDoguConfigReader(doguName string, k8sClient ConfigMapClient) *DoguReader {
-	repo := newConfigRepo(createConfigName(doguName), &configMapClient{k8sClient}, doguConfigType)
+	repo := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
 	return &DoguReader{
 		configReader{repo: repo},
 	}
 }
 
 func NewSensitiveDoguReader(sc SecretClient, doguName string) *SensitiveDoguReader {
-	repo := newConfigRepo(createConfigName(doguName), &secretClient{sc}, sensitiveConfigType)
+	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguReader{
 		configReader{repo: repo},
 	}
