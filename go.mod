@@ -7,7 +7,6 @@ toolchain go1.22.3
 require (
 	github.com/cloudogu/cesapp-lib v0.12.2
 	github.com/stretchr/testify v1.9.0
-	go.etcd.io/etcd/client/v2 v2.305.13
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.30.0
@@ -17,7 +16,6 @@ require (
 )
 
 require (
-	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.6.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
@@ -42,8 +40,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.13 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.13 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
