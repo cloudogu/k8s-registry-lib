@@ -125,6 +125,64 @@ func (_c *mockConfigRepository_get_Call) RunAndReturn(run func(context.Context) 
 	return _c
 }
 
+// watch provides a mock function with given fields: ctx
+func (_m *mockConfigRepository) watch(ctx context.Context) (*configWatch, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for watch")
+	}
+
+	var r0 *configWatch
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*configWatch, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *configWatch); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*configWatch)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// mockConfigRepository_watch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'watch'
+type mockConfigRepository_watch_Call struct {
+	*mock.Call
+}
+
+// watch is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *mockConfigRepository_Expecter) watch(ctx interface{}) *mockConfigRepository_watch_Call {
+	return &mockConfigRepository_watch_Call{Call: _e.mock.On("watch", ctx)}
+}
+
+func (_c *mockConfigRepository_watch_Call) Run(run func(ctx context.Context)) *mockConfigRepository_watch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockConfigRepository_watch_Call) Return(_a0 *configWatch, _a1 error) *mockConfigRepository_watch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *mockConfigRepository_watch_Call) RunAndReturn(run func(context.Context) (*configWatch, error)) *mockConfigRepository_watch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // write provides a mock function with given fields: ctx, cfg
 func (_m *mockConfigRepository) write(ctx context.Context, cfg config.Config) error {
 	ret := _m.Called(ctx, cfg)

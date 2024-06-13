@@ -17,11 +17,31 @@ type clientData struct {
 	rawData any
 }
 
+type clientWatch struct {
+	ResultChan <-chan clientWatchResult
+}
+
+type clientWatchResult struct {
+	dataStr string
+	err     error
+}
+
+type configWatch struct {
+	InitialConfig config.Config
+	ResultChan    <-chan configWatchResult
+}
+
+type configWatchResult struct {
+	config config.Config
+	err    error
+}
+
 type configClient interface {
 	Get(ctx context.Context, name string) (clientData, error)
 	Delete(ctx context.Context, name string) error
 	Create(ctx context.Context, name string, dataStr string) error
 	Update(ctx context.Context, update clientData) error
+	Watch(ctx context.Context, name string) (*clientWatch, error)
 }
 
 type configRepo struct {
@@ -131,6 +151,45 @@ func (cr configRepo) updateConfig(ctx context.Context, cd clientData, cfg config
 	}
 
 	return nil
+}
+
+func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
+	current, err := cr.get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not start watch: %w", err)
+	}
+
+	confWatch, err := cr.client.Watch(ctx, cr.name)
+	if err != nil {
+		return nil, fmt.Errorf("could not start watch: %w", err)
+	}
+
+	resultChan := make(chan configWatchResult)
+
+	go func() {
+		for result := range confWatch.ResultChan {
+			if result.err != nil {
+				resultChan <- configWatchResult{config.Config{}, fmt.Errorf("error watching config: %w", result.err)}
+				continue
+			}
+
+			reader := strings.NewReader(result.dataStr)
+			cfgData, rErr := cr.converter.Read(reader)
+			if rErr != nil {
+				resultChan <- configWatchResult{config.Config{}, fmt.Errorf("could not convert client data to config data: %w", rErr)}
+				continue
+			}
+
+			resultChan <- configWatchResult{config.CreateConfig(cfgData), nil}
+		}
+
+		close(resultChan)
+	}()
+
+	return &configWatch{
+		InitialConfig: current,
+		ResultChan:    resultChan,
+	}, nil
 }
 
 func mergeConfigData(remoteCfgData config.Data, localCfg config.Config) (config.Data, error) {

@@ -8,6 +8,7 @@ import (
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -127,6 +128,56 @@ func (cmc configMapClient) Update(ctx context.Context, update clientData) error 
 	return nil
 }
 
+func (cmc configMapClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
+	fieldSelector := fmt.Sprintf("metadata.name=%s", name)
+	cmWatch, err := cmc.client.Watch(ctx, metav1.ListOptions{FieldSelector: fieldSelector})
+	if err != nil {
+		return nil, fmt.Errorf("could not watch configmap '%s' in cluster: %w", name, err)
+	}
+
+	resultChan := make(chan clientWatchResult)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				cmWatch.Stop()
+				close(resultChan)
+				return
+			case result, ok := <-cmWatch.ResultChan():
+				if !ok {
+					// channel was closed
+					cmWatch.Stop()
+					close(resultChan)
+					return
+				}
+
+				if result.Type == watch.Error {
+					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watch of configmap '%s'", name)}
+					continue
+				}
+
+				cm, ok := result.Object.(*v1.ConfigMap)
+				if !ok {
+					resultChan <- clientWatchResult{"", fmt.Errorf("could not assert type of of configmap in watch")}
+					continue
+				}
+
+				dataBytes, ok := cm.Data[dataKeyName]
+				if !ok {
+					resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, name)}
+					continue
+				}
+
+				resultChan <- clientWatchResult{dataBytes, nil}
+
+			}
+		}
+	}()
+
+	return &clientWatch{resultChan}, nil
+}
+
 type SecretClient interface {
 	corev1client.SecretInterface
 }
@@ -208,4 +259,54 @@ func (sc secretClient) Update(ctx context.Context, update clientData) error {
 	}
 
 	return nil
+}
+
+func (sc secretClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
+	fieldSelector := fmt.Sprintf("name=%s", name)
+	secretWatch, err := sc.client.Watch(ctx, metav1.ListOptions{FieldSelector: fieldSelector})
+	if err != nil {
+		return nil, fmt.Errorf("could not watch secret '%s' in cluster: %w", name, err)
+	}
+
+	resultChan := make(chan clientWatchResult)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				secretWatch.Stop()
+				close(resultChan)
+				return
+			case result, ok := <-secretWatch.ResultChan():
+				if !ok {
+					// channel was closed
+					secretWatch.Stop()
+					close(resultChan)
+					return
+				}
+
+				if result.Type == watch.Error {
+					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watch of secret '%s'", name)}
+					continue
+				}
+
+				secret, ok := result.Object.(*v1.Secret)
+				if !ok {
+					resultChan <- clientWatchResult{"", fmt.Errorf("could not assert type of of secret in watch")}
+					continue
+				}
+
+				dataBytes, ok := secret.Data[dataKeyName]
+				if !ok {
+					resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
+					continue
+				}
+
+				resultChan <- clientWatchResult{string(dataBytes), nil}
+
+			}
+		}
+	}()
+
+	return &clientWatch{resultChan}, nil
 }
