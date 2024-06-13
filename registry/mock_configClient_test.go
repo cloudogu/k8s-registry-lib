@@ -220,6 +220,65 @@ func (_c *mockConfigClient_Update_Call) RunAndReturn(run func(context.Context, c
 	return _c
 }
 
+// Watch provides a mock function with given fields: ctx, name
+func (_m *mockConfigClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
+	ret := _m.Called(ctx, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Watch")
+	}
+
+	var r0 *clientWatch
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*clientWatch, error)); ok {
+		return rf(ctx, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *clientWatch); ok {
+		r0 = rf(ctx, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*clientWatch)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// mockConfigClient_Watch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Watch'
+type mockConfigClient_Watch_Call struct {
+	*mock.Call
+}
+
+// Watch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - name string
+func (_e *mockConfigClient_Expecter) Watch(ctx interface{}, name interface{}) *mockConfigClient_Watch_Call {
+	return &mockConfigClient_Watch_Call{Call: _e.mock.On("Watch", ctx, name)}
+}
+
+func (_c *mockConfigClient_Watch_Call) Run(run func(ctx context.Context, name string)) *mockConfigClient_Watch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockConfigClient_Watch_Call) Return(_a0 *clientWatch, _a1 error) *mockConfigClient_Watch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *mockConfigClient_Watch_Call) RunAndReturn(run func(context.Context, string) (*clientWatch, error)) *mockConfigClient_Watch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // newMockConfigClient creates a new instance of mockConfigClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func newMockConfigClient(t interface {

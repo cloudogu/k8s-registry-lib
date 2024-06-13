@@ -16,6 +16,7 @@ type configRepository interface {
 	get(ctx context.Context) (config.Config, error)
 	delete(ctx context.Context) error
 	write(ctx context.Context, cfg config.Config) error
+	watch(ctx context.Context) (*configWatch, error)
 }
 
 type GlobalRegistry struct {
