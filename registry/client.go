@@ -199,7 +199,9 @@ func (sc secretClient) Update(ctx context.Context, update clientData) error {
 		return fmt.Errorf("configData could not cast as secret")
 	}
 
-	secret.StringData[dataKeyName] = update.dataStr
+	secret.StringData = map[string]string{
+		dataKeyName: update.dataStr,
+	}
 
 	if _, err := sc.client.Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("could not update secret in cluster: %w", err)

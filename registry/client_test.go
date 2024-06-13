@@ -500,9 +500,7 @@ func TestSecretClient_Update(t *testing.T) {
 			tc:   validReturn,
 			cd: clientData{
 				dataStr: "testUpdate",
-				rawData: &v1.Secret{
-					StringData: map[string]string{dataKeyName: "testString"},
-				},
+				rawData: &v1.Secret{},
 			},
 			xErr: false,
 		},
@@ -520,9 +518,7 @@ func TestSecretClient_Update(t *testing.T) {
 			tc:   returnOtherError,
 			cd: clientData{
 				dataStr: "testData",
-				rawData: &v1.Secret{
-					StringData: map[string]string{dataKeyName: "testString"},
-				},
+				rawData: &v1.Secret{},
 			},
 			xErr: true,
 		},
