@@ -6,7 +6,7 @@ import (
 )
 
 type configReader struct {
-	repo ConfigRepository
+	repo configRepository
 }
 
 // Exists returns true if configuration key exists

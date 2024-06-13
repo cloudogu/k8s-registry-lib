@@ -12,7 +12,7 @@ func createConfigName(doguName string) string {
 	return fmt.Sprintf("%s-config", doguName)
 }
 
-type ConfigRepository interface {
+type configRepository interface {
 	get(ctx context.Context) (config.Config, error)
 	delete(ctx context.Context) error
 	write(ctx context.Context, cfg config.Config) error
@@ -51,7 +51,7 @@ func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegi
 	}}
 }
 
-func NewSensitiveDoguRegistry(sc SecretClient, doguName string) *SensitiveDoguRegistry {
+func NewSensitiveDoguRegistry(doguName string, sc SecretClient) *SensitiveDoguRegistry {
 	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguRegistry{configRegistry{
 		configReader{repo: repo},
@@ -85,7 +85,7 @@ func NewDoguConfigReader(doguName string, k8sClient ConfigMapClient) *DoguReader
 	}
 }
 
-func NewSensitiveDoguReader(sc SecretClient, doguName string) *SensitiveDoguReader {
+func NewSensitiveDoguReader(doguName string, sc SecretClient) *SensitiveDoguReader {
 	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguReader{
 		configReader{repo: repo},

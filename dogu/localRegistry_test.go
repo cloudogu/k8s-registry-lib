@@ -1,4 +1,4 @@
-package local
+package dogu
 
 import (
 	"context"
@@ -17,6 +17,28 @@ import (
 
 var ldapDoguJson = "{\"Name\":\"official/ldap\",\"Version\":\"1.2.3-4\",\"DisplayName\":\"ldap\",\"Description\":\"some description\",\"Category\":\"\",\"Tags\":null,\"Logo\":\"\",\"URL\":\"\",\"Image\":\"registry.cloudogu.com/official/ldap:1.2.3-4\",\"ExposedPorts\":null,\"ExposedCommands\":null,\"Volumes\":null,\"HealthCheck\":{\"Type\":\"\",\"State\":\"\",\"Port\":0,\"Path\":\"\",\"Parameters\":null},\"HealthChecks\":null,\"ServiceAccounts\":null,\"Privileged\":false,\"Configuration\":null,\"Properties\":null,\"EnvironmentVariables\":null,\"Dependencies\":null,\"OptionalDependencies\":null}"
 var postfixDoguJson = "{\"Name\":\"official/postfix\",\"Version\":\"1.2.3-4\",\"DisplayName\":\"postfix\",\"Description\":\"some description\",\"Category\":\"\",\"Tags\":null,\"Logo\":\"\",\"URL\":\"\",\"Image\":\"registry.cloudogu.com/official/postfix:1.2.3-4\",\"ExposedPorts\":null,\"ExposedCommands\":null,\"Volumes\":null,\"HealthCheck\":{\"Type\":\"\",\"State\":\"\",\"Port\":0,\"Path\":\"\",\"Parameters\":null},\"HealthChecks\":null,\"ServiceAccounts\":null,\"Privileged\":false,\"Configuration\":null,\"Properties\":null,\"EnvironmentVariables\":null,\"Dependencies\":null,\"OptionalDependencies\":null}"
+
+var testCtx = context.Background()
+var testDoguLdap = &core.Dogu{
+	Name:        "official/ldap",
+	Version:     "1.2.3-4",
+	DisplayName: "ldap",
+	Description: "some description",
+	Image:       "registry.cloudogu.com/official/ldap:1.2.3-4",
+}
+var testDoguPostfix = &core.Dogu{
+	Name:        "official/postfix",
+	Version:     "1.2.3-4",
+	DisplayName: "postfix",
+	Description: "some description",
+	Image:       "registry.cloudogu.com/official/postfix:1.2.3-4",
+}
+
+func TestNewLocalRegistry(t *testing.T) {
+	client := newMockConfigMapClient(t)
+	reg := NewLocalRegistry(client)
+	assert.Equal(t, reg.configMapClient, client)
+}
 
 func Test_clusterNativeLocalDoguRegistry_Enable(t *testing.T) {
 	tests := []struct {
@@ -72,7 +94,7 @@ func Test_clusterNativeLocalDoguRegistry_Enable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, cmr.Enable(testCtx, tt.dogu), fmt.Sprintf("Enable(%v, %v)", testCtx, tt.dogu))
@@ -207,7 +229,7 @@ func Test_clusterNativeLocalDoguRegistry_Register(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, cmr.Register(testCtx, tt.dogu), fmt.Sprintf("Register(%v, %v)", testCtx, tt.dogu))
@@ -258,7 +280,7 @@ func Test_clusterNativeLocalDoguRegistry_UnregisterAllVersions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, cmr.UnregisterAllVersions(testCtx, tt.simpleDoguName), fmt.Sprintf("UnregisterAllVersions(%v, %v)", testCtx, tt.simpleDoguName))
@@ -345,7 +367,7 @@ func Test_clusterNativeLocalDoguRegistry_GetCurrent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := cmr.GetCurrent(testCtx, tt.simpleDoguName)
@@ -464,7 +486,7 @@ func Test_clusterNativeLocalDoguRegistry_GetCurrentOfAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := cmr.GetCurrentOfAll(testCtx)
@@ -525,7 +547,7 @@ func Test_clusterNativeLocalDoguRegistry_IsEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmr := &clusterNativeLocalDoguRegistry{
+			cmr := &LocalDoguRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := cmr.IsEnabled(testCtx, tt.simpleDoguName)

@@ -8,7 +8,7 @@ import (
 )
 
 type configWriter struct {
-	repo ConfigRepository
+	repo configRepository
 }
 
 func (cw configWriter) Set(ctx context.Context, key, value string) error {
@@ -39,10 +39,7 @@ func (cw configWriter) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
 
-	err = doguConfig.Delete(key)
-	if err != nil {
-		return fmt.Errorf("could not delete value for key %s from dogu config: %w", key, err)
-	}
+	doguConfig.Delete(key)
 
 	err = cw.repo.write(ctx, doguConfig)
 	if err != nil {
@@ -75,14 +72,10 @@ func (cw configWriter) DeleteAll(ctx context.Context) error {
 		return fmt.Errorf("could not read dogu config: %w", err)
 	}
 
-	doguConfig.RemoveAll()
-
-	if lErr := cw.repo.delete(ctx); lErr != nil {
-		return fmt.Errorf("could not delete dogu config: %w", err)
-	}
+	doguConfig.DeleteAll()
 
 	if lErr := cw.repo.write(ctx, doguConfig); lErr != nil {
-		return fmt.Errorf("could not write dogu config after deleting all keys: %w", err)
+		return fmt.Errorf("could not write dogu config after deleting all keys: %w", lErr)
 	}
 
 	return nil

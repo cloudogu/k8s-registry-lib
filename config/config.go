@@ -25,12 +25,16 @@ func CreateConfig(data Data) Config {
 }
 
 func (c *Config) Set(key, value string) {
+	key = sanitizeKey(key)
+
 	c.Data[key] = value
 	c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: false})
 }
 
 // Exists returns true if configuration key exists
 func (c *Config) Exists(key string) bool {
+	key = sanitizeKey(key)
+
 	_, ok := c.Data[key]
 
 	return ok
@@ -39,6 +43,8 @@ func (c *Config) Exists(key string) bool {
 // Get returns the configuration value for the given key.
 // Returns an error if no values exists for the given key.
 func (c *Config) Get(key string) (string, error) {
+	key = sanitizeKey(key)
+
 	value, ok := c.Data[key]
 
 	if !ok {
@@ -59,23 +65,25 @@ func (c *Config) GetAll() Data {
 }
 
 // Delete removes the configuration key and value
-func (c *Config) Delete(key string) error {
+func (c *Config) Delete(key string) {
+	key = sanitizeKey(key)
+
 	for configKey := range c.Data {
 		if configKey == key {
 			delete(c.Data, key)
 			c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: true})
 		}
 	}
-
-	return nil
 }
 
 // DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
 func (c *Config) DeleteRecursive(key string) {
-	_ = c.Delete(key)
+	key = sanitizeKey(key)
+
+	c.Delete(key)
 
 	//scan for subkeys
-	if last := key[len(key)-1:]; last != keySeparator {
+	if key != "" && !strings.HasSuffix(key, keySeparator) {
 		key = key + keySeparator
 	}
 
@@ -87,8 +95,17 @@ func (c *Config) DeleteRecursive(key string) {
 	}
 }
 
-func (c *Config) RemoveAll() {
-	c.Data = make(Data)
+func (c *Config) DeleteAll() {
+	// delete recursive from root
+	c.DeleteRecursive(keySeparator)
+}
+
+func sanitizeKey(key string) string {
+	if strings.HasPrefix(key, keySeparator) {
+		return key[1:]
+	}
+
+	return key
 }
 
 type GlobalConfig struct {
