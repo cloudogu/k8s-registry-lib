@@ -127,7 +127,7 @@ func (cmc configMapClient) Update(ctx context.Context, update clientData) error 
 	return nil
 }
 
-type SecretClient struct {
+type SecretClient interface {
 	corev1client.SecretInterface
 }
 
