@@ -36,7 +36,7 @@ type configRegistry struct {
 }
 
 func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
-	repo := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
 	return &GlobalRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -44,7 +44,7 @@ func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
 }
 
 func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegistry {
-	repo := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
+	repo, _ := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
 	return &DoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -52,7 +52,7 @@ func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegi
 }
 
 func NewSensitiveDoguRegistry(doguName string, sc SecretClient) *SensitiveDoguRegistry {
-	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
+	repo, _ := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
@@ -72,21 +72,21 @@ type SensitiveDoguReader struct {
 }
 
 func NewGlobalConfigReader(k8sClient ConfigMapClient) *GlobalReader {
-	repo := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
 	return &GlobalReader{
 		configReader{repo: repo},
 	}
 }
 
 func NewDoguConfigReader(doguName string, k8sClient ConfigMapClient) *DoguReader {
-	repo := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
+	repo, _ := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
 	return &DoguReader{
 		configReader{repo: repo},
 	}
 }
 
 func NewSensitiveDoguReader(doguName string, sc SecretClient) *SensitiveDoguReader {
-	repo := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
+	repo, _ := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguReader{
 		configReader{repo: repo},
 	}

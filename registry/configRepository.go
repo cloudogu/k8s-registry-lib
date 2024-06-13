@@ -8,7 +8,6 @@ import (
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"k8s.io/client-go/util/retry"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -30,19 +29,23 @@ type configRepo struct {
 	converter config.Converter
 }
 
-func newConfigRepo(name string, client configClient) configRepo {
+func newConfigRepo(name string, client configClient) (configRepo, error) {
+	if strings.TrimSpace(name) == "" {
+		return configRepo{}, errors.New("name is empty")
+	}
+
+	if client == nil {
+		return configRepo{}, errors.New("client is nil")
+	}
+
 	return configRepo{
 		name:      name,
 		client:    client,
 		converter: &config.YamlConverter{},
-	}
+	}, nil
 }
 
 func (cr configRepo) get(ctx context.Context) (config.Config, error) {
-	if strings.TrimSpace(cr.name) == "" {
-		return config.Config{}, errors.New("name is empty")
-	}
-
 	cd, err := cr.client.Get(ctx, cr.name)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("unable to get data '%s' from cluster: %w", cr.name, err)
@@ -60,7 +63,7 @@ func (cr configRepo) get(ctx context.Context) (config.Config, error) {
 
 func (cr configRepo) delete(ctx context.Context) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := cr.client.Delete(ctx, cr.name); client.IgnoreNotFound(err) != nil {
+		if err := cr.client.Delete(ctx, cr.name); err != nil {
 			return fmt.Errorf("could not delete data '%s' in cluster: %w", cr.name, err)
 		}
 
