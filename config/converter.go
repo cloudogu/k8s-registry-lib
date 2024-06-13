@@ -35,11 +35,7 @@ func mapToConfig(sourceMap map[string]any, targetMapPtr *Data, parentPath string
 		default:
 			stringValue, ok := sourceValue.(string)
 			if !ok {
-				intValue, ok := sourceValue.(int)
-				stringValue = fmt.Sprintf("%v", intValue)
-				if !ok {
-					return fmt.Errorf("could not convert %v to string", sourceValue)
-				}
+				return fmt.Errorf("could not convert %v to string", sourceValue)
 			}
 
 			targetMap[parentPath+sourceKey] = stringValue

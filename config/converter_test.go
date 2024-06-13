@@ -35,7 +35,7 @@ func TestMapToConfig(t *testing.T) {
 				"parent": map[string]any{
 					"child1": "value1",
 					"child2": "value2",
-					"child3": 123,
+					"child3": "123",
 				},
 			},
 			expected: Data{
@@ -174,17 +174,6 @@ parent:
 			expectFail: false,
 		},
 		{
-			name: "can handle number and will parse it to string",
-			yamlInput: `
-parent:
- child1: 123
-`,
-			expectFail: false,
-			expected: Data{
-				"parent/child1": "123",
-			},
-		},
-		{
 			name:       "Empty YAML",
 			yamlInput:  ``,
 			expected:   Data{},
@@ -194,7 +183,7 @@ parent:
 			name: "Nil Reader",
 			yamlInput: `
 parent:
- child1: 123
+ child1: "123"
 `,
 			nilReader:  true,
 			expectFail: true,
@@ -204,6 +193,15 @@ parent:
 			yamlInput: `
 parent:
 child1; 123
+`,
+			expected:   Data{},
+			expectFail: true,
+		},
+		{
+			name: "invalid yaml",
+			yamlInput: `
+parent:
+ child1: 123
 `,
 			expected:   Data{},
 			expectFail: true,
