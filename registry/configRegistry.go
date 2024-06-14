@@ -34,6 +34,7 @@ type SensitiveDoguRegistry struct {
 type configRegistry struct {
 	configReader
 	configWriter
+	configWatcher
 }
 
 func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
@@ -41,6 +42,7 @@ func NewGlobalConfigRegistry(k8sClient ConfigMapClient) *GlobalRegistry {
 	return &GlobalRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
+		configWatcher{repo: repo},
 	}}
 }
 
@@ -49,6 +51,7 @@ func NewDoguConfigRegistry(doguName string, k8sClient ConfigMapClient) *DoguRegi
 	return &DoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
+		configWatcher{repo: repo},
 	}}
 }
 
@@ -57,6 +60,7 @@ func NewSensitiveDoguRegistry(doguName string, sc SecretClient) *SensitiveDoguRe
 	return &SensitiveDoguRegistry{configRegistry{
 		configReader{repo: repo},
 		configWriter{repo: repo},
+		configWatcher{repo: repo},
 	}}
 }
 
@@ -90,5 +94,38 @@ func NewSensitiveDoguReader(doguName string, sc SecretClient) *SensitiveDoguRead
 	repo, _ := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 	return &SensitiveDoguReader{
 		configReader{repo: repo},
+	}
+}
+
+type GlobalWatcher struct {
+	configWatcher
+}
+
+type DoguWatcher struct {
+	configWatcher
+}
+
+type SensitiveDoguWatcher struct {
+	configWatcher
+}
+
+func NewGlobalConfigWatcher(k8sClient ConfigMapClient) *GlobalWatcher {
+	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	return &GlobalWatcher{
+		configWatcher{repo: repo},
+	}
+}
+
+func NewDoguConfigWatcher(doguName string, k8sClient ConfigMapClient) *DoguWatcher {
+	repo, _ := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
+	return &DoguWatcher{
+		configWatcher{repo: repo},
+	}
+}
+
+func NewSensitiveDoguWatcher(doguName string, sc SecretClient) *SensitiveDoguWatcher {
+	repo, _ := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
+	return &SensitiveDoguWatcher{
+		configWatcher{repo: repo},
 	}
 }

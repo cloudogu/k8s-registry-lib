@@ -186,6 +186,8 @@ func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 			resultChan <- configWatchResult{config.CreateConfig(cfgData), nil}
 		}
 
+		fmt.Println("[configRepository] resultChan was closed")
+
 		close(resultChan)
 	}()
 

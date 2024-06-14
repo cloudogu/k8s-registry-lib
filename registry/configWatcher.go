@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type ConfigWatcher struct {
+type configWatcher struct {
 	repo configRepository
 }
 
@@ -22,11 +22,23 @@ type WatchResult struct {
 	Err          error
 }
 
+type ConfigWatch struct {
+	ResultChan     chan WatchResult
+	cancelWatchCtx context.CancelFunc
+}
+
+func (w ConfigWatch) Stop() {
+	w.cancelWatchCtx()
+}
+
 // Watch watches for changes of the provided config-key and sends the event through the channel
-func (cw ConfigWatcher) Watch(ctx context.Context, key string, recursive bool) (chan WatchResult, error) {
-	confWatch, err := cw.repo.watch(ctx)
+func (cw configWatcher) Watch(ctx context.Context, key string, recursive bool) (ConfigWatch, error) {
+	watchCtx, cancelWatchCtx := context.WithCancel(ctx)
+
+	confWatch, err := cw.repo.watch(watchCtx)
 	if err != nil {
-		return nil, fmt.Errorf("could not watch config: %w", err)
+		cancelWatchCtx()
+		return ConfigWatch{}, fmt.Errorf("could not watch config: %w", err)
 	}
 
 	lastConfig := confWatch.InitialConfig
@@ -50,12 +62,13 @@ func (cw ConfigWatcher) Watch(ctx context.Context, key string, recursive bool) (
 			lastConfig = modifiedConfig
 		}
 
+		fmt.Println("[configWatcher] resultChan was closed")
+
 		// watch-channel was closed
 		close(resultChan)
-		//FIXME what todo here???
 	}()
 
-	return resultChan, nil
+	return ConfigWatch{resultChan, cancelWatchCtx}, nil
 }
 
 func compareConfigs(oldConfig config.Config, newConfig config.Config, configKey string, recursive bool) map[string]ConfigModification {

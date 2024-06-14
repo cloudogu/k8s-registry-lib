@@ -141,11 +141,13 @@ func (cmc configMapClient) Watch(ctx context.Context, name string) (*clientWatch
 		for {
 			select {
 			case <-ctx.Done():
+				fmt.Println("[configmapClient] context was canceled")
 				cmWatch.Stop()
 				close(resultChan)
 				return
 			case result, ok := <-cmWatch.ResultChan():
 				if !ok {
+					fmt.Println("[configmapClient] resultChan was closed")
 					// channel was closed
 					cmWatch.Stop()
 					close(resultChan)
@@ -274,11 +276,15 @@ func (sc secretClient) Watch(ctx context.Context, name string) (*clientWatch, er
 		for {
 			select {
 			case <-ctx.Done():
+				fmt.Println("[secretClient] context was canceled")
+
 				secretWatch.Stop()
 				close(resultChan)
 				return
 			case result, ok := <-secretWatch.ResultChan():
 				if !ok {
+					fmt.Println("[secretClient] resultChan was closed")
+
 					// channel was closed
 					secretWatch.Stop()
 					close(resultChan)
@@ -303,7 +309,6 @@ func (sc secretClient) Watch(ctx context.Context, name string) (*clientWatch, er
 				}
 
 				resultChan <- clientWatchResult{string(dataBytes), nil}
-
 			}
 		}
 	}()
