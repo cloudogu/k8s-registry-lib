@@ -48,7 +48,7 @@ func (cw configWatcher) Watch(ctx context.Context, key string, recursive bool) (
 	go func() {
 		for result := range confWatch.ResultChan {
 			if result.err != nil {
-				resultChan <- WatchResult{nil, fmt.Errorf("error watching config for key %s: %w", result.err, key)}
+				resultChan <- WatchResult{nil, fmt.Errorf("error watching config for key %s: %w", key, result.err)}
 				continue
 			}
 
