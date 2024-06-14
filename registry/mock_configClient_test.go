@@ -221,23 +221,23 @@ func (_c *mockConfigClient_Update_Call) RunAndReturn(run func(context.Context, c
 }
 
 // Watch provides a mock function with given fields: ctx, name
-func (_m *mockConfigClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
+func (_m *mockConfigClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
 	ret := _m.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Watch")
 	}
 
-	var r0 *clientWatch
+	var r0 <-chan clientWatchResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*clientWatch, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (<-chan clientWatchResult, error)); ok {
 		return rf(ctx, name)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *clientWatch); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) <-chan clientWatchResult); ok {
 		r0 = rf(ctx, name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*clientWatch)
+			r0 = ret.Get(0).(<-chan clientWatchResult)
 		}
 	}
 
@@ -269,12 +269,12 @@ func (_c *mockConfigClient_Watch_Call) Run(run func(ctx context.Context, name st
 	return _c
 }
 
-func (_c *mockConfigClient_Watch_Call) Return(_a0 *clientWatch, _a1 error) *mockConfigClient_Watch_Call {
+func (_c *mockConfigClient_Watch_Call) Return(_a0 <-chan clientWatchResult, _a1 error) *mockConfigClient_Watch_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *mockConfigClient_Watch_Call) RunAndReturn(run func(context.Context, string) (*clientWatch, error)) *mockConfigClient_Watch_Call {
+func (_c *mockConfigClient_Watch_Call) RunAndReturn(run func(context.Context, string) (<-chan clientWatchResult, error)) *mockConfigClient_Watch_Call {
 	_c.Call.Return(run)
 	return _c
 }

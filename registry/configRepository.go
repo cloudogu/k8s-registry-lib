@@ -155,7 +155,7 @@ func (cr configRepo) updateConfig(ctx context.Context, cd clientData, cfg config
 func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 	current, err := cr.get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not start watch: %w", err)
+		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
 	clientResultChan, err := cr.client.Watch(ctx, cr.name)
@@ -181,8 +181,6 @@ func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 
 			resultChan <- configWatchResult{config.CreateConfig(cfgData), nil}
 		}
-
-		fmt.Println("[configRepository] resultChan was closed")
 
 		close(resultChan)
 	}()

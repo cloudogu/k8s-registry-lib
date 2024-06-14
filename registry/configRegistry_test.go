@@ -107,3 +107,48 @@ func TestNewSensitiveDoguReader(t *testing.T) {
 		assert.Equal(t, mockSecretClient, readerRepo.client.(secretClient).client)
 	})
 }
+
+func TestNewGlobalConfigWatcher(t *testing.T) {
+	t.Run("create global config-watcher", func(t *testing.T) {
+		mockCmClient := NewMockConfigMapClient(t)
+
+		gcw := NewGlobalConfigWatcher(mockCmClient)
+
+		require.NotNil(t, gcw)
+
+		watcherRepo := gcw.configWatcher.repo.(configRepo)
+
+		assert.Equal(t, "global", watcherRepo.name)
+		assert.Equal(t, mockCmClient, watcherRepo.client.(configMapClient).client)
+	})
+}
+
+func TestNewDoguConfigWatcher(t *testing.T) {
+	t.Run("create dogu config-watcher", func(t *testing.T) {
+		mockCmClient := NewMockConfigMapClient(t)
+
+		dcw := NewDoguConfigWatcher("myDogu", mockCmClient)
+
+		require.NotNil(t, dcw)
+
+		watcherRepo := dcw.configWatcher.repo.(configRepo)
+
+		assert.Equal(t, "myDogu-config", watcherRepo.name)
+		assert.Equal(t, mockCmClient, watcherRepo.client.(configMapClient).client)
+	})
+}
+
+func TestNewSensitiveDoguWatcher(t *testing.T) {
+	t.Run("create sensitive dogu config-watcher", func(t *testing.T) {
+		mockSecretClient := NewMockSecretClient(t)
+
+		dcw := NewSensitiveDoguWatcher("myDogu", mockSecretClient)
+
+		require.NotNil(t, dcw)
+
+		watcherRepo := dcw.configWatcher.repo.(configRepo)
+
+		assert.Equal(t, "myDogu-config", watcherRepo.name)
+		assert.Equal(t, mockSecretClient, watcherRepo.client.(secretClient).client)
+	})
+}
