@@ -128,56 +128,8 @@ func (cmc configMapClient) Update(ctx context.Context, update clientData) error 
 	return nil
 }
 
-func (cmc configMapClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
-	fieldSelector := fmt.Sprintf("metadata.name=%s", name)
-	cmWatch, err := cmc.client.Watch(ctx, metav1.ListOptions{FieldSelector: fieldSelector})
-	if err != nil {
-		return nil, fmt.Errorf("could not watch configmap '%s' in cluster: %w", name, err)
-	}
-
-	resultChan := make(chan clientWatchResult)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("[configmapClient] context was canceled")
-				cmWatch.Stop()
-				close(resultChan)
-				return
-			case result, ok := <-cmWatch.ResultChan():
-				if !ok {
-					fmt.Println("[configmapClient] resultChan was closed")
-					// channel was closed
-					cmWatch.Stop()
-					close(resultChan)
-					return
-				}
-
-				if result.Type == watch.Error {
-					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watch of configmap '%s'", name)}
-					continue
-				}
-
-				cm, ok := result.Object.(*v1.ConfigMap)
-				if !ok {
-					resultChan <- clientWatchResult{"", fmt.Errorf("could not assert type of of configmap in watch")}
-					continue
-				}
-
-				dataBytes, ok := cm.Data[dataKeyName]
-				if !ok {
-					resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, name)}
-					continue
-				}
-
-				resultChan <- clientWatchResult{dataBytes, nil}
-
-			}
-		}
-	}()
-
-	return &clientWatch{resultChan}, nil
+func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, name, cmc.client)
 }
 
 type SecretClient interface {
@@ -263,11 +215,18 @@ func (sc secretClient) Update(ctx context.Context, update clientData) error {
 	return nil
 }
 
-func (sc secretClient) Watch(ctx context.Context, name string) (*clientWatch, error) {
-	fieldSelector := fmt.Sprintf("name=%s", name)
-	secretWatch, err := sc.client.Watch(ctx, metav1.ListOptions{FieldSelector: fieldSelector})
+func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, name, sc.client)
+}
+
+type clientWatcher interface {
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+}
+
+func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
+	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	if err != nil {
-		return nil, fmt.Errorf("could not watch secret '%s' in cluster: %w", name, err)
+		return nil, fmt.Errorf("could not watcher secret '%s' in cluster: %w", name, err)
 	}
 
 	resultChan := make(chan clientWatchResult)
@@ -276,42 +235,49 @@ func (sc secretClient) Watch(ctx context.Context, name string) (*clientWatch, er
 		for {
 			select {
 			case <-ctx.Done():
-				fmt.Println("[secretClient] context was canceled")
+				fmt.Println("[watchClient] context was canceled")
 
-				secretWatch.Stop()
+				watcher.Stop()
 				close(resultChan)
 				return
-			case result, ok := <-secretWatch.ResultChan():
+			case result, ok := <-watcher.ResultChan():
 				if !ok {
-					fmt.Println("[secretClient] resultChan was closed")
+					fmt.Println("[watchClient] resultChan was closed")
 
 					// channel was closed
-					secretWatch.Stop()
 					close(resultChan)
 					return
 				}
 
 				if result.Type == watch.Error {
-					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watch of secret '%s'", name)}
+					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watcher of secret '%s'", name)}
 					continue
 				}
 
-				secret, ok := result.Object.(*v1.Secret)
-				if !ok {
-					resultChan <- clientWatchResult{"", fmt.Errorf("could not assert type of of secret in watch")}
+				var dataString string
+				switch r := result.Object.(type) {
+				case *v1.Secret:
+					dataBytes, ok := r.Data[dataKeyName]
+					if !ok {
+						resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
+						continue
+					}
+					dataString = string(dataBytes)
+				case *v1.ConfigMap:
+					dataString, ok = r.Data[dataKeyName]
+					if !ok {
+						resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
+						continue
+					}
+				default:
+					resultChan <- clientWatchResult{"", fmt.Errorf("unsupported type in watch %t", r)}
 					continue
 				}
 
-				dataBytes, ok := secret.Data[dataKeyName]
-				if !ok {
-					resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
-					continue
-				}
-
-				resultChan <- clientWatchResult{string(dataBytes), nil}
+				resultChan <- clientWatchResult{dataString, nil}
 			}
 		}
 	}()
 
-	return &clientWatch{resultChan}, nil
+	return resultChan, nil
 }

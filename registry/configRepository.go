@@ -16,10 +16,6 @@ type clientData struct {
 	rawData any
 }
 
-type clientWatch struct {
-	ResultChan <-chan clientWatchResult
-}
-
 type clientWatchResult struct {
 	dataStr string
 	err     error
@@ -40,7 +36,7 @@ type configClient interface {
 	Delete(ctx context.Context, name string) error
 	Create(ctx context.Context, name string, dataStr string) error
 	Update(ctx context.Context, update clientData) error
-	Watch(ctx context.Context, name string) (*clientWatch, error)
+	Watch(ctx context.Context, name string) (<-chan clientWatchResult, error)
 }
 
 type configRepo struct {
@@ -162,7 +158,7 @@ func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}
 
-	confWatch, err := cr.client.Watch(ctx, cr.name)
+	clientResultChan, err := cr.client.Watch(ctx, cr.name)
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}
@@ -170,7 +166,7 @@ func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 	resultChan := make(chan configWatchResult)
 
 	go func() {
-		for result := range confWatch.ResultChan {
+		for result := range clientResultChan {
 			if result.err != nil {
 				resultChan <- configWatchResult{config.Config{}, fmt.Errorf("error watching config: %w", result.err)}
 				continue
