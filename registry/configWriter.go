@@ -22,7 +22,10 @@ func (cw configWriter) Set(ctx context.Context, key, value string) error {
 		doguConfig = config.CreateConfig(make(config.Data))
 	}
 
-	doguConfig.Set(key, value)
+	err = doguConfig.Set(key, value)
+	if err != nil {
+		return fmt.Errorf("could not set key %s with value %s: %w", key, value, err)
+	}
 
 	err = cw.repo.write(ctx, doguConfig)
 	if err != nil {

@@ -26,6 +26,18 @@ func Test_configWriter_Set(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("error while setting config", func(t *testing.T) {
+		conf := config.CreateConfig(config.Data{"value/key": "value1"})
+
+		mockRepo := newMockConfigRepository(t)
+		mockRepo.EXPECT().get(ctx).Return(conf, nil)
+
+		cw := configWriter{mockRepo}
+		err := cw.Set(ctx, "value", "myVal")
+
+		assert.Error(t, err)
+	})
+
 	t.Run("should create new config if config not found", func(t *testing.T) {
 		conf := config.CreateConfig(config.Data{})
 		expectedConf := config.CreateConfig(config.Data{})

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 )
 
@@ -24,11 +25,29 @@ func CreateConfig(data Data) Config {
 	}
 }
 
-func (c *Config) Set(key, value string) {
+func (c *Config) Set(key, value string) error {
 	key = sanitizeKey(key)
+
+	if key == "" || key == keySeparator {
+		return fmt.Errorf("key is empty")
+	}
+
+	if strings.HasSuffix(key, keySeparator) {
+		return fmt.Errorf("key %s must not be a dictionary", key)
+	}
+
+	subkey := key + keySeparator
+
+	for configKey := range c.Data {
+		if strings.HasPrefix(configKey, subkey) {
+			return fmt.Errorf("key %s is alreaedy used as dictionary", configKey)
+		}
+	}
 
 	c.Data[key] = value
 	c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: false})
+
+	return nil
 }
 
 // Exists returns true if configuration key exists
@@ -56,12 +75,7 @@ func (c *Config) Get(key string) (string, error) {
 
 // GetAll returns a map of all key-value-pairs
 func (c *Config) GetAll() Data {
-	dataCopy := make(Data)
-	for k, v := range c.Data {
-		dataCopy[k] = v
-	}
-
-	return dataCopy
+	return maps.Clone(c.Data)
 }
 
 // Delete removes the configuration key and value

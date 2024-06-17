@@ -29,21 +29,43 @@ func TestCreateConfig(t *testing.T) {
 }
 
 func TestConfig_Set(t *testing.T) {
-	cfg := CreateConfig(Data{})
+	cfg := CreateConfig(Data{
+		"key1":       "value1",
+		"key2/key21": "value2",
+	})
+
 	tests := []struct {
 		key   string
 		value string
+		xErr  bool
 	}{
-		{"key1", "value1"},
-		{"key2", "value2"},
+		{"key3", "value3", false},
+		{"key1", "newValue1", false},
+		{"key2/key21", "newValue2", false},
+		{"", "valueErr", true},
+		{"/", "valueErr", true},
+		{"key2", "newValue2", true},
+		{"key2/", "newValue2", true},
+		{"key2/key21/", "newValue2", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			cfg.Set(tt.key, tt.value)
+			err := cfg.Set(tt.key, tt.value)
+			assert.Equal(t, tt.xErr, err != nil)
+
+			if tt.xErr {
+				if v, ok := cfg.Data[tt.key]; ok && v == tt.value {
+					t.Errorf("new value for %s key written, but error has occured", tt.key)
+				}
+
+				return
+			}
+
 			if v, ok := cfg.Data[tt.key]; !ok || v != tt.value {
 				t.Errorf("expected %s for key %s, got %s", tt.value, tt.key, v)
 			}
+
 			lastChange := cfg.ChangeHistory[len(cfg.ChangeHistory)-1]
 			if lastChange.KeyPath != tt.key || lastChange.Deleted {
 				t.Errorf("unexpected change history entry %+v", lastChange)
