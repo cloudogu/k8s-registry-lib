@@ -62,8 +62,6 @@ func (cw configWatcher) Watch(ctx context.Context, key string, recursive bool) (
 			lastConfig = modifiedConfig
 		}
 
-		fmt.Println("[configWatcher] resultChan was closed")
-
 		// watch-channel was closed
 		close(resultChan)
 	}()
@@ -93,9 +91,9 @@ func compareConfigs(oldConfig config.Config, newConfig config.Config, configKey 
 			continue
 		}
 
-		mod, ok := compareConfigForSingleKey(oldConfig, newConfig, configKey)
+		mod, ok := compareConfigForSingleKey(oldConfig, newConfig, key)
 		if ok {
-			modifications[configKey] = mod
+			modifications[key] = mod
 		}
 	}
 

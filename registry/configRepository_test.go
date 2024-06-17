@@ -6,9 +6,11 @@ import (
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
+	"time"
 )
 
 type configRepo_testcase int
@@ -574,4 +576,131 @@ func TestMergeConfigData(t *testing.T) {
 			assert.Equal(t, tc.xResult, res)
 		})
 	}
+}
+
+func Test_configRepo_watch(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should watch config", func(t *testing.T) {
+		resultChan := make(chan clientWatchResult)
+
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
+		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
+
+		repo, err := newConfigRepo("dogu-config", mockClient)
+		require.NoError(t, err)
+
+		watch, err := repo.watch(ctx)
+
+		require.NoError(t, err)
+		assert.Equal(t, config.CreateConfig(map[string]string{"foo": "bar"}), watch.InitialConfig)
+
+		cancel := make(chan bool, 1)
+
+		go func() {
+			resultChan <- clientWatchResult{"foo: value", nil}
+			resultChan <- clientWatchResult{"key: other", nil}
+			resultChan <- clientWatchResult{"", assert.AnError}
+		}()
+
+		go func() {
+			i := 0
+			for result := range watch.ResultChan {
+				if i == 0 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, config.CreateConfig(map[string]string{"foo": "value"}), result.config)
+				}
+
+				if i == 1 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, config.CreateConfig(map[string]string{"key": "other"}), result.config)
+				}
+
+				if i == 2 {
+					assert.Error(t, result.err)
+					assert.ErrorIs(t, result.err, assert.AnError)
+					assert.ErrorContains(t, result.err, "error watching config:")
+					cancel <- true
+				}
+
+				i++
+			}
+		}()
+
+		select {
+		case <-cancel:
+			close(resultChan)
+		case <-time.After(5 * time.Second):
+			close(resultChan)
+			t.Errorf("did not reach all evente in time")
+		}
+	})
+
+	t.Run("should  fail to watch config for error in yaml", func(t *testing.T) {
+		resultChan := make(chan clientWatchResult)
+
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
+		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
+
+		repo, err := newConfigRepo("dogu-config", mockClient)
+		require.NoError(t, err)
+
+		watch, err := repo.watch(ctx)
+
+		require.NoError(t, err)
+		assert.Equal(t, config.CreateConfig(map[string]string{"foo": "bar"}), watch.InitialConfig)
+
+		cancel := make(chan bool, 1)
+
+		go func() {
+			resultChan <- clientWatchResult{"noYAML-<", nil}
+		}()
+
+		go func() {
+			for result := range watch.ResultChan {
+				assert.Error(t, result.err)
+				assert.ErrorContains(t, result.err, "could not convert client data to config data: unable to decode yaml from reader")
+				cancel <- true
+			}
+		}()
+
+		select {
+		case <-cancel:
+			close(resultChan)
+		case <-time.After(5 * time.Second):
+			close(resultChan)
+			t.Errorf("did not reach all evente in time")
+		}
+	})
+
+	t.Run("should fail to watch config for error while starting watch", func(t *testing.T) {
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
+		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(nil, assert.AnError)
+
+		repo, err := newConfigRepo("dogu-config", mockClient)
+		require.NoError(t, err)
+
+		_, err = repo.watch(ctx)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not start watch:")
+	})
+
+	t.Run("should fail to watch config for error while getting initial config", func(t *testing.T) {
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{}, assert.AnError)
+
+		repo, err := newConfigRepo("dogu-config", mockClient)
+		require.NoError(t, err)
+
+		_, err = repo.watch(ctx)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not get config:")
+	})
 }

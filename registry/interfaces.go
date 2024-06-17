@@ -6,6 +6,7 @@ import "context"
 type ConfigurationRegistry interface {
 	ConfigurationReader
 	ConfigurationWriter
+	ConfigurationWatcher
 }
 
 // ConfigurationReader is able to read the configuration of a single context
@@ -28,4 +29,10 @@ type ConfigurationWriter interface {
 	DeleteRecursive(ctx context.Context, key string) error
 	// DeleteAll removes all configuration keys
 	DeleteAll(ctx context.Context) error
+}
+
+// ConfigurationWatcher is able to watch the configuration-changes
+type ConfigurationWatcher interface {
+	// Watch watches for changes of the provided config-key and sends the event through the channel
+	Watch(ctx context.Context, key string, recursive bool) (ConfigWatch, error)
 }

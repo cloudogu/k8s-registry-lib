@@ -226,7 +226,7 @@ type clientWatcher interface {
 func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
 	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	if err != nil {
-		return nil, fmt.Errorf("could not watcher secret '%s' in cluster: %w", name, err)
+		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, err)
 	}
 
 	resultChan := make(chan clientWatchResult)
@@ -235,22 +235,18 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 		for {
 			select {
 			case <-ctx.Done():
-				fmt.Println("[watchClient] context was canceled")
-
 				watcher.Stop()
 				close(resultChan)
 				return
 			case result, ok := <-watcher.ResultChan():
 				if !ok {
-					fmt.Println("[watchClient] resultChan was closed")
-
 					// channel was closed
 					close(resultChan)
 					return
 				}
 
 				if result.Type == watch.Error {
-					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watcher of secret '%s'", name)}
+					resultChan <- clientWatchResult{"", fmt.Errorf("error result in watcher of config '%s'", name)}
 					continue
 				}
 
@@ -266,11 +262,11 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 				case *v1.ConfigMap:
 					dataString, ok = r.Data[dataKeyName]
 					if !ok {
-						resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
+						resultChan <- clientWatchResult{"", fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, name)}
 						continue
 					}
 				default:
-					resultChan <- clientWatchResult{"", fmt.Errorf("unsupported type in watch %t", r)}
+					resultChan <- clientWatchResult{"", fmt.Errorf("unsupported type in watch %T", r)}
 					continue
 				}
 

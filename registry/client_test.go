@@ -5,10 +5,14 @@ import (
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"testing"
+	"time"
 )
 
 type testcase int
@@ -537,4 +541,221 @@ func TestSecretClient_Update(t *testing.T) {
 			assert.Equal(t, tc.xErr, err != nil)
 		})
 	}
+}
+
+func Test_watchWithClient(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should watch with client", func(t *testing.T) {
+		fakeWatcher := watch.NewFake()
+
+		mockWatcher := newMockClientWatcher(t)
+		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+
+		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		require.NoError(t, err)
+		require.NotNil(t, watchChan)
+
+		cancel := make(chan bool, 1)
+
+		go func() {
+			fakeWatcher.Modify(&v1.Secret{
+				Data: map[string][]byte{dataKeyName: []byte("test-data-secret")},
+			})
+			fakeWatcher.Modify(&v1.ConfigMap{
+				Data: map[string]string{dataKeyName: "test-data-configmap"},
+			})
+			fakeWatcher.Modify(&v1.Namespace{})
+		}()
+
+		go func() {
+			i := 0
+			for result := range watchChan {
+				if i == 0 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, "test-data-secret", result.dataStr)
+				}
+
+				if i == 1 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, "test-data-configmap", result.dataStr)
+				}
+
+				if i == 2 {
+					assert.Error(t, result.err)
+					assert.ErrorContains(t, result.err, "unsupported type in watch *v1.Namespace")
+					cancel <- true
+				}
+
+				i++
+			}
+		}()
+
+		select {
+		case <-cancel:
+			fakeWatcher.Stop()
+		case <-time.After(5 * time.Second):
+			fakeWatcher.Stop()
+			t.Errorf("did not reach third event in time")
+		}
+	})
+
+	t.Run("should write error in result for missing data", func(t *testing.T) {
+		fakeWatcher := watch.NewFake()
+
+		mockWatcher := newMockClientWatcher(t)
+		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+
+		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		require.NoError(t, err)
+		require.NotNil(t, watchChan)
+
+		cancel := make(chan bool, 1)
+
+		go func() {
+			fakeWatcher.Modify(&v1.Secret{
+				Data: map[string][]byte{"foo": []byte("test-data-secret")},
+			})
+			fakeWatcher.Modify(&v1.ConfigMap{
+				Data: map[string]string{"foo": "test-data-configmap"},
+			})
+		}()
+
+		go func() {
+			i := 0
+			for result := range watchChan {
+				if i == 0 {
+					assert.Error(t, result.err)
+					assert.ErrorContains(t, result.err, "could not find data for key config.yaml in secret dogu-config")
+				}
+
+				if i == 1 {
+					assert.Error(t, result.err)
+					assert.ErrorContains(t, result.err, "could not find data for key config.yaml in configmap dogu-config")
+					cancel <- true
+				}
+
+				i++
+			}
+		}()
+
+		select {
+		case <-cancel:
+			fakeWatcher.Stop()
+		case <-time.After(5 * time.Second):
+			fakeWatcher.Stop()
+			t.Errorf("did not reach third event in time")
+		}
+	})
+
+	t.Run("should write error in result for error in watch-channel", func(t *testing.T) {
+		fakeWatcher := watch.NewFake()
+
+		mockWatcher := newMockClientWatcher(t)
+		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+
+		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		require.NoError(t, err)
+		require.NotNil(t, watchChan)
+
+		cancel := make(chan bool, 1)
+
+		go func() {
+			fakeWatcher.Error(nil)
+		}()
+
+		go func() {
+			for result := range watchChan {
+				assert.Error(t, result.err)
+				assert.ErrorContains(t, result.err, "error result in watcher of config 'dogu-config'")
+				cancel <- true
+			}
+		}()
+
+		select {
+		case <-cancel:
+			fakeWatcher.Stop()
+		case <-time.After(5 * time.Second):
+			fakeWatcher.Stop()
+			t.Errorf("did not reach third event in time")
+		}
+	})
+
+	t.Run("should stop watch on context-cancel", func(t *testing.T) {
+		fakeWatcher := watch.NewFake()
+		cancelCtx, cancelCtxFunc := context.WithCancel(ctx)
+
+		mockWatcher := newMockClientWatcher(t)
+		mockWatcher.EXPECT().Watch(cancelCtx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+
+		watchChan, err := watchWithClient(cancelCtx, "dogu-config", mockWatcher)
+		require.NoError(t, err)
+		require.NotNil(t, watchChan)
+
+		i := 1
+		go func() {
+			for range watchChan {
+				i++
+			}
+			i = -1
+		}()
+
+		cancelCtxFunc()
+
+		select {
+		//wait for watcher to stopped
+		case <-time.After(200 * time.Millisecond):
+			assert.Equal(t, -1, i)
+			assert.True(t, fakeWatcher.IsStopped())
+		}
+	})
+
+	t.Run("should return error for error when starting watch", func(t *testing.T) {
+		mockWatcher := newMockClientWatcher(t)
+		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
+
+		_, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+	})
+}
+
+func Test_secretClient_Watch(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should return error for error when starting watch", func(t *testing.T) {
+		mockClient := NewMockSecretClient(t)
+		mockClient.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
+
+		client := secretClient{
+			client: mockClient,
+		}
+
+		_, err := client.Watch(ctx, "dogu-config")
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+	})
+}
+
+func Test_configMapClient_Watch(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("should return error for error when starting watch", func(t *testing.T) {
+		mockClient := NewMockConfigMapClient(t)
+		mockClient.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
+
+		client := configMapClient{
+			client: mockClient,
+		}
+
+		_, err := client.Watch(ctx, "dogu-config")
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+	})
 }
