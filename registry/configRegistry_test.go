@@ -78,8 +78,8 @@ func TestNewGlobalConfigRegistry(t *testing.T) {
 				readerRepo := gcr.configReader.repo.(configRepo)
 				writerRepo := gcr.configWriter.repo.(configRepo)
 
-				assert.Equal(t, "global", readerRepo.name)
-				assert.Equal(t, "global", writerRepo.name)
+				assert.Equal(t, "global-config", readerRepo.name)
+				assert.Equal(t, "global-config", writerRepo.name)
 
 				assert.Equal(t, m, readerRepo.client.(configMapClient).client)
 				assert.Equal(t, m, writerRepo.client.(configMapClient).client)

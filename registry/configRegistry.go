@@ -38,7 +38,7 @@ type configRegistry struct {
 }
 
 func NewGlobalConfigRegistry(ctx context.Context, k8sClient ConfigMapClient) (*GlobalRegistry, error) {
-	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	repo, _ := newConfigRepo(createConfigName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
 
 	if lErr := repo.write(ctx, config.CreateConfig(make(config.Data))); lErr != nil {
 		return nil, fmt.Errorf("could not create initial global config: %w", lErr)
