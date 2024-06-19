@@ -44,10 +44,39 @@ func (c *Config) Set(key, value string) error {
 		}
 	}
 
+	if lErr := checkSubkeyHasValue(key, key, c.Data); lErr != nil {
+		return fmt.Errorf("subkey from key %s already has a value: %w", key, lErr)
+	}
+
 	c.Data[key] = value
 	c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: false})
 
 	return nil
+}
+
+func checkSubkeyHasValue(rootKey, key string, cfg Data) error {
+	subkey, found := splitAtLastOccurrence(key)
+
+	if _, ok := cfg[subkey]; ok && subkey != rootKey {
+		return fmt.Errorf("key %s already has value set", subkey)
+	}
+
+	if found {
+		return checkSubkeyHasValue(rootKey, subkey, cfg)
+	}
+
+	return nil
+}
+
+func splitAtLastOccurrence(s string) (string, bool) {
+	// Find the last occurrence of the separator
+	idx := strings.LastIndex(s, keySeparator)
+	if idx == -1 {
+		// If the separator is not found, return the original string and an empty string
+		return s, false
+	}
+	// Split the string at the last occurrence of the separator
+	return s[:idx], true
 }
 
 // Exists returns true if configuration key exists

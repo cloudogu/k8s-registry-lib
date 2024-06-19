@@ -30,8 +30,9 @@ func TestCreateConfig(t *testing.T) {
 
 func TestConfig_Set(t *testing.T) {
 	cfg := CreateConfig(Data{
-		"key1":       "value1",
-		"key2/key21": "value2",
+		"key1":             "value1",
+		"key2/key21":       "value2",
+		"key3/key31/key32": "value3",
 	})
 
 	tests := []struct {
@@ -39,14 +40,22 @@ func TestConfig_Set(t *testing.T) {
 		value string
 		xErr  bool
 	}{
-		{"key3", "value3", false},
-		{"key1", "newValue1", false},
-		{"key2/key21", "newValue2", false},
 		{"", "valueErr", true},
 		{"/", "valueErr", true},
+		{"key1", "newValue1", false},
+		{"key1/new", "newValue1", true},
+		{"key1/new/new2", "newValue1", true},
+		{"key1/new/new3", "newValue1", true},
+		{"key1/new/new3/new4", "newValue1", true},
 		{"key2", "newValue2", true},
 		{"key2/", "newValue2", true},
+		{"key2/key21", "newValue2", false},
 		{"key2/key21/", "newValue2", true},
+		{"key2/key21/new", "newValue2", true},
+		{"key2/key21/new/new2", "newValue2", true},
+		{"key3", "newValue3", true},
+		{"key3/key31", "newValue3", true},
+		{"key4", "value4", false},
 	}
 
 	for _, tt := range tests {
