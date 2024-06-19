@@ -5,6 +5,7 @@ package registry
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -14,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -56,6 +59,88 @@ func startContainerAndGetClient(ctx context.Context, t *testing.T) (*kubernetes.
 	}
 
 	return k8s, cleanUp
+}
+
+func evaluateKeyValue(ctx context.Context, t *testing.T, key string, expected string, expectExist bool, reader ConfigurationReader) {
+	exists, err := reader.Exists(ctx, key)
+	assert.NoError(t, err, fmt.Sprintf("failed to check if exists: %s", err))
+
+	assert.Equal(t, expectExist, exists, fmt.Sprintf("exists expected %v but got %v", expectExist, exists))
+
+	if !expectExist {
+		return
+	}
+
+	value, err := reader.Get(ctx, key)
+	assert.NoError(t, err, "failed to get key", key)
+	assert.Equal(t, expected, value)
+}
+
+func testKey(ctx context.Context, t *testing.T, keyname string, registry ConfigurationRegistry) {
+	key := fmt.Sprintf("%s/a", keyname)
+	err := registry.Set(ctx, key, "value")
+	assert.NoError(t, err, "failed to set key", key)
+	evaluateKeyValue(ctx, t, key, "value", true, registry)
+
+	err = registry.Delete(ctx, key)
+	assert.NoError(t, err, "failed to delete key", key)
+	evaluateKeyValue(ctx, t, key, "", false, registry)
+
+	key = fmt.Sprintf("%s/b/c", keyname)
+	err = registry.Set(ctx, key, "value")
+	assert.NoError(t, err, "failed to set key", key)
+	evaluateKeyValue(ctx, t, key, "value", true, registry)
+
+	err = registry.DeleteRecursive(ctx, keyname)
+	assert.NoError(t, err, "failed to delete key", key)
+	evaluateKeyValue(ctx, t, keyname, "", false, registry)
+	evaluateKeyValue(ctx, t, key, "", false, registry)
+	evaluateKeyValue(ctx, t, fmt.Sprintf("%s/a", keyname), "", false, registry)
+	evaluateKeyValue(ctx, t, fmt.Sprintf("%s/b", keyname), "", false, registry)
+
+	subkey1 := fmt.Sprintf("%s/b/c", keyname)
+	err = registry.Set(ctx, subkey1, "value")
+	assert.NoError(t, err, "failed to set key", subkey1)
+	evaluateKeyValue(ctx, t, subkey1, "value", true, registry)
+
+	subkey2 := fmt.Sprintf("%s/b/d", keyname)
+	err = registry.Set(ctx, subkey2, "value")
+	assert.NoError(t, err, "failed to set key", subkey2)
+	evaluateKeyValue(ctx, t, subkey2, "value", true, registry)
+
+	err = registry.DeleteRecursive(ctx, fmt.Sprintf("%s/b/", keyname))
+	assert.NoError(t, err, "failed to delete recursive key", fmt.Sprintf("%s/b/", keyname))
+	evaluateKeyValue(ctx, t, subkey1, "", false, registry)
+	evaluateKeyValue(ctx, t, subkey2, "", false, registry)
+
+	err = registry.Set(ctx, fmt.Sprintf("%s/a", keyname), "value")
+	require.NoError(t, err)
+	err = registry.Set(ctx, fmt.Sprintf("%s/b", keyname), "value")
+	require.NoError(t, err)
+	err = registry.Set(ctx, fmt.Sprintf("%s/c", keyname), "value")
+	require.NoError(t, err)
+	err = registry.Set(ctx, fmt.Sprintf("%s/d/e", keyname), "value")
+	require.NoError(t, err)
+
+	err = registry.DeleteAll(ctx)
+	assert.NoError(t, err, "failed to delete all")
+
+	cpReg, err := registry.GetAll(ctx)
+	assert.NoError(t, err, "failed to get all")
+	assert.True(t, len(cpReg) == 0)
+}
+
+func testAllFunctions(ctx context.Context, t *testing.T, registry ConfigurationRegistry, keyname string) {
+	err := registry.DeleteAll(ctx)
+	require.NoError(t, err, "clean up for testAllFunctions failed")
+
+	regData, err := registry.GetAll(ctx)
+	require.NoError(t, err)
+	require.True(t, len(regData) == 0, "expected registry to be empty")
+
+	testKey(ctx, t, fmt.Sprintf("%s-a", keyname), registry)
+	testKey(ctx, t, fmt.Sprintf("%s-b", keyname), registry)
+	testKey(ctx, t, fmt.Sprintf("%s-c", keyname), registry)
 }
 
 func TestNewRegistry(t *testing.T) {
@@ -166,4 +251,218 @@ func TestNewRegistry(t *testing.T) {
 		assert.Equal(t, exSenstiveCfg, sensitiveCfg)
 	})
 
+}
+
+func TestRegistry(t *testing.T) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(3*time.Minute))
+	defer cancel()
+
+	client, cleanUp := startContainerAndGetClient(ctx, t)
+	defer cleanUp()
+
+	cmClient := client.CoreV1().ConfigMaps(namespace)
+	sClient := client.CoreV1().Secrets(namespace)
+
+	globalConfigRegistry, err := NewGlobalConfigRegistry(ctx, cmClient)
+	require.NoError(t, err)
+
+	doguConfigRegistry, err := NewDoguConfigRegistry(ctx, "test", cmClient)
+	require.NoError(t, err)
+
+	doguSecretRegistry, err := NewSensitiveDoguRegistry(ctx, "test", sClient)
+	require.NoError(t, err)
+
+	key := "key"
+	testAllFunctions(ctx, t, globalConfigRegistry, key)
+	testAllFunctions(ctx, t, doguConfigRegistry, key)
+	testAllFunctions(ctx, t, doguSecretRegistry, key)
+}
+
+func TestRegistryWatch(t *testing.T) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(3*time.Minute))
+	defer cancel()
+
+	client, cleanUp := startContainerAndGetClient(ctx, t)
+	defer cleanUp()
+
+	cmClient := client.CoreV1().ConfigMaps(namespace)
+
+	t.Run("Watch global config registry", func(t *testing.T) {
+		globalWatchCtx, gCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer gCancel()
+
+		gRegistry, err := NewGlobalConfigRegistry(globalWatchCtx, cmClient)
+		require.NoError(t, err, "failed to create global config registry")
+
+		err = gRegistry.DeleteAll(globalWatchCtx)
+		require.NoError(t, err)
+
+		watchKey := "key1/key2"
+		oldValue := "value"
+		newValue := "newValue"
+
+		err = gRegistry.Set(globalWatchCtx, watchKey, oldValue)
+		require.NoError(t, err, "could not set initial value for global config")
+
+		watch, err := gRegistry.Watch(globalWatchCtx, watchKey, false)
+		assert.NoError(t, err)
+
+		var wg sync.WaitGroup
+		waitCh := make(chan struct{})
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-globalWatchCtx.Done():
+				t.Errorf("context reach end before receiving watch result")
+			case change := <-watch.ResultChan:
+				assert.NoError(t, change.Err)
+				values, ok := change.ModifiedKeys[watchKey]
+				if !ok {
+					t.Errorf("expected key %s in modifications", watchKey)
+					return
+				}
+
+				assert.Equal(t, oldValue, values.OldValue)
+				assert.Equal(t, newValue, values.NewValue)
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			lErr := gRegistry.Set(globalWatchCtx, watchKey, newValue)
+			require.NoError(t, lErr, "could not set new value for watchKey")
+		}()
+
+		go func() {
+			wg.Wait()
+			close(waitCh)
+		}()
+
+		select {
+		case <-globalWatchCtx.Done():
+			t.Errorf("context reach end before receiving watch result")
+		case <-waitCh:
+			t.Log("Finished global config watch without errors")
+		}
+	})
+
+	t.Run("Watch global config registry with change on other key", func(t *testing.T) {
+		globalWatchCtx, gCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer gCancel()
+
+		gRegistry, err := NewGlobalConfigRegistry(globalWatchCtx, cmClient)
+		require.NoError(t, err, "failed to create global config registry")
+
+		err = gRegistry.DeleteAll(globalWatchCtx)
+		require.NoError(t, err)
+
+		watchKey := "key1/key2"
+		oldValue := "value"
+		newValue := "newValue"
+
+		err = gRegistry.Set(globalWatchCtx, watchKey, oldValue)
+		require.NoError(t, err, "could not set initial value for global config")
+
+		watch, err := gRegistry.Watch(globalWatchCtx, watchKey, false)
+		assert.NoError(t, err)
+
+		var wg sync.WaitGroup
+		waitCh := make(chan struct{})
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-globalWatchCtx.Done():
+			case change := <-watch.ResultChan:
+				t.Errorf("Received unexpected watch result %v", change)
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			lErr := gRegistry.Set(globalWatchCtx, "/new", newValue)
+			require.NoError(t, lErr, "could not set new value for watchKey")
+		}()
+
+		go func() {
+			wg.Wait()
+			close(waitCh)
+		}()
+
+		select {
+		case <-globalWatchCtx.Done():
+			t.Log("Got no notification about updates of new key")
+		case <-waitCh:
+			t.Errorf("Expected timeout because no change has happen on watchKey")
+		}
+	})
+
+	t.Run("Recursive watch global config registry", func(t *testing.T) {
+		globalWatchCtx, gCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer gCancel()
+
+		gRegistry, err := NewGlobalConfigRegistry(globalWatchCtx, cmClient)
+		require.NoError(t, err, "failed to create global config registry")
+
+		err = gRegistry.DeleteAll(globalWatchCtx)
+		require.NoError(t, err)
+
+		watchKey := "key1"
+		oldValue := "value"
+		newValue := "newValue"
+
+		err = gRegistry.Set(globalWatchCtx, fmt.Sprintf("%s/key2", watchKey), oldValue)
+		require.NoError(t, err, "could not set initial value for global config")
+
+		watch, err := gRegistry.Watch(globalWatchCtx, watchKey, true)
+		assert.NoError(t, err)
+
+		var wg sync.WaitGroup
+		waitCh := make(chan struct{})
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-globalWatchCtx.Done():
+				t.Errorf("context reach end before receiving watch result")
+			case change := <-watch.ResultChan:
+				assert.NoError(t, change.Err)
+				assert.Equal(t, 1, len(change.ModifiedKeys))
+
+				for k, v := range change.ModifiedKeys {
+					assert.True(t, strings.Contains(k, watchKey))
+					assert.Equal(t, "", v.OldValue)
+					assert.Equal(t, newValue, v.NewValue)
+				}
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			lErr := gRegistry.Set(globalWatchCtx, fmt.Sprintf("%s/key3", watchKey), newValue)
+			require.NoError(t, lErr, "could not set new value for watchKey")
+		}()
+
+		go func() {
+			wg.Wait()
+			close(waitCh)
+		}()
+
+		select {
+		case <-globalWatchCtx.Done():
+			t.Errorf("context reach end before receiving watch result")
+		case <-waitCh:
+			t.Log("Finished global config watch without errors")
+		}
+	})
 }
