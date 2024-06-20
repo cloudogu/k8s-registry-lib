@@ -205,6 +205,16 @@ func TestNewRegistry(t *testing.T) {
 		sClient := client.CoreV1().Secrets(namespace)
 		cmClient := client.CoreV1().ConfigMaps(namespace)
 
+		// delete existing config maps
+		err := cmClient.Delete(ctx, createConfigName(globalConfigMapName), metav1.DeleteOptions{})
+		require.NoError(t, err)
+
+		err = cmClient.Delete(ctx, createConfigName(doguName), metav1.DeleteOptions{})
+		require.NoError(t, err)
+
+		err = sClient.Delete(ctx, createConfigName(doguName), metav1.DeleteOptions{})
+		require.NoError(t, err)
+
 		// create global config
 		exGlobalCfg, err := cmClient.Create(ctx, &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: createConfigName(globalConfigMapName)},
