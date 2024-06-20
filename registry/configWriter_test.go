@@ -64,7 +64,7 @@ func Test_configWriter_Set(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not read dogu config:")
+		assert.ErrorContains(t, err, "could not read config:")
 	})
 
 	t.Run("should fail to set config on write-error in repo", func(t *testing.T) {
@@ -81,7 +81,7 @@ func Test_configWriter_Set(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not write dogu config after updating value:")
+		assert.ErrorContains(t, err, "could not write config after updating value:")
 	})
 }
 
@@ -114,7 +114,7 @@ func Test_configWriter_Delete(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not read dogu config:")
+		assert.ErrorContains(t, err, "could not read config:")
 	})
 
 	t.Run("should fail to delete config on write-error in repo", func(t *testing.T) {
@@ -131,7 +131,7 @@ func Test_configWriter_Delete(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not write dogu config after deleting key foo/bar:")
+		assert.ErrorContains(t, err, "could not write config after deleting key foo/bar:")
 	})
 }
 
@@ -164,7 +164,7 @@ func Test_configWriter_DeleteRecursive(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not read dogu config:")
+		assert.ErrorContains(t, err, "could not read config:")
 	})
 
 	t.Run("should fail to delete config recursive on write-error in repo", func(t *testing.T) {
@@ -181,7 +181,7 @@ func Test_configWriter_DeleteRecursive(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not write dogu config after recursively deleting key foo:")
+		assert.ErrorContains(t, err, "could not write config after recursively deleting key foo:")
 	})
 }
 
@@ -231,6 +231,6 @@ func Test_configWriter_DeleteAll(t *testing.T) {
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
-		assert.ErrorContains(t, err, "could not write dogu config after deleting all keys:")
+		assert.ErrorContains(t, err, "could not write config after deleting all keys:")
 	})
 }
