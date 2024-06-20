@@ -50,7 +50,8 @@ node('docker') {
                     }
                 }
 
-        new Docker(this)
+        if (env.CHANGE_TARGET) {
+            new Docker(this)
                 .image("golang:${goVersion}")
                 .inside("--volume ${WORKSPACE}:/go/src/${project} -w /go/src/${project} --network host -u root -v /var/run/docker.sock:/var/run/docker.sock") {
                     stage('Integration test') {
@@ -58,6 +59,7 @@ node('docker') {
                         sh "go test -tags=integration -v ./..."
                     }
                 }
+        }
 
         stage('SonarQube') {
             stageStaticAnalysisSonarQube()
