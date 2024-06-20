@@ -8,8 +8,8 @@ import (
 
 const globalConfigMapName = "global"
 
-func createConfigName(doguName string) string {
-	return fmt.Sprintf("%s-config", doguName)
+func createConfigName(cName string) string {
+	return fmt.Sprintf("%s-config", cName)
 }
 
 type configRepository interface {
@@ -92,7 +92,7 @@ type SensitiveDoguReader struct {
 }
 
 func NewGlobalConfigReader(ctx context.Context, k8sClient ConfigMapClient) (*GlobalReader, error) {
-	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	repo, _ := newConfigRepo(createConfigName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
 
 	if lErr := repo.write(ctx, config.CreateConfig(make(config.Data))); lErr != nil {
 		return nil, fmt.Errorf("could not create initial global config reader: %w", lErr)
@@ -140,7 +140,7 @@ type SensitiveDoguWatcher struct {
 }
 
 func NewGlobalConfigWatcher(ctx context.Context, k8sClient ConfigMapClient) (*GlobalWatcher, error) {
-	repo, _ := newConfigRepo(globalConfigMapName, createConfigMapClient(k8sClient, globalConfigType))
+	repo, _ := newConfigRepo(createConfigName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
 
 	if lErr := repo.write(ctx, config.CreateConfig(make(config.Data))); lErr != nil {
 		return nil, fmt.Errorf("could not create initial global config for global watcher: %w", lErr)
