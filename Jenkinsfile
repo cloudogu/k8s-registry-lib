@@ -53,7 +53,7 @@ node('docker') {
         new Docker(this)
                 .image("golang:${goVersion}")
                 .mountJenkinsUser()
-                .inside("--volume ${WORKSPACE}:/go/src/${project} -w /go/src/${project} --network host -u root -v /var/run/docker.sock:/var/run/docker.sock") {
+                .inside("--volume ${WORKSPACE}:/go/src/${project} -w /go/src/${project} --network host -v /var/run/docker.sock:/var/run/docker.sock") {
                     stage('Integration test') {
                         echo "This branch has been detected as a pull request."
                         sh "go test -tags=integration -v ./..."
