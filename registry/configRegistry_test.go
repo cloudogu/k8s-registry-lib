@@ -212,7 +212,7 @@ func TestNewGlobalConfigReader(t *testing.T) {
 			if err == nil {
 				readerRepo := gcr.configReader.repo.(configRepo)
 
-				assert.Equal(t, "global", readerRepo.name)
+				assert.Equal(t, "global-config", readerRepo.name)
 
 				assert.Equal(t, m, readerRepo.client.(configMapClient).client)
 			}
@@ -338,7 +338,7 @@ func TestNewGlobalConfigWatcher(t *testing.T) {
 			if err == nil {
 				readerRepo := gcr.configWatcher.repo.(configRepo)
 
-				assert.Equal(t, "global", readerRepo.name)
+				assert.Equal(t, "global-config", readerRepo.name)
 
 				assert.Equal(t, m, readerRepo.client.(configMapClient).client)
 			}
