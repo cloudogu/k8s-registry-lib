@@ -37,6 +37,18 @@ type configRegistry struct {
 	configWatcher
 }
 
+type DoguConfigRegistryProvider func(ctx context.Context, doguName string) (*DoguRegistry, error)
+
+func (dcp DoguConfigRegistryProvider) GetDoguConfig(ctx context.Context, doguName string) (*DoguRegistry, error) {
+	return dcp(ctx, doguName)
+}
+
+func NewDoguConfigRegistryProvider(k8sClient ConfigMapClient) DoguConfigRegistryProvider {
+	return func(ctx context.Context, doguName string) (*DoguRegistry, error) {
+		return NewDoguConfigRegistry(ctx, doguName, k8sClient)
+	}
+}
+
 func NewGlobalConfigRegistry(ctx context.Context, k8sClient ConfigMapClient) (*GlobalRegistry, error) {
 	repo, _ := newConfigRepo(createConfigName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
 
@@ -63,6 +75,18 @@ func NewDoguConfigRegistry(ctx context.Context, doguName string, k8sClient Confi
 		configWriter{repo: repo},
 		configWatcher{repo: repo},
 	}}, nil
+}
+
+type SensitiveDoguRegistryProvider func(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error)
+
+func (scp SensitiveDoguRegistryProvider) GetSensitiveDoguConfig(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error) {
+	return scp(ctx, doguName)
+}
+
+func NewSensitiveDoguRegistryProvider(sc SecretClient) SensitiveDoguRegistryProvider {
+	return func(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error) {
+		return NewSensitiveDoguRegistry(ctx, doguName, sc)
+	}
 }
 
 func NewSensitiveDoguRegistry(ctx context.Context, doguName string, sc SecretClient) (*SensitiveDoguRegistry, error) {
@@ -151,6 +175,18 @@ func NewGlobalConfigWatcher(ctx context.Context, k8sClient ConfigMapClient) (*Gl
 	}, nil
 }
 
+type DoguConfigWatcherProvider func(ctx context.Context, doguName string) (*DoguWatcher, error)
+
+func (dcwp DoguConfigWatcherProvider) GetDoguConfigWatcher(ctx context.Context, doguName string) (*DoguWatcher, error) {
+	return dcwp(ctx, doguName)
+}
+
+func NewDoguConfigWatcherProvider(k8sClient ConfigMapClient) DoguConfigWatcherProvider {
+	return func(ctx context.Context, doguName string) (*DoguWatcher, error) {
+		return NewDoguConfigWatcher(ctx, doguName, k8sClient)
+	}
+}
+
 func NewDoguConfigWatcher(ctx context.Context, doguName string, k8sClient ConfigMapClient) (*DoguWatcher, error) {
 	repo, _ := newConfigRepo(createConfigName(doguName), createConfigMapClient(k8sClient, doguConfigType))
 
@@ -161,6 +197,18 @@ func NewDoguConfigWatcher(ctx context.Context, doguName string, k8sClient Config
 	return &DoguWatcher{
 		configWatcher{repo: repo},
 	}, nil
+}
+
+type SensitiveDoguWatcherProvider func(ctx context.Context, doguName string) (*SensitiveDoguWatcher, error)
+
+func (sdcwp SensitiveDoguWatcherProvider) GetSensitiveDoguConfigWatcher(ctx context.Context, doguName string) (*SensitiveDoguWatcher, error) {
+	return sdcwp(ctx, doguName)
+}
+
+func NewSensitiveDoguWatcherProvider(sc SecretClient) SensitiveDoguWatcherProvider {
+	return func(ctx context.Context, doguName string) (*SensitiveDoguWatcher, error) {
+		return NewSensitiveDoguWatcher(ctx, doguName, sc)
+	}
 }
 
 func NewSensitiveDoguWatcher(ctx context.Context, doguName string, sc SecretClient) (*SensitiveDoguWatcher, error) {
