@@ -65,18 +65,6 @@ func NewDoguConfigRegistry(ctx context.Context, doguName string, k8sClient Confi
 	}}, nil
 }
 
-type SensitiveDoguRegistryProvider func(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error)
-
-func (scp SensitiveDoguRegistryProvider) GetSensitiveDoguConfig(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error) {
-	return scp(ctx, doguName)
-}
-
-func NewSensitiveDoguRegistryProvider(sc SecretClient) SensitiveDoguRegistryProvider {
-	return func(ctx context.Context, doguName string) (*SensitiveDoguRegistry, error) {
-		return NewSensitiveDoguRegistry(ctx, doguName, sc)
-	}
-}
-
 func NewSensitiveDoguRegistry(ctx context.Context, doguName string, sc SecretClient) (*SensitiveDoguRegistry, error) {
 	repo, _ := newConfigRepo(createConfigName(doguName), createSecretClient(sc, sensitiveConfigType))
 
