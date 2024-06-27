@@ -37,18 +37,6 @@ type configRegistry struct {
 	configWatcher
 }
 
-type DoguConfigRegistryProvider func(ctx context.Context, doguName string) (*DoguRegistry, error)
-
-func (dcp DoguConfigRegistryProvider) GetDoguConfig(ctx context.Context, doguName string) (*DoguRegistry, error) {
-	return dcp(ctx, doguName)
-}
-
-func NewDoguConfigRegistryProvider(k8sClient ConfigMapClient) DoguConfigRegistryProvider {
-	return func(ctx context.Context, doguName string) (*DoguRegistry, error) {
-		return NewDoguConfigRegistry(ctx, doguName, k8sClient)
-	}
-}
-
 func NewGlobalConfigRegistry(ctx context.Context, k8sClient ConfigMapClient) (*GlobalRegistry, error) {
 	repo, _ := newConfigRepo(createConfigName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
 
