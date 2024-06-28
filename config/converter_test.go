@@ -13,7 +13,7 @@ func TestMapToConfig(t *testing.T) {
 	testCases := []struct {
 		name        string
 		sourceMap   map[string]any
-		expected    Data
+		expected    Entries
 		expectFail  bool
 		expectedErr string
 	}{
@@ -23,7 +23,7 @@ func TestMapToConfig(t *testing.T) {
 				"key1": "value1",
 				"key2": "value2",
 			},
-			expected: Data{
+			expected: Entries{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -38,7 +38,7 @@ func TestMapToConfig(t *testing.T) {
 					"child3": "123",
 				},
 			},
-			expected: Data{
+			expected: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 				"parent/child3": "123",
@@ -49,24 +49,24 @@ func TestMapToConfig(t *testing.T) {
 			name: "invalid yaml",
 			sourceMap: map[string]any{
 				"parent": map[string]any{
-					"child1": &Data{},
+					"child1": &Entries{},
 				},
 			},
-			expected:    Data{},
+			expected:    Entries{},
 			expectFail:  true,
-			expectedErr: "could not convert &map[] to string",
+			expectedErr: "could not convert &map[] to value (string)",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var result Data
+			var result Entries
 
 			err := mapToConfig(tc.sourceMap, &result, "")
 			if tc.expectFail {
 				assert.Error(t, err)
 				if tc.expectedErr != "" {
-					assert.Equal(t, err.Error(), "could not convert &map[] to string")
+					assert.Equal(t, err.Error(), "could not convert &map[] to value (string)")
 				}
 			}
 			if !reflect.DeepEqual(result, tc.expected) {
@@ -79,13 +79,13 @@ func TestMapToConfig(t *testing.T) {
 func TestConfigToMap(t *testing.T) {
 	testCases := []struct {
 		name       string
-		sourceData Data
+		sourceData Entries
 		prefix     string
 		expected   map[string]any
 	}{
 		{
 			name: "Simple map conversion",
-			sourceData: Data{
+			sourceData: Entries{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -94,7 +94,7 @@ func TestConfigToMap(t *testing.T) {
 		},
 		{
 			name: "Nested map conversion",
-			sourceData: Data{
+			sourceData: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 			},
@@ -103,7 +103,7 @@ func TestConfigToMap(t *testing.T) {
 		},
 		{
 			name: "Complex nested map conversion",
-			sourceData: Data{
+			sourceData: Entries{
 				"grandparent/parent/child1": "value1",
 				"grandparent/parent/child2": "value2",
 			},
@@ -112,7 +112,7 @@ func TestConfigToMap(t *testing.T) {
 		},
 		{
 			name: "Conversion with prefix",
-			sourceData: Data{
+			sourceData: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 			},
@@ -121,7 +121,7 @@ func TestConfigToMap(t *testing.T) {
 		},
 		{
 			name: "Prefix not found",
-			sourceData: Data{
+			sourceData: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 			},
@@ -145,7 +145,7 @@ func TestYamlConverter_Read(t *testing.T) {
 		name       string
 		yamlInput  string
 		nilReader  bool
-		expected   Data
+		expected   Entries
 		expectFail bool
 	}{
 		{
@@ -154,7 +154,7 @@ func TestYamlConverter_Read(t *testing.T) {
 key1: value1
 key2: value2
 `,
-			expected: Data{
+			expected: Entries{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -167,7 +167,7 @@ parent:
  child1: value1
  child2: value2
 `,
-			expected: Data{
+			expected: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 			},
@@ -176,7 +176,7 @@ parent:
 		{
 			name:       "Empty YAML",
 			yamlInput:  ``,
-			expected:   Data{},
+			expected:   Entries{},
 			expectFail: true,
 		},
 		{
@@ -194,7 +194,7 @@ parent:
 parent:
 child1; 123
 `,
-			expected:   Data{},
+			expected:   Entries{},
 			expectFail: true,
 		},
 		{
@@ -203,7 +203,7 @@ child1; 123
 parent:
  child1: 123
 `,
-			expected:   Data{},
+			expected:   Entries{},
 			expectFail: true,
 		},
 	}
@@ -232,20 +232,20 @@ parent:
 func TestYamlConverter_Write(t *testing.T) {
 	testCases := []struct {
 		name     string
-		data     Data
+		data     Entries
 		expected string
 	}{
 		{
-			name: "Simple Data",
-			data: Data{
+			name: "Simple Entries",
+			data: Entries{
 				"key1": "value1",
 				"key2": "value2",
 			},
 			expected: "key1: value1\nkey2: value2\n",
 		},
 		{
-			name: "Nested Data",
-			data: Data{
+			name: "Nested Entries",
+			data: Entries{
 				"parent/child1": "value1",
 				"parent/child2": "value2",
 			},

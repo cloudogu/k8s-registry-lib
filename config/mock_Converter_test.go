@@ -22,23 +22,23 @@ func (_m *MockConverter) EXPECT() *MockConverter_Expecter {
 }
 
 // Read provides a mock function with given fields: reader
-func (_m *MockConverter) Read(reader io.Reader) (Data, error) {
+func (_m *MockConverter) Read(reader io.Reader) (Entries, error) {
 	ret := _m.Called(reader)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Read")
+		panic("no return Value specified for Read")
 	}
 
-	var r0 Data
+	var r0 Entries
 	var r1 error
-	if rf, ok := ret.Get(0).(func(io.Reader) (Data, error)); ok {
+	if rf, ok := ret.Get(0).(func(io.Reader) (Entries, error)); ok {
 		return rf(reader)
 	}
-	if rf, ok := ret.Get(0).(func(io.Reader) Data); ok {
+	if rf, ok := ret.Get(0).(func(io.Reader) Entries); ok {
 		r0 = rf(reader)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(Data)
+			r0 = ret.Get(0).(Entries)
 		}
 	}
 
@@ -69,26 +69,26 @@ func (_c *MockConverter_Read_Call) Run(run func(reader io.Reader)) *MockConverte
 	return _c
 }
 
-func (_c *MockConverter_Read_Call) Return(_a0 Data, _a1 error) *MockConverter_Read_Call {
+func (_c *MockConverter_Read_Call) Return(_a0 Entries, _a1 error) *MockConverter_Read_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockConverter_Read_Call) RunAndReturn(run func(io.Reader) (Data, error)) *MockConverter_Read_Call {
+func (_c *MockConverter_Read_Call) RunAndReturn(run func(io.Reader) (Entries, error)) *MockConverter_Read_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Write provides a mock function with given fields: writer, cfgData
-func (_m *MockConverter) Write(writer io.Writer, cfgData Data) error {
+func (_m *MockConverter) Write(writer io.Writer, cfgData Entries) error {
 	ret := _m.Called(writer, cfgData)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Write")
+		panic("no return Value specified for Write")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(io.Writer, Data) error); ok {
+	if rf, ok := ret.Get(0).(func(io.Writer, Entries) error); ok {
 		r0 = rf(writer, cfgData)
 	} else {
 		r0 = ret.Error(0)
@@ -104,14 +104,14 @@ type MockConverter_Write_Call struct {
 
 // Write is a helper method to define mock.On call
 //   - writer io.Writer
-//   - cfgData Data
+//   - cfgData Entries
 func (_e *MockConverter_Expecter) Write(writer interface{}, cfgData interface{}) *MockConverter_Write_Call {
 	return &MockConverter_Write_Call{Call: _e.mock.On("Write", writer, cfgData)}
 }
 
-func (_c *MockConverter_Write_Call) Run(run func(writer io.Writer, cfgData Data)) *MockConverter_Write_Call {
+func (_c *MockConverter_Write_Call) Run(run func(writer io.Writer, cfgData Entries)) *MockConverter_Write_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(io.Writer), args[1].(Data))
+		run(args[0].(io.Writer), args[1].(Entries))
 	})
 	return _c
 }
@@ -121,13 +121,13 @@ func (_c *MockConverter_Write_Call) Return(_a0 error) *MockConverter_Write_Call 
 	return _c
 }
 
-func (_c *MockConverter_Write_Call) RunAndReturn(run func(io.Writer, Data) error) *MockConverter_Write_Call {
+func (_c *MockConverter_Write_Call) RunAndReturn(run func(io.Writer, Entries) error) *MockConverter_Write_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // NewMockConverter creates a new instance of MockConverter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
-// The first argument is typically a *testing.T value.
+// The first argument is typically a *testing.T Value.
 func NewMockConverter(t interface {
 	mock.TestingT
 	Cleanup(func())

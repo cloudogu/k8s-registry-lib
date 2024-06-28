@@ -2,75 +2,88 @@ package config
 
 import (
 	"fmt"
+	"golang.org/x/exp/slices"
 	"maps"
 	"strings"
 )
 
 type Change struct {
-	KeyPath string
+	KeyPath Key
 	Deleted bool
 }
 
-type Data map[string]string
+type Key string
 
-type Config struct {
-	Data          Data
-	ChangeHistory []Change
+func (k Key) String() string {
+	return string(k)
 }
 
-func CreateConfig(data Data) Config {
+type Value string
+
+func (v Value) String() string {
+	return string(v)
+}
+
+type Entries map[Key]Value
+
+type Config struct {
+	entries       Entries
+	changeHistory []Change
+}
+
+func CreateConfig(data Entries) Config {
 	return Config{
-		Data:          data,
-		ChangeHistory: make([]Change, 0),
+		entries:       data,
+		changeHistory: make([]Change, 0),
 	}
 }
 
-func (c *Config) Set(key, value string) error {
-	key = sanitizeKey(key)
+func (c *Config) Set(k Key, v Value) error {
+	k = sanitizeKey(k)
 
-	if key == "" || key == keySeparator {
+	if k == "" || k == keySeparator {
 		return fmt.Errorf("key is empty")
 	}
 
-	if strings.HasSuffix(key, keySeparator) {
-		return fmt.Errorf("key %s must not be a dictionary", key)
+	if strings.HasSuffix(k.String(), keySeparator) {
+		return fmt.Errorf("key %s must not be a dictionary", k)
 	}
 
-	subkey := key + keySeparator
+	subKey := k + keySeparator
 
-	for configKey := range c.Data {
-		if strings.HasPrefix(configKey, subkey) {
+	for configKey := range c.entries {
+		if strings.HasPrefix(configKey.String(), subKey.String()) {
 			return fmt.Errorf("key %s is alreaedy used as dictionary", configKey)
 		}
 	}
 
-	if lErr := checkSubkeyHasValue(key, key, c.Data); lErr != nil {
-		return fmt.Errorf("subkey from key %s already has a value: %w", key, lErr)
+	if lErr := validateNoDictionaryHasValue(k, k, c.entries); lErr != nil {
+		return fmt.Errorf("dictionary with key %s already has a value: %w", k, lErr)
 	}
 
-	c.Data[key] = value
-	c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: false})
+	c.entries[k] = v
+	c.changeHistory = append(c.changeHistory, Change{KeyPath: k, Deleted: false})
 
 	return nil
 }
 
-func checkSubkeyHasValue(rootKey, key string, cfg Data) error {
-	subkey, found := splitAtLastOccurrence(key)
+func validateNoDictionaryHasValue(rootKey, key Key, cfg Entries) error {
+	subKey, found := splitAtLastOccurrence(key)
 
-	if _, ok := cfg[subkey]; ok && subkey != rootKey {
-		return fmt.Errorf("key %s already has value set", subkey)
+	if _, ok := cfg[subKey]; ok && subKey != rootKey {
+		return fmt.Errorf("key %s already has Value set", subKey)
 	}
 
 	if found {
-		return checkSubkeyHasValue(rootKey, subkey, cfg)
+		return validateNoDictionaryHasValue(rootKey, subKey, cfg)
 	}
 
 	return nil
 }
 
-func splitAtLastOccurrence(s string) (string, bool) {
+func splitAtLastOccurrence(s Key) (Key, bool) {
 	// Find the last occurrence of the separator
-	idx := strings.LastIndex(s, keySeparator)
+	idx := strings.LastIndex(s.String(), keySeparator)
 	if idx == -1 {
 		// If the separator is not found, return the original string and an empty string
 		return s, false
@@ -79,61 +92,66 @@ func splitAtLastOccurrence(s string) (string, bool) {
 	return s[:idx], true
 }
 
-// Exists returns true if configuration key exists
-func (c *Config) Exists(key string) bool {
+// Exists returns true if configuration Key exists
+func (c *Config) Exists(key Key) bool {
 	key = sanitizeKey(key)
 
-	_, ok := c.Data[key]
+	_, ok := c.entries[key]
 
 	return ok
 }
 
-// Get returns the configuration value for the given key.
-// Returns an error if no values exists for the given key.
-func (c *Config) Get(key string) (string, error) {
-	key = sanitizeKey(key)
+// Get returns the configuration Value for the given Key.
+// Returns an error if no values exists for the given Key.
+func (c *Config) Get(k Key) (Value, error) {
+	k = sanitizeKey(k)
 
-	value, ok := c.Data[key]
+	value, ok := c.entries[k]
 
 	if !ok {
-		return "", fmt.Errorf("value for %s does not exist", key)
+		return "", fmt.Errorf("value for %s does not exist", k)
 	}
 
 	return value, nil
 }
 
-// GetAll returns a map of all key-value-pairs
-func (c *Config) GetAll() Data {
-	return maps.Clone(c.Data)
+// GetAll returns a map of all Key-Value-pairs
+func (c *Config) GetAll() Entries {
+	return maps.Clone(c.entries)
 }
 
-// Delete removes the configuration key and value
-func (c *Config) Delete(key string) {
-	key = sanitizeKey(key)
+// GetChangeHistory returns a slice of all changes made to the config
+func (c *Config) GetChangeHistory() []Change {
+	return slices.Clone(c.changeHistory)
+}
 
-	for configKey := range c.Data {
-		if configKey == key {
-			delete(c.Data, key)
-			c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: key, Deleted: true})
+// Delete removes the configuration Key and Value
+func (c *Config) Delete(k Key) {
+	k = sanitizeKey(k)
+
+	for configKey := range c.entries {
+		if configKey == k {
+			delete(c.entries, k)
+			c.changeHistory = append(c.changeHistory, Change{KeyPath: k, Deleted: true})
 		}
 	}
 }
 
-// DeleteRecursive removes all configuration for the given key, including all configuration for sub-keys
-func (c *Config) DeleteRecursive(key string) {
-	key = sanitizeKey(key)
+// DeleteRecursive removes all configuration for the given Key, including all configuration for sub-keys
+func (c *Config) DeleteRecursive(k Key) {
+	k = sanitizeKey(k)
 
-	c.Delete(key)
+	c.Delete(k)
 
 	//scan for subkeys
-	if key != "" && !strings.HasSuffix(key, keySeparator) {
-		key = key + keySeparator
+	if k != "" && !strings.HasSuffix(k.String(), keySeparator) {
+		k = k + keySeparator
 	}
 
-	for configKey := range c.Data {
-		if strings.HasPrefix(configKey, key) {
-			delete(c.Data, configKey)
-			c.ChangeHistory = append(c.ChangeHistory, Change{KeyPath: configKey, Deleted: true})
+	for configKey := range c.entries {
+		if strings.HasPrefix(configKey.String(), k.String()) {
+			delete(c.entries, configKey)
+			c.changeHistory = append(c.changeHistory, Change{KeyPath: configKey, Deleted: true})
 		}
 	}
 }
@@ -143,9 +161,11 @@ func (c *Config) DeleteAll() {
 	c.DeleteRecursive(keySeparator)
 }
 
-func sanitizeKey(key string) string {
-	if strings.HasPrefix(key, keySeparator) {
-		return key[1:]
+func sanitizeKey(key Key) Key {
+	sKey := key.String()
+
+	if strings.HasPrefix(sKey, keySeparator) {
+		return Key(sKey[1:])
 	}
 
 	return key
