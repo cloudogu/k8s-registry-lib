@@ -69,38 +69,40 @@ func (cw configWatcher) Watch(ctx context.Context, key string, recursive bool) (
 	return ConfigWatch{resultChan, cancelWatchCtx}, nil
 }
 
-func compareConfigs(oldConfig config.Config, newConfig config.Config, configKey string, recursive bool) map[string]ConfigModification {
+func compareConfigs(oldConfig config.Config, newConfig config.Config, sConfigKey string, recursive bool) map[string]ConfigModification {
 	modifications := make(map[string]ConfigModification)
+
+	configKey := config.Key(sConfigKey)
 
 	if !recursive {
 		mod, ok := compareConfigForSingleKey(oldConfig, newConfig, configKey)
 		if ok {
-			modifications[configKey] = mod
+			modifications[configKey.String()] = mod
 		}
 
 		return modifications
 	}
 
-	combinedConfigMap := make(map[string]string)
+	combinedConfigMap := make(map[config.Key]config.Value)
 	maps.Copy(combinedConfigMap, oldConfig.GetAll())
 	maps.Copy(combinedConfigMap, newConfig.GetAll())
 	allConfigKeys := maps.Keys(combinedConfigMap)
 
 	for _, key := range allConfigKeys {
-		if !strings.HasPrefix(key, configKey) {
+		if !strings.HasPrefix(key.String(), configKey.String()) {
 			continue
 		}
 
 		mod, ok := compareConfigForSingleKey(oldConfig, newConfig, key)
 		if ok {
-			modifications[key] = mod
+			modifications[key.String()] = mod
 		}
 	}
 
 	return modifications
 }
 
-func compareConfigForSingleKey(oldConfig config.Config, newConfig config.Config, configKey string) (ConfigModification, bool) {
+func compareConfigForSingleKey(oldConfig config.Config, newConfig config.Config, configKey config.Key) (ConfigModification, bool) {
 	oldValue, err := oldConfig.Get(configKey)
 	if err != nil {
 		oldValue = ""
@@ -112,8 +114,56 @@ func compareConfigForSingleKey(oldConfig config.Config, newConfig config.Config,
 	}
 
 	if oldValue != newValue {
-		return ConfigModification{oldValue, newValue}, true
+		return ConfigModification{oldValue.String(), newValue.String()}, true
 	}
 
-	return ConfigModification{oldValue, newValue}, false
+	return ConfigModification{oldValue.String(), newValue.String()}, false
+}
+
+type GlobalWatcher struct {
+	configWatcher
+}
+
+type DoguWatcher struct {
+	configWatcher
+}
+
+type SensitiveDoguWatcher struct {
+	configWatcher
+}
+
+func NewGlobalConfigWatcher(ctx context.Context, k8sClient ConfigMapClient) (*GlobalWatcher, error) {
+	repo, _ := newConfigRepo(withGeneralName(globalConfigMapName), createConfigMapClient(k8sClient, globalConfigType))
+
+	if lErr := repo.write(ctx, config.CreateConfig(make(config.Entries))); lErr != nil {
+		return nil, fmt.Errorf("could not create initial global config for global watcher: %w", lErr)
+	}
+
+	return &GlobalWatcher{
+		configWatcher{repo: repo},
+	}, nil
+}
+
+func NewDoguConfigWatcher(ctx context.Context, doguName string, k8sClient ConfigMapClient) (*DoguWatcher, error) {
+	repo, _ := newConfigRepo(withDoguName(doguName), createConfigMapClient(k8sClient, doguConfigType))
+
+	if lErr := repo.write(ctx, config.CreateConfig(make(config.Entries))); lErr != nil {
+		return nil, fmt.Errorf("could not create initial dogu config for watcher %s: %w", doguName, lErr)
+	}
+
+	return &DoguWatcher{
+		configWatcher{repo: repo},
+	}, nil
+}
+
+func NewSensitiveDoguWatcher(ctx context.Context, doguName string, sc SecretClient) (*SensitiveDoguWatcher, error) {
+	repo, _ := newConfigRepo(withDoguName(doguName), createSecretClient(sc, sensitiveConfigType))
+
+	if lErr := repo.write(ctx, config.CreateConfig(make(config.Entries))); lErr != nil {
+		return nil, fmt.Errorf("could not create initial sensitive dogu config for watcher %s: %w", doguName, lErr)
+	}
+
+	return &SensitiveDoguWatcher{
+		configWatcher{repo: repo},
+	}, nil
 }

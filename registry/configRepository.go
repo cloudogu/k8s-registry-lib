@@ -34,31 +34,58 @@ type configWatchResult struct {
 type configClient interface {
 	Get(ctx context.Context, name string) (clientData, error)
 	Delete(ctx context.Context, name string) error
-	Create(ctx context.Context, name string, dataStr string) error
+	Create(ctx context.Context, name string, doguName string, dataStr string) error
 	Update(ctx context.Context, update clientData) error
 	Watch(ctx context.Context, name string) (<-chan clientWatchResult, error)
 }
 
+type repoNameOption func(repo *configRepo) error
+
+func withGeneralName(name string) repoNameOption {
+	return func(repo *configRepo) error {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("name is empty")
+		}
+
+		repo.name = createConfigName(name)
+
+		return nil
+	}
+}
+
+func withDoguName(name string) repoNameOption {
+	return func(repo *configRepo) error {
+		repo.doguName = name
+		return withGeneralName(name)(repo)
+	}
+}
+
 type configRepo struct {
 	name      string
+	doguName  string
 	client    configClient
 	converter config.Converter
 }
 
-func newConfigRepo(name string, client configClient) (configRepo, error) {
-	if strings.TrimSpace(name) == "" {
-		return configRepo{}, errors.New("name is empty")
-	}
+func createConfigName(cName string) string {
+	return fmt.Sprintf("%s-config", cName)
+}
 
+func newConfigRepo(nameOption repoNameOption, client configClient) (configRepo, error) {
 	if client == nil {
 		return configRepo{}, errors.New("client is nil")
 	}
 
-	return configRepo{
-		name:      name,
+	cr := configRepo{
 		client:    client,
 		converter: &config.YamlConverter{},
-	}, nil
+	}
+
+	if err := nameOption(&cr); err != nil {
+		return configRepo{}, fmt.Errorf("could not set name for repo: %w", err)
+	}
+
+	return cr, nil
 }
 
 func (cr configRepo) get(ctx context.Context) (config.Config, error) {
@@ -105,11 +132,11 @@ func (cr configRepo) write(ctx context.Context, cfg config.Config) error {
 func (cr configRepo) createConfig(ctx context.Context, cfg config.Config) error {
 	var buf bytes.Buffer
 
-	if err := cr.converter.Write(&buf, cfg.Data); err != nil {
+	if err := cr.converter.Write(&buf, cfg.GetAll()); err != nil {
 		return fmt.Errorf("unable to convert config data to data string: %w", err)
 	}
 
-	if err := cr.client.Create(ctx, cr.name, buf.String()); err != nil {
+	if err := cr.client.Create(ctx, cr.name, cr.doguName, buf.String()); err != nil {
 		return fmt.Errorf("could not create config in cluster: %w", err)
 	}
 
@@ -117,7 +144,7 @@ func (cr configRepo) createConfig(ctx context.Context, cfg config.Config) error 
 }
 
 func (cr configRepo) updateConfig(ctx context.Context, cd clientData, cfg config.Config) error {
-	if len(cfg.ChangeHistory) == 0 {
+	if len(cfg.GetChangeHistory()) == 0 {
 		return nil
 	}
 
@@ -128,7 +155,7 @@ func (cr configRepo) updateConfig(ctx context.Context, cd clientData, cfg config
 		return fmt.Errorf("could not convert old client data to config data: %w", err)
 	}
 
-	if reflect.DeepEqual(remoteConfigData, cfg.Data) {
+	if reflect.DeepEqual(remoteConfigData, cfg.GetAll()) {
 		return nil
 	}
 
@@ -191,8 +218,8 @@ func (cr configRepo) watch(ctx context.Context) (*configWatch, error) {
 	}, nil
 }
 
-func mergeConfigData(remoteCfgData config.Data, localCfg config.Config) (config.Data, error) {
-	for _, c := range localCfg.ChangeHistory {
+func mergeConfigData(remoteCfgData config.Entries, localCfg config.Config) (config.Entries, error) {
+	for _, c := range localCfg.GetChangeHistory() {
 		if c.Deleted {
 			delete(remoteCfgData, c.KeyPath)
 			continue

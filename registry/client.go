@@ -43,6 +43,7 @@ const (
 	appLabelKey      = "app"
 	appLabelValueCes = "ces"
 	typeLabelKey     = "k8s.cloudogu.com/type"
+	doguNameLabelKey = "dogu.name"
 )
 
 const dataKeyName = "config.yaml"
@@ -95,7 +96,11 @@ func (cmc configMapClient) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
-func (cmc configMapClient) Create(ctx context.Context, name string, dataStr string) error {
+func (cmc configMapClient) Create(ctx context.Context, name string, doguName string, dataStr string) error {
+	if doguName != "" {
+		cmc.labels[doguNameLabelKey] = doguName
+	}
+
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -180,7 +185,11 @@ func (sc secretClient) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
-func (sc secretClient) Create(ctx context.Context, name string, dataStr string) error {
+func (sc secretClient) Create(ctx context.Context, name string, doguName string, dataStr string) error {
+	if doguName != "" {
+		sc.labels[doguNameLabelKey] = doguName
+	}
+
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,

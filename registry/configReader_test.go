@@ -12,7 +12,7 @@ func Test_configReader_Exists(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should check config exists", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -25,7 +25,7 @@ func Test_configReader_Exists(t *testing.T) {
 	})
 
 	t.Run("should check config not exists", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -38,7 +38,7 @@ func Test_configReader_Exists(t *testing.T) {
 	})
 
 	t.Run("should fail to check if config exists on error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -56,7 +56,7 @@ func Test_configReader_Get(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -69,7 +69,7 @@ func Test_configReader_Get(t *testing.T) {
 	})
 
 	t.Run("should fail to get config that does not exist", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -82,7 +82,7 @@ func Test_configReader_Get(t *testing.T) {
 	})
 
 	t.Run("should fail to get config on error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -100,7 +100,7 @@ func Test_configReader_GetAll(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get all config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1", "key1": "other"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1", "key1": "other"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -113,7 +113,7 @@ func Test_configReader_GetAll(t *testing.T) {
 	})
 
 	t.Run("should get empty config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{})
+		conf := config.CreateConfig(config.Entries{})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -126,7 +126,7 @@ func Test_configReader_GetAll(t *testing.T) {
 	})
 
 	t.Run("should fail to get all config on error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)

@@ -246,7 +246,7 @@ func TestNewRegistry(t *testing.T) {
 		_, err = NewSensitiveDoguRegistry(ctx, doguName, sClient)
 		assert.NoError(t, err)
 
-		// evaluate Data in config maps and secret still exists
+		// evaluate entries in config maps and secret still exists
 		globalCfgMap, err := cmClient.Get(ctx, createConfigName(globalConfigMapName), metav1.GetOptions{})
 		assert.NoError(t, err)
 

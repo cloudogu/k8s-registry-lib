@@ -12,8 +12,8 @@ func Test_configWriter_Set(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should set config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1"})
 		expectedConf.Set("foo/bar", "myVal")
 
 		mockRepo := newMockConfigRepository(t)
@@ -27,7 +27,7 @@ func Test_configWriter_Set(t *testing.T) {
 	})
 
 	t.Run("error while setting config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, nil)
@@ -39,8 +39,8 @@ func Test_configWriter_Set(t *testing.T) {
 	})
 
 	t.Run("should create new config if config not found", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{})
-		expectedConf := config.CreateConfig(config.Data{})
+		conf := config.CreateConfig(config.Entries{})
+		expectedConf := config.CreateConfig(config.Entries{})
 		expectedConf.Set("foo/bar", "myVal")
 
 		mockRepo := newMockConfigRepository(t)
@@ -54,7 +54,7 @@ func Test_configWriter_Set(t *testing.T) {
 	})
 
 	t.Run("should fail to set config on get-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -68,8 +68,8 @@ func Test_configWriter_Set(t *testing.T) {
 	})
 
 	t.Run("should fail to set config on write-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1"})
 		expectedConf.Set("foo/bar", "myVal")
 
 		mockRepo := newMockConfigRepository(t)
@@ -89,8 +89,8 @@ func Test_configWriter_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should delete config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
 		expectedConf.Delete("foo/bar")
 
 		mockRepo := newMockConfigRepository(t)
@@ -104,7 +104,7 @@ func Test_configWriter_Delete(t *testing.T) {
 	})
 
 	t.Run("should fail to delete config on get-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"foo/bar": "value1"})
+		conf := config.CreateConfig(config.Entries{"foo/bar": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -118,8 +118,8 @@ func Test_configWriter_Delete(t *testing.T) {
 	})
 
 	t.Run("should fail to delete config on write-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
 		expectedConf.Delete("foo/bar")
 
 		mockRepo := newMockConfigRepository(t)
@@ -139,8 +139,8 @@ func Test_configWriter_DeleteRecursive(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should delete config recursive", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
 		expectedConf.DeleteRecursive("foo")
 
 		mockRepo := newMockConfigRepository(t)
@@ -154,7 +154,7 @@ func Test_configWriter_DeleteRecursive(t *testing.T) {
 	})
 
 	t.Run("should fail to delete config recursive on get-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -168,8 +168,8 @@ func Test_configWriter_DeleteRecursive(t *testing.T) {
 	})
 
 	t.Run("should fail to delete config recursive on write-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1", "foo/bar": "myValue"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1", "foo/bar": "myValue"})
 		expectedConf.DeleteRecursive("foo")
 
 		mockRepo := newMockConfigRepository(t)
@@ -189,8 +189,8 @@ func Test_configWriter_DeleteAll(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should delete all config", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1"})
 		expectedConf.DeleteAll()
 
 		mockRepo := newMockConfigRepository(t)
@@ -204,7 +204,7 @@ func Test_configWriter_DeleteAll(t *testing.T) {
 	})
 
 	t.Run("should fail to delete all config on get-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
 
 		mockRepo := newMockConfigRepository(t)
 		mockRepo.EXPECT().get(ctx).Return(conf, assert.AnError)
@@ -218,8 +218,8 @@ func Test_configWriter_DeleteAll(t *testing.T) {
 	})
 
 	t.Run("should fail to delete all config on write-error in repo", func(t *testing.T) {
-		conf := config.CreateConfig(config.Data{"value/key": "value1"})
-		expectedConf := config.CreateConfig(config.Data{"value/key": "value1"})
+		conf := config.CreateConfig(config.Entries{"value/key": "value1"})
+		expectedConf := config.CreateConfig(config.Entries{"value/key": "value1"})
 		expectedConf.DeleteAll()
 
 		mockRepo := newMockConfigRepository(t)

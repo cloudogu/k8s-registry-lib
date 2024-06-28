@@ -15,46 +15,46 @@ func Test_compareConfigForSingleKey(t *testing.T) {
 		name      string
 		oldConfig config.Config
 		newConfig config.Config
-		configKey string
+		configKey config.Key
 		want      ConfigModification
 		want1     bool
 	}{
 		{
 			"should compare existing keys with different values",
-			config.CreateConfig(config.Data{"foo": "bar"}),
-			config.CreateConfig(config.Data{"foo": "value"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "value"}),
 			"foo",
 			ConfigModification{"bar", "value"},
 			true,
 		},
 		{
 			"should compare existing keys with same values",
-			config.CreateConfig(config.Data{"foo": "bar"}),
-			config.CreateConfig(config.Data{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
 			"foo",
 			ConfigModification{"bar", "bar"},
 			false,
 		},
 		{
 			"should compare old-key exists, new key does not exist",
-			config.CreateConfig(config.Data{"foo": "bar"}),
-			config.CreateConfig(config.Data{"bar": "value"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"bar": "value"}),
 			"foo",
 			ConfigModification{"bar", ""},
 			true,
 		},
 		{
 			"should compare old-key does not exist, new key exists",
-			config.CreateConfig(config.Data{"bar": "bar"}),
-			config.CreateConfig(config.Data{"foo": "value"}),
+			config.CreateConfig(config.Entries{"bar": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "value"}),
 			"foo",
 			ConfigModification{"", "value"},
 			true,
 		},
 		{
 			"should compare both keys do not exist",
-			config.CreateConfig(config.Data{"bar": "bar"}),
-			config.CreateConfig(config.Data{"bar": "value"}),
+			config.CreateConfig(config.Entries{"bar": "bar"}),
+			config.CreateConfig(config.Entries{"bar": "value"}),
 			"foo",
 			ConfigModification{"", ""},
 			false,
@@ -80,24 +80,24 @@ func Test_compareConfigs(t *testing.T) {
 	}{
 		{
 			"should compare configs non-recursive",
-			config.CreateConfig(config.Data{"foo": "bar"}),
-			config.CreateConfig(config.Data{"foo": "value"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "value"}),
 			"foo",
 			false,
 			map[string]ConfigModification{"foo": {"bar", "value"}},
 		},
 		{
 			"should compare configs non-recursive with same value",
-			config.CreateConfig(config.Data{"foo": "bar"}),
-			config.CreateConfig(config.Data{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
+			config.CreateConfig(config.Entries{"foo": "bar"}),
 			"foo",
 			false,
 			map[string]ConfigModification{},
 		},
 		{
 			"should compare configs recursive",
-			config.CreateConfig(config.Data{"foo/1": "bar", "foo/2": "bar2", "foo/sub/3": "bar3"}),
-			config.CreateConfig(config.Data{"foo/1": "val", "foo/2": "val2", "foo/sub/3": "val3"}),
+			config.CreateConfig(config.Entries{"foo/1": "bar", "foo/2": "bar2", "foo/sub/3": "bar3"}),
+			config.CreateConfig(config.Entries{"foo/1": "val", "foo/2": "val2", "foo/sub/3": "val3"}),
 			"foo",
 			true,
 			map[string]ConfigModification{
@@ -108,16 +108,16 @@ func Test_compareConfigs(t *testing.T) {
 		},
 		{
 			"should compare configs recursive with non matching",
-			config.CreateConfig(config.Data{"foo/1": "bar", "foo/2": "bar2", "foo/sub/3": "bar3"}),
-			config.CreateConfig(config.Data{"foo/1": "val", "foo/2": "val2", "foo/sub/3": "val3"}),
+			config.CreateConfig(config.Entries{"foo/1": "bar", "foo/2": "bar2", "foo/sub/3": "bar3"}),
+			config.CreateConfig(config.Entries{"foo/1": "val", "foo/2": "val2", "foo/sub/3": "val3"}),
 			"bar",
 			true,
 			map[string]ConfigModification{},
 		},
 		{
 			"should compare configs recursive with deleted and added keys",
-			config.CreateConfig(config.Data{"foo/1": "bar", "foo/2": "bar2"}),
-			config.CreateConfig(config.Data{"foo/1": "val", "foo/sub/3": "val3"}),
+			config.CreateConfig(config.Entries{"foo/1": "bar", "foo/2": "bar2"}),
+			config.CreateConfig(config.Entries{"foo/1": "val", "foo/sub/3": "val3"}),
 			"foo",
 			true,
 			map[string]ConfigModification{
@@ -141,7 +141,7 @@ func Test_configWatcher_Watch(t *testing.T) {
 		resultChan := make(chan configWatchResult)
 		confWatch := &configWatch{
 			ResultChan:    resultChan,
-			InitialConfig: config.CreateConfig(config.Data{"foo": "bar"}),
+			InitialConfig: config.CreateConfig(config.Entries{"foo": "bar"}),
 		}
 
 		mockRepo := newMockConfigRepository(t)
@@ -158,8 +158,8 @@ func Test_configWatcher_Watch(t *testing.T) {
 		cancel := make(chan bool, 1)
 
 		go func() {
-			resultChan <- configWatchResult{config.CreateConfig(config.Data{"foo": "val"}), nil}
-			resultChan <- configWatchResult{config.CreateConfig(config.Data{"foo": "val"}), nil}
+			resultChan <- configWatchResult{config.CreateConfig(config.Entries{"foo": "val"}), nil}
+			resultChan <- configWatchResult{config.CreateConfig(config.Entries{"foo": "val"}), nil}
 			resultChan <- configWatchResult{config.Config{}, assert.AnError}
 		}()
 
@@ -217,4 +217,130 @@ func TestConfigWatch_Stop(t *testing.T) {
 		require.Error(t, ctx.Err())
 		assert.ErrorIs(t, ctx.Err(), context.Canceled)
 	})
+}
+
+func TestNewGlobalConfigWatcher(t *testing.T) {
+	tests := []struct {
+		name string
+		tc   cfgRegistryTC
+		xErr bool
+	}{
+		{
+			name: "Create initial global config",
+			tc:   configClientCreateNewConfig,
+			xErr: false,
+		},
+		{
+			name: "Existing initial global config",
+			tc:   configClientExistingCfg,
+			xErr: false,
+		},
+		{
+			name: "Error writing initial global config",
+			tc:   configClientWriteErr,
+			xErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			applyTCForConfigClientMock(tc.tc, m)
+
+			gcr, err := NewGlobalConfigWatcher(context.TODO(), m)
+			assert.Equal(t, tc.xErr, err != nil)
+
+			if err == nil {
+				readerRepo := gcr.configWatcher.repo.(configRepo)
+
+				assert.Equal(t, "global-config", readerRepo.name)
+
+				assert.Equal(t, m, readerRepo.client.(configMapClient).client)
+			}
+		})
+	}
+}
+
+func TestNewDoguConfigWatcher(t *testing.T) {
+	tests := []struct {
+		name string
+		tc   cfgRegistryTC
+		xErr bool
+	}{
+		{
+			name: "Create initial dogu config",
+			tc:   configClientCreateNewConfig,
+			xErr: false,
+		},
+		{
+			name: "Existing initial dogu config",
+			tc:   configClientExistingCfg,
+			xErr: false,
+		},
+		{
+			name: "Error writing initial dogu config",
+			tc:   configClientWriteErr,
+			xErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			applyTCForConfigClientMock(tc.tc, m)
+
+			gcr, err := NewDoguConfigWatcher(context.TODO(), "myDogu", m)
+			assert.Equal(t, tc.xErr, err != nil)
+
+			if err == nil {
+				readerRepo := gcr.configWatcher.repo.(configRepo)
+
+				assert.Equal(t, "myDogu-config", readerRepo.name)
+
+				assert.Equal(t, m, readerRepo.client.(configMapClient).client)
+			}
+		})
+	}
+}
+
+func TestNewSensitiveDoguWatcher(t *testing.T) {
+	tests := []struct {
+		name string
+		tc   cfgRegistryTC
+		xErr bool
+	}{
+		{
+			name: "Create initial sensitive dogu config",
+			tc:   configClientCreateNewConfig,
+			xErr: false,
+		},
+		{
+			name: "Existing initial sensitive dogu config",
+			tc:   configClientExistingCfg,
+			xErr: false,
+		},
+		{
+			name: "Error writing initial sensitive dogu config",
+			tc:   configClientWriteErr,
+			xErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			applyTCForSecretClientMock(tc.tc, m)
+
+			gcr, err := NewSensitiveDoguWatcher(context.TODO(), "myDogu", m)
+			assert.Equal(t, tc.xErr, err != nil)
+
+			if err == nil {
+				readerRepo := gcr.configWatcher.repo.(configRepo)
+
+				assert.Equal(t, "myDogu-config", readerRepo.name)
+
+				assert.Equal(t, m, readerRepo.client.(secretClient).client)
+			}
+		})
+	}
 }

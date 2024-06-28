@@ -246,7 +246,7 @@ func TestConfigMapClient_Create(t *testing.T) {
 				client: m,
 			}
 
-			err := client.Create(context.TODO(), "", "")
+			err := client.Create(context.TODO(), "", "", "")
 			assert.Equal(t, tc.xErr, err != nil)
 		})
 	}
@@ -283,7 +283,7 @@ func TestConfigMapClient_Update(t *testing.T) {
 			xErr: false,
 		},
 		{
-			name: "client data with wrong raw Data",
+			name: "client data with wrong raw entries",
 			tc:   notCalled,
 			cd: clientData{
 				dataStr: "testData",
@@ -474,7 +474,7 @@ func TestSecretClient_Create(t *testing.T) {
 				client: m,
 			}
 
-			err := client.Create(context.TODO(), "", "")
+			err := client.Create(context.TODO(), "", "", "")
 			assert.Equal(t, tc.xErr, err != nil)
 		})
 	}
@@ -509,7 +509,7 @@ func TestSecretClient_Update(t *testing.T) {
 			xErr: false,
 		},
 		{
-			name: "client data with wrong raw Data",
+			name: "client data with wrong raw entries",
 			tc:   notCalled,
 			cd: clientData{
 				dataStr: "testData",

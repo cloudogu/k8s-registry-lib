@@ -42,7 +42,7 @@ func TestNewConfigRepo(t *testing.T) {
 	}{
 		{
 			name:     "Valid parameters",
-			inName:   "test-config",
+			inName:   "test",
 			inClient: newMockConfigClient(t),
 			xErr:     false,
 		},
@@ -54,7 +54,7 @@ func TestNewConfigRepo(t *testing.T) {
 		},
 		{
 			name:     "empty client",
-			inName:   "test-config",
+			inName:   "test",
 			inClient: nil,
 			xErr:     true,
 		},
@@ -62,14 +62,22 @@ func TestNewConfigRepo(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := newConfigRepo(tc.inName, tc.inClient)
+			repo, err := newConfigRepo(withGeneralName(tc.inName), tc.inClient)
+			doguRepo, dErr := newConfigRepo(withDoguName(tc.inName), tc.inClient)
 
 			assert.Equal(t, tc.xErr, err != nil)
+			assert.Equal(t, tc.xErr, dErr != nil)
 
-			if err == nil {
-				assert.Equal(t, tc.inName, repo.name)
+			if err == nil && dErr == nil {
+				assert.Equal(t, createConfigName(tc.inName), repo.name)
 				assert.Equal(t, tc.inClient, repo.client)
+				assert.Equal(t, "", repo.doguName)
 				assert.IsType(t, &config.YamlConverter{}, repo.converter)
+
+				assert.Equal(t, createConfigName(tc.inName), doguRepo.name)
+				assert.Equal(t, tc.inName, doguRepo.doguName)
+				assert.Equal(t, tc.inClient, doguRepo.client)
+				assert.IsType(t, &config.YamlConverter{}, doguRepo.converter)
 			}
 		})
 	}
@@ -89,9 +97,9 @@ func TestConfigRepo_get(t *testing.T) {
 	applyTestCaseConverter := func(m *MockConverter, tc configRepo_testcase) {
 		switch tc {
 		case repo_validReturn:
-			m.EXPECT().Read(mock.Anything).Return(config.Data{}, nil)
+			m.EXPECT().Read(mock.Anything).Return(config.Entries{}, nil)
 		case repo_converterError:
-			m.EXPECT().Read(mock.Anything).Return(config.Data{}, errors.New("converterErr"))
+			m.EXPECT().Read(mock.Anything).Return(config.Entries{}, errors.New("converterErr"))
 		default:
 		}
 	}
@@ -196,14 +204,14 @@ func TestConfigRepo_write(t *testing.T) {
 		switch tc {
 		case repo_validCreate:
 			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, ErrConfigNotFound)
-			m.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			m.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		case repo_createConverterError:
 			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, ErrConfigNotFound)
 		case repo_clientGetError:
 			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, errors.New("clientErr"))
 		case repo_createClientError:
 			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, ErrConfigNotFound)
-			m.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("clientErr"))
+			m.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("clientErr"))
 		case repo_updateNoChanges, repo_updateConverterReadError, repo_updateConfigsEqual, repo_updateConverterWriteError, repo_updateMergeError:
 			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, nil)
 		case repo_updateClientError:
@@ -217,7 +225,7 @@ func TestConfigRepo_write(t *testing.T) {
 	}
 
 	applyTestCaseConverter := func(m *MockConverter, tc configRepo_testcase) {
-		remoteConfig := map[string]string{
+		remoteConfig := map[config.Key]config.Value{
 			"key1/key2": "keyValue",
 		}
 
@@ -264,107 +272,84 @@ func TestConfigRepo_write(t *testing.T) {
 		{
 			name: "Update",
 			tc:   repo_validUpdate,
-			inCfg: config.Config{
-				Data: map[string]string{
+			inCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1/key2": "newKeyValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1/key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
 		},
 		{
 			name: "Update - no changes",
 			tc:   repo_updateNoChanges,
-			inCfg: config.Config{
-				Data:          make(config.Data),
-				ChangeHistory: make([]config.Change, 0),
-			},
+			inCfg: createConfigWithChanges(t,
+				make(config.Entries),
+				make([]config.Change, 0)),
 			xErr: false,
 		},
 		{
 			name: "Update - converter read error",
 			tc:   repo_updateConverterReadError,
-			inCfg: config.Config{
-				Data: map[string]string{
+			inCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1/key2": "keyValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1/key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: true,
 		},
 		{
 			name: "Update - equal configs",
 			tc:   repo_updateConfigsEqual,
-			inCfg: config.Config{
-				Data: map[string]string{
+			inCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1/key2": "keyValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1/key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-		},
-		{
-			name: "Update - merge error",
-			tc:   repo_updateMergeError,
-			inCfg: config.Config{
-				Data: map[string]string{
-					"key11":     "keyValue11",
-					"key1/key2": "keyValue",
-				},
-				ChangeHistory: []config.Change{
-					{
-						KeyPath: "key1",
-						Deleted: false,
-					},
-				},
-			},
-			xErr: true,
 		},
 		{
 			name: "Update - converter write error after merge",
 			tc:   repo_updateConverterWriteError,
-			inCfg: config.Config{
-				Data: map[string]string{
+			inCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1/key2": "newKeyValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1/key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: true,
 		},
 		{
 			name: "Update - client update error after merge",
 			tc:   repo_updateClientError,
-			inCfg: config.Config{
-				Data: map[string]string{
+			inCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1/key2": "newKeyValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1/key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: true,
 		},
 		{
@@ -396,141 +381,137 @@ func TestConfigRepo_write(t *testing.T) {
 func TestMergeConfigData(t *testing.T) {
 	tests := []struct {
 		name      string
-		remoteCfg config.Data
+		remoteCfg config.Entries
 		localCfg  config.Config
 		xErr      bool
-		xResult   config.Data
+		xResult   config.Entries
 	}{
 		{
 			name: "local config - key added",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "value1",
 					"key2": "value2",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "value2",
 			},
 		},
 		{
 			name: "local config - key deleted",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "value2",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "value1",
+					"key2": "value2",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key2",
 						Deleted: true,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "value1",
 			},
 		},
 		{
 			name: "local config - key overridden",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "value2",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "value1",
 					"key2": "newValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "newValue",
 			},
 		},
 		{
 			name: "remote config - key added",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "value2",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "newValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key1",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "newValue",
 				"key2": "value2",
 			},
 		},
 		{
 			name: "remote config - key deleted",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 				"key3": "value3",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "value1",
 					"key2": "value2",
 					"key3": "newValue",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key3",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "value1",
 				"key3": "newValue",
 			},
 		},
 		{
 			name: "remote config - merge conflict - remote key2 delete - local key2 changed",
-			remoteCfg: map[string]string{
+			remoteCfg: map[config.Key]config.Value{
 				"key1": "value1",
 				"key3": "remoteNewValue",
 			},
-			localCfg: config.Config{
-				Data: map[string]string{
+			localCfg: createConfigWithChanges(t,
+				map[config.Key]config.Value{
 					"key1": "value1",
 					"key2": "newValue2",
 					"key3": "newValue3",
 				},
-				ChangeHistory: []config.Change{
+				[]config.Change{
 					{
 						KeyPath: "key3",
 						Deleted: false,
@@ -539,33 +520,13 @@ func TestMergeConfigData(t *testing.T) {
 						KeyPath: "key2",
 						Deleted: false,
 					},
-				},
-			},
+				}),
 			xErr: false,
-			xResult: map[string]string{
+			xResult: map[config.Key]config.Value{
 				"key1": "value1",
 				"key2": "newValue2",
 				"key3": "newValue3",
 			},
-		},
-		{
-			name: "local config get error",
-			remoteCfg: map[string]string{
-				"key1": "value1",
-			},
-			localCfg: config.Config{
-				Data: map[string]string{
-					"key1": "newValue",
-				},
-				ChangeHistory: []config.Change{
-					{
-						KeyPath: "key3",
-						Deleted: false,
-					},
-				},
-			},
-			xErr:    true,
-			xResult: nil,
 		},
 	}
 
@@ -588,13 +549,13 @@ func Test_configRepo_watch(t *testing.T) {
 		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
 		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
 
-		repo, err := newConfigRepo("dogu-config", mockClient)
+		repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
 		require.NoError(t, err)
 
 		watch, err := repo.watch(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, config.CreateConfig(map[string]string{"foo": "bar"}), watch.InitialConfig)
+		assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}), watch.InitialConfig)
 
 		cancel := make(chan bool, 1)
 
@@ -609,12 +570,12 @@ func Test_configRepo_watch(t *testing.T) {
 			for result := range watch.ResultChan {
 				if i == 0 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[string]string{"foo": "value"}), result.config)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}), result.config)
 				}
 
 				if i == 1 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[string]string{"key": "other"}), result.config)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}), result.config)
 				}
 
 				if i == 2 {
@@ -644,13 +605,13 @@ func Test_configRepo_watch(t *testing.T) {
 		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
 		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
 
-		repo, err := newConfigRepo("dogu-config", mockClient)
+		repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
 		require.NoError(t, err)
 
 		watch, err := repo.watch(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, config.CreateConfig(map[string]string{"foo": "bar"}), watch.InitialConfig)
+		assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}), watch.InitialConfig)
 
 		cancel := make(chan bool, 1)
 
@@ -680,7 +641,7 @@ func Test_configRepo_watch(t *testing.T) {
 		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
 		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(nil, assert.AnError)
 
-		repo, err := newConfigRepo("dogu-config", mockClient)
+		repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
 		require.NoError(t, err)
 
 		_, err = repo.watch(ctx)
@@ -694,7 +655,7 @@ func Test_configRepo_watch(t *testing.T) {
 		mockClient := newMockConfigClient(t)
 		mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{}, assert.AnError)
 
-		repo, err := newConfigRepo("dogu-config", mockClient)
+		repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
 		require.NoError(t, err)
 
 		_, err = repo.watch(ctx)
@@ -703,4 +664,20 @@ func Test_configRepo_watch(t *testing.T) {
 		assert.ErrorIs(t, err, assert.AnError)
 		assert.ErrorContains(t, err, "could not get config:")
 	})
+}
+
+func createConfigWithChanges(t *testing.T, initialEntries config.Entries, changes []config.Change) config.Config {
+	cfg := config.CreateConfig(initialEntries)
+
+	for _, c := range changes {
+		if c.Deleted {
+			cfg.Delete(c.KeyPath)
+			continue
+		}
+
+		err := cfg.Set(c.KeyPath, initialEntries[c.KeyPath])
+		require.NoError(t, err)
+	}
+
+	return cfg
 }

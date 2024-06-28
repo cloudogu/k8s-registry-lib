@@ -21,17 +21,17 @@ func (_m *mockConfigClient) EXPECT() *mockConfigClient_Expecter {
 	return &mockConfigClient_Expecter{mock: &_m.Mock}
 }
 
-// Create provides a mock function with given fields: ctx, name, dataStr
-func (_m *mockConfigClient) Create(ctx context.Context, name string, dataStr string) error {
-	ret := _m.Called(ctx, name, dataStr)
+// Create provides a mock function with given fields: ctx, name, doguName, dataStr
+func (_m *mockConfigClient) Create(ctx context.Context, name string, doguName string, dataStr string) error {
+	ret := _m.Called(ctx, name, doguName, dataStr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, name, dataStr)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, name, doguName, dataStr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -47,14 +47,15 @@ type mockConfigClient_Create_Call struct {
 // Create is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
+//   - doguName string
 //   - dataStr string
-func (_e *mockConfigClient_Expecter) Create(ctx interface{}, name interface{}, dataStr interface{}) *mockConfigClient_Create_Call {
-	return &mockConfigClient_Create_Call{Call: _e.mock.On("Create", ctx, name, dataStr)}
+func (_e *mockConfigClient_Expecter) Create(ctx interface{}, name interface{}, doguName interface{}, dataStr interface{}) *mockConfigClient_Create_Call {
+	return &mockConfigClient_Create_Call{Call: _e.mock.On("Create", ctx, name, doguName, dataStr)}
 }
 
-func (_c *mockConfigClient_Create_Call) Run(run func(ctx context.Context, name string, dataStr string)) *mockConfigClient_Create_Call {
+func (_c *mockConfigClient_Create_Call) Run(run func(ctx context.Context, name string, doguName string, dataStr string)) *mockConfigClient_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -64,7 +65,7 @@ func (_c *mockConfigClient_Create_Call) Return(_a0 error) *mockConfigClient_Crea
 	return _c
 }
 
-func (_c *mockConfigClient_Create_Call) RunAndReturn(run func(context.Context, string, string) error) *mockConfigClient_Create_Call {
+func (_c *mockConfigClient_Create_Call) RunAndReturn(run func(context.Context, string, string, string) error) *mockConfigClient_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }

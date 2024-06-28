@@ -19,10 +19,10 @@ func (cw configWriter) Set(ctx context.Context, key, value string) error {
 		}
 
 		//create new, empty config
-		cfg = config.CreateConfig(make(config.Data))
+		cfg = config.CreateConfig(make(config.Entries))
 	}
 
-	err = cfg.Set(key, value)
+	err = cfg.Set(config.Key(key), config.Value(value))
 	if err != nil {
 		return fmt.Errorf("could not set key %s with value %s: %w", key, value, err)
 	}
@@ -42,7 +42,7 @@ func (cw configWriter) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("could not read config: %w", err)
 	}
 
-	cfg.Delete(key)
+	cfg.Delete(config.Key(key))
 
 	err = cw.repo.write(ctx, cfg)
 	if err != nil {
@@ -59,7 +59,7 @@ func (cw configWriter) DeleteRecursive(ctx context.Context, key string) error {
 		return fmt.Errorf("could not read config: %w", err)
 	}
 
-	cfg.DeleteRecursive(key)
+	cfg.DeleteRecursive(config.Key(key))
 
 	err = cw.repo.write(ctx, cfg)
 	if err != nil {
