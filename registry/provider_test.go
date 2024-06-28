@@ -274,3 +274,179 @@ func TestDefaultSensitiveDoguConfigRegistryProvider_GetDoguConfig(t *testing.T) 
 		assert.Nil(t, cfg)
 	})
 }
+
+func TestNewDoguConfigWatcherProvider(t *testing.T) {
+	t.Run("Provider with ConfigurationWatcher interface", func(t *testing.T) {
+		cmClientMock := NewMockConfigMapClient(t)
+		applyTCForProviderConfigClientMock(providerClientWriteConfigMap, cmClientMock)
+
+		provider, err := NewDoguConfigWatcherProvider[ConfigurationWatcher](cmClientMock)
+		assert.NoError(t, err)
+
+		w, err := provider.GetDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, w)
+
+		_, ok := w.(ConfigurationWatcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with custom interface that matches registry", func(t *testing.T) {
+		type watcher interface {
+			Watch(ctx context.Context, key string, recursive bool) (ConfigWatch, error)
+		}
+
+		cmClientMock := NewMockConfigMapClient(t)
+		applyTCForProviderConfigClientMock(providerClientWriteConfigMap, cmClientMock)
+
+		provider, err := NewDoguConfigWatcherProvider[watcher](cmClientMock)
+		assert.NoError(t, err)
+
+		w, err := provider.GetDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, w)
+
+		_, ok := w.(watcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with invalid interface that doesn't registry", func(t *testing.T) {
+		type invalid interface {
+			TEST(ctx context.Context, key string) (int, error)
+		}
+
+		cmClientMock := NewMockConfigMapClient(t)
+
+		_, err := NewDoguConfigWatcherProvider[invalid](cmClientMock)
+		assert.Error(t, err)
+	})
+
+	t.Run("Provider with error while getting watcher", func(t *testing.T) {
+		cmClientMock := NewMockConfigMapClient(t)
+		applyTCForProviderConfigClientMock(providerClientWriteConfigMapErr, cmClientMock)
+
+		provider, err := NewDoguConfigWatcherProvider[ConfigurationWatcher](cmClientMock)
+		assert.NoError(t, err)
+
+		w, err := provider.GetDoguConfigWatcher(context.TODO(), "test")
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.Nil(t, w)
+	})
+}
+
+func TestDefaultDoguConfigWatcherProvider_GetDoguConfig(t *testing.T) {
+	t.Run("Provider returns default ConfigurationWatcher interface", func(t *testing.T) {
+		cmClientMock := NewMockConfigMapClient(t)
+		applyTCForProviderConfigClientMock(providerClientWriteConfigMap, cmClientMock)
+
+		provider, err := NewDefaultDoguConfigWatcherProvider(cmClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg)
+
+		_, ok := cfg.(ConfigurationWatcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with error while getting watcher", func(t *testing.T) {
+		cmClientMock := NewMockConfigMapClient(t)
+		applyTCForProviderConfigClientMock(providerClientWriteConfigMapErr, cmClientMock)
+
+		provider, err := NewDefaultDoguConfigWatcherProvider(cmClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetDoguConfigWatcher(context.TODO(), "test")
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.Nil(t, cfg)
+	})
+}
+
+func TestNewSensitiveDoguWatcherProvider(t *testing.T) {
+	t.Run("Provider with ConfigurationWatcher interface", func(t *testing.T) {
+		sClientMock := NewMockSecretClient(t)
+		applyTCForProviderSecretClientMock(providerClientWriteConfigMap, sClientMock)
+
+		provider, err := NewSensitiveDoguWatcherProvider[ConfigurationWatcher](sClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetSensitiveDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg)
+
+		_, ok := cfg.(ConfigurationWatcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with custom interface that matches registry", func(t *testing.T) {
+		type customWatcher interface {
+			Watch(ctx context.Context, key string, recursive bool) (ConfigWatch, error)
+		}
+
+		sClientMock := NewMockSecretClient(t)
+		applyTCForProviderSecretClientMock(providerClientWriteConfigMap, sClientMock)
+
+		provider, err := NewSensitiveDoguWatcherProvider[customWatcher](sClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetSensitiveDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg)
+
+		_, ok := cfg.(customWatcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with invalid interface that doesn't registry", func(t *testing.T) {
+		type invalid interface {
+			TEST(ctx context.Context, key string) (int, error)
+		}
+
+		sClientMock := NewMockSecretClient(t)
+
+		_, err := NewSensitiveDoguWatcherProvider[invalid](sClientMock)
+		assert.Error(t, err)
+	})
+
+	t.Run("Provider with error while getting watcher", func(t *testing.T) {
+		sClientMock := NewMockSecretClient(t)
+		applyTCForProviderSecretClientMock(providerClientWriteConfigMapErr, sClientMock)
+
+		provider, err := NewSensitiveDoguWatcherProvider[ConfigurationWatcher](sClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetSensitiveDoguConfigWatcher(context.TODO(), "test")
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.Nil(t, cfg)
+	})
+}
+
+func TestNewDefaultSensitiveDoguConfigRegistryProvider(t *testing.T) {
+	t.Run("Provider returns default ConfigurationWatcher interface", func(t *testing.T) {
+		sClientMock := NewMockSecretClient(t)
+		applyTCForProviderSecretClientMock(providerClientWriteConfigMap, sClientMock)
+
+		provider, err := NewDefaultSensitiveDoguWatcherProvider(sClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetSensitiveDoguConfigWatcher(context.TODO(), "test")
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg)
+
+		_, ok := cfg.(ConfigurationWatcher)
+		assert.True(t, ok)
+	})
+
+	t.Run("Provider with error while getting watcher", func(t *testing.T) {
+		sClientMock := NewMockSecretClient(t)
+		applyTCForProviderSecretClientMock(providerClientWriteConfigMapErr, sClientMock)
+
+		provider, err := NewDefaultSensitiveDoguWatcherProvider(sClientMock)
+		assert.NoError(t, err)
+
+		cfg, err := provider.GetSensitiveDoguConfigWatcher(context.TODO(), "test")
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.Nil(t, cfg)
+	})
+}
