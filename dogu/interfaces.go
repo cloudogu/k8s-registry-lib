@@ -1,16 +1,14 @@
-package local
+package dogu
 
 import (
 	"context"
-
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/cloudogu/cesapp-lib/core"
-	"github.com/cloudogu/cesapp-lib/registry"
 )
 
-// LocalDoguRegistry abstracts accessing various backends for reading and writing dogu specs (dogu.json).
-type LocalDoguRegistry interface {
+// LocalRegistry abstracts accessing various backends for reading and writing dogu specs (dogu.json).
+type LocalRegistry interface {
 	// Enable makes the dogu spec reachable.
 	Enable(ctx context.Context, dogu *core.Dogu) error
 	// Register adds the given dogu spec to the local registry.
@@ -27,18 +25,4 @@ type LocalDoguRegistry interface {
 
 type configMapClient interface {
 	corev1client.ConfigMapInterface
-}
-
-type etcdRegistry interface {
-	registry.Registry
-}
-
-type doguRegistry interface {
-	registry.DoguRegistry
-}
-
-//nolint:unused
-//goland:noinspection GoUnusedType
-type etcdConfigContext interface {
-	registry.ConfigurationContext
 }
