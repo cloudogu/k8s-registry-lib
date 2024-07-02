@@ -2,7 +2,7 @@ module github.com/cloudogu/k8s-registry-lib
 
 go 1.22.0
 
-toolchain go1.22.3
+toolchain go1.22.4
 
 require (
 	github.com/cloudogu/cesapp-lib v0.12.2
