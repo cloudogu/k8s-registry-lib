@@ -60,43 +60,24 @@ func TestConfig_Set(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.key.String(), func(t *testing.T) {
-			err := cfg.Set(tt.key, tt.value)
+			nCfg, err := cfg.Set(tt.key, tt.value)
 			assert.Equal(t, tt.xErr, err != nil)
 
 			if tt.xErr {
-				if v, ok := cfg.entries[tt.key]; ok && v == tt.value {
+				if v, ok := nCfg.entries[tt.key]; ok && v == tt.value {
 					t.Errorf("new Value for %s Key written, but error has occured", tt.key)
 				}
 
 				return
 			}
 
-			if v, ok := cfg.entries[tt.key]; !ok || v != tt.value {
+			if v, ok := nCfg.entries[tt.key]; !ok || v != tt.value {
 				t.Errorf("expected %s for Key %s, got %s", tt.value, tt.key, v)
 			}
 
-			lastChange := cfg.changeHistory[len(cfg.changeHistory)-1]
+			lastChange := nCfg.changeHistory[len(nCfg.changeHistory)-1]
 			if lastChange.KeyPath != tt.key || lastChange.Deleted {
 				t.Errorf("unexpected change history entry %+v", lastChange)
-			}
-		})
-	}
-}
-
-func TestConfig_Exists(t *testing.T) {
-	cfg := CreateConfig(Entries{"key1": "value1"})
-	tests := []struct {
-		key      Key
-		expected bool
-	}{
-		{"key1", true},
-		{"key2", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.key.String(), func(t *testing.T) {
-			if exists := cfg.Exists(tt.key); exists != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, exists)
 			}
 		})
 	}
@@ -105,21 +86,20 @@ func TestConfig_Exists(t *testing.T) {
 func TestConfig_Get(t *testing.T) {
 	cfg := CreateConfig(Entries{"key1": "value1"})
 	tests := []struct {
-		key       Key
-		expected  Value
-		expectErr bool
+		key      Key
+		expected Value
+		exists   bool
 	}{
-		{"/key1", "value1", false},
-		{"key1", "value1", false},
-		{"/key2", "", true},
+		{"/key1", "value1", true},
+		{"key1", "value1", true},
+		{"/key2", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.key.String(), func(t *testing.T) {
-			value, err := cfg.Get(tt.key)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("expected error %v, got %v", tt.expectErr, err)
-			}
+			value, ok := cfg.Get(tt.key)
+			assert.Equal(t, tt.exists, ok)
+
 			if value != tt.expected {
 				t.Errorf("expected Value %s, got %s", tt.expected, value)
 			}
@@ -240,20 +220,240 @@ func TestConfig_DeleteAll(t *testing.T) {
 	}
 }
 
-func TestCreateGlobalConfig(t *testing.T) {
-	cfg := CreateConfig(Entries{"key1": "value1"})
-	globalCfg := CreateGlobalConfig(cfg)
+func TestConfig_Diff(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     Config
+		oCfg    Config
+		expMods []DiffResult
+	}{
+		{
+			name: "Same config values",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			expMods: make([]DiffResult, 0),
+		},
+		{
+			name: "Other differs in k2 and k3",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v3",
+					"k3": "v4",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k2",
+					Value:      "v2",
+					OtherValue: "v3",
+				},
+				{
+					Key:        "k3",
+					Value:      "v3",
+					OtherValue: "v4",
+				},
+			},
+		},
+		{
+			name: "Missing key k1 in config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k1",
+					Value:      "",
+					OtherValue: "v1",
+				},
+			},
+		},
+		{
+			name: "Missing key k2 in other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k2",
+					Value:      "v2",
+					OtherValue: "",
+				},
+			},
+		},
+		{
+			name: "Multiple keys keys added to other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "new",
+					"k2": "v2",
+					"k3": "v3",
+					"k4": "v4",
+					"k5": "v5",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k1",
+					Value:      "v1",
+					OtherValue: "new",
+				},
+				{
+					Key:        "k2",
+					Value:      "",
+					OtherValue: "v2",
+				},
+				{
+					Key:        "k3",
+					Value:      "",
+					OtherValue: "v3",
+				},
+				{
+					Key:        "k4",
+					Value:      "",
+					OtherValue: "v4",
+				},
+				{
+					Key:        "k5",
+					Value:      "",
+					OtherValue: "v5",
+				},
+			},
+		},
+		{
+			name: "Compare with empty config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+				},
+			},
+			oCfg: Config{
+				entries: make(Entries),
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k1",
+					Value:      "v1",
+					OtherValue: "",
+				},
+			},
+		},
+		{
+			name: "Compare with nil config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+				},
+			},
+			oCfg: Config{},
+			expMods: []DiffResult{
+				{
+					Key:        "k1",
+					Value:      "v1",
+					OtherValue: "",
+				},
+			},
+		},
+	}
 
-	if len(globalCfg.entries) != len(cfg.entries) {
-		t.Errorf("expected data length %d, got %d", len(cfg.entries), len(globalCfg.entries))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mods := tc.cfg.Diff(tc.oCfg)
+
+			assert.Equal(t, len(tc.expMods), len(mods))
+
+			for _, xm := range tc.expMods {
+				found := false
+
+				for _, m := range mods {
+					if xm.Key == m.Key {
+						found = true
+						assert.Equal(t, xm, m)
+						continue
+					}
+				}
+
+				if !found {
+					assert.Fail(t, "expected modifications and actual modifications differs", "expected", tc.expMods, "actual", mods)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateGlobalConfig(t *testing.T) {
+	e := Entries{"key1": "value1"}
+	globalCfg := CreateGlobalConfig(e)
+
+	if len(globalCfg.entries) != len(e) {
+		t.Errorf("expected data length %d, got %d", len(e), len(globalCfg.entries))
 	}
 }
 
 func TestCreateDoguConfig(t *testing.T) {
-	cfg := CreateConfig(Entries{"key1": "value1"})
-	doguCfg := CreateDoguConfig(cfg)
+	e := Entries{"key1": "value1"}
+	doguName := "test"
+	doguCfg := CreateDoguConfig(SimpleDoguName(doguName), e)
 
-	if len(doguCfg.entries) != len(cfg.entries) {
-		t.Errorf("expected data length %d, got %d", len(cfg.entries), len(doguCfg.entries))
+	if len(doguCfg.entries) != len(e) {
+		t.Errorf("expected data length %d, got %d", len(e), len(doguCfg.entries))
 	}
+
+	assert.Equal(t, doguName, doguCfg.DoguName.String())
+}
+
+func TestCreateSensitiveDoguConfig(t *testing.T) {
+	e := Entries{"key1": "value1"}
+	doguName := "test"
+	doguCfg := CreateSensitiveDoguConfig(SimpleDoguName(doguName), e)
+
+	if len(doguCfg.entries) != len(e) {
+		t.Errorf("expected data length %d, got %d", len(e), len(doguCfg.entries))
+	}
+
+	assert.Equal(t, doguName, doguCfg.DoguName.String())
 }

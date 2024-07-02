@@ -2,35 +2,60 @@ package config
 
 import (
 	"fmt"
-	"golang.org/x/exp/slices"
 	"maps"
+	"slices"
 	"strings"
 )
 
+// SimpleDoguName represents a simple Dogu name as a string.
+type SimpleDoguName string
+
+// String returns the string representation of the SimpleDoguName.
+func (s SimpleDoguName) String() string {
+	return string(s)
+}
+
+// Key represents a configuration key as a string.
+type Key string
+
+// String returns the string representation of the Key.
+func (k Key) String() string {
+	return string(k)
+}
+
+// Value represents a configuration value as a string.
+type Value string
+
+// String returns the string representation of the Value.
+func (v Value) String() string {
+	return string(v)
+}
+
+// Entries represents a map of configuration keys and values.
+type Entries map[Key]Value
+
+// Change represents a change to a configuration key. When the Key has been deleted, Deleted is set to true.
 type Change struct {
 	KeyPath Key
 	Deleted bool
 }
 
-type Key string
-
-func (k Key) String() string {
-	return string(k)
+// DiffResult represents a result of a configuration comparison.
+type DiffResult struct {
+	Key        Key
+	Value      Value
+	OtherValue Value
 }
 
-type Value string
-
-func (v Value) String() string {
-	return string(v)
-}
-
-type Entries map[Key]Value
-
+// Config represents a general configuration with entries and change history.
+// PersistenceContext is used by a repository to detect conflicts due to remote changes.
 type Config struct {
-	entries       Entries
-	changeHistory []Change
+	entries            Entries
+	changeHistory      []Change
+	PersistenceContext any
 }
 
+// CreateConfig creates a new configuration with the provided entries.
 func CreateConfig(data Entries) Config {
 	return Config{
 		entries:       data,
@@ -38,33 +63,36 @@ func CreateConfig(data Entries) Config {
 	}
 }
 
-func (c *Config) Set(k Key, v Value) error {
+// Set sets the value for the given key in the configuration.
+// Returns a new Config with the value set.
+// Returns an error if the key is invalid or conflicts with existing keys.
+func (c Config) Set(k Key, v Value) (Config, error) {
 	k = sanitizeKey(k)
 
 	if k == "" || k == keySeparator {
-		return fmt.Errorf("key is empty")
+		return Config{}, fmt.Errorf("key is empty")
 	}
 
 	if strings.HasSuffix(k.String(), keySeparator) {
-		return fmt.Errorf("key %s must not be a dictionary", k)
+		return Config{}, fmt.Errorf("key %s must not be a dictionary", k)
 	}
 
 	subKey := k + keySeparator
 
 	for configKey := range c.entries {
 		if strings.HasPrefix(configKey.String(), subKey.String()) {
-			return fmt.Errorf("key %s is alreaedy used as dictionary", configKey)
+			return Config{}, fmt.Errorf("key %s is alreaedy used as dictionary", configKey)
 		}
 	}
 
 	if lErr := validateNoDictionaryHasValue(k, k, c.entries); lErr != nil {
-		return fmt.Errorf("dictionary with key %s already has a value: %w", k, lErr)
+		return Config{}, fmt.Errorf("dictionary with key %s already has a value: %w", k, lErr)
 	}
 
 	c.entries[k] = v
 	c.changeHistory = append(c.changeHistory, Change{KeyPath: k, Deleted: false})
 
-	return nil
+	return c.createCopy(), nil
 }
 
 func validateNoDictionaryHasValue(rootKey, key Key, cfg Entries) error {
@@ -92,41 +120,29 @@ func splitAtLastOccurrence(s Key) (Key, bool) {
 	return s[:idx], true
 }
 
-// Exists returns true if configuration Key exists
-func (c *Config) Exists(key Key) bool {
-	key = sanitizeKey(key)
-
-	_, ok := c.entries[key]
-
-	return ok
-}
-
-// Get returns the configuration Value for the given Key.
-// Returns an error if no values exists for the given Key.
-func (c *Config) Get(k Key) (Value, error) {
+// Get returns the configuration value for the given key.
+// When the key does not exist false is returned.
+func (c Config) Get(k Key) (Value, bool) {
 	k = sanitizeKey(k)
 
-	value, ok := c.entries[k]
+	v, ok := c.entries[k]
 
-	if !ok {
-		return "", fmt.Errorf("value for %s does not exist", k)
-	}
-
-	return value, nil
+	return v, ok
 }
 
 // GetAll returns a map of all Key-Value-pairs
-func (c *Config) GetAll() Entries {
+func (c Config) GetAll() Entries {
 	return maps.Clone(c.entries)
 }
 
-// GetChangeHistory returns a slice of all changes made to the config
-func (c *Config) GetChangeHistory() []Change {
+// GetChangeHistory returns a slice of all changes made to the configuration.
+func (c Config) GetChangeHistory() []Change {
 	return slices.Clone(c.changeHistory)
 }
 
-// Delete removes the configuration Key and Value
-func (c *Config) Delete(k Key) {
+// Delete removes the configuration Key and Value.
+// Returns a new Config with the Key deleted.
+func (c Config) Delete(k Key) Config {
 	k = sanitizeKey(k)
 
 	for configKey := range c.entries {
@@ -135,10 +151,13 @@ func (c *Config) Delete(k Key) {
 			c.changeHistory = append(c.changeHistory, Change{KeyPath: k, Deleted: true})
 		}
 	}
+
+	return c.createCopy()
 }
 
-// DeleteRecursive removes all configuration for the given Key, including all configuration for sub-keys
-func (c *Config) DeleteRecursive(k Key) {
+// DeleteRecursive removes all configuration for the given Key, including all configuration for sub-keys.
+// Returns a new Config with without given Key.
+func (c Config) DeleteRecursive(k Key) Config {
 	k = sanitizeKey(k)
 
 	c.Delete(k)
@@ -154,11 +173,70 @@ func (c *Config) DeleteRecursive(k Key) {
 			c.changeHistory = append(c.changeHistory, Change{KeyPath: configKey, Deleted: true})
 		}
 	}
+
+	return c.createCopy()
 }
 
-func (c *Config) DeleteAll() {
+// DeleteAll removes all key values pairs for the configuration.
+// Returns a new empty Config with a change history containing all keys that haven been deleted.
+func (c Config) DeleteAll() Config {
 	// delete recursive from root
 	c.DeleteRecursive(keySeparator)
+
+	return Config{
+		entries:            make(Entries),
+		changeHistory:      slices.Clone(c.changeHistory),
+		PersistenceContext: c.PersistenceContext,
+	}
+}
+
+// Diff returns a list of DiffResult with all values that differs for a given key.
+func (c Config) Diff(other Config) []DiffResult {
+	m := make(map[Key]DiffResult, len(c.entries))
+
+	for k, v := range c.entries {
+		m[k] = DiffResult{
+			Key:        k,
+			Value:      v,
+			OtherValue: "",
+		}
+	}
+
+	for kOther, vOther := range other.entries {
+		mod, ok := m[kOther]
+		if !ok {
+			m[kOther] = DiffResult{
+				Key:        kOther,
+				Value:      "",
+				OtherValue: vOther,
+			}
+
+			continue
+		}
+
+		m[kOther] = DiffResult{
+			Key:        kOther,
+			Value:      mod.Value,
+			OtherValue: vOther,
+		}
+	}
+
+	mods := make([]DiffResult, 0, len(m))
+	for _, v := range m {
+		if v.Value != v.OtherValue {
+			mods = append(mods, v)
+		}
+	}
+
+	return mods
+}
+
+func (c Config) createCopy() Config {
+	return Config{
+		entries:            maps.Clone(c.entries),
+		changeHistory:      slices.Clone(c.changeHistory),
+		PersistenceContext: c.PersistenceContext,
+	}
 }
 
 func sanitizeKey(key Key) Key {
@@ -171,22 +249,54 @@ func sanitizeKey(key Key) Key {
 	return key
 }
 
+// GlobalConfig represents a global configuration.
 type GlobalConfig struct {
 	Config
 }
 
-func CreateGlobalConfig(cfg Config) GlobalConfig {
+// CreateGlobalConfig creates a new global configuration with the provided entries.
+func CreateGlobalConfig(e Entries) GlobalConfig {
 	return GlobalConfig{
-		Config: cfg,
+		Config: Config{
+			entries:            e,
+			changeHistory:      make([]Change, 0),
+			PersistenceContext: nil,
+		},
 	}
 }
 
+// DoguConfig represents a Dogu-specific configuration.
 type DoguConfig struct {
+	DoguName SimpleDoguName
 	Config
 }
 
-func CreateDoguConfig(cfg Config) DoguConfig {
+// CreateDoguConfig creates a new Dogu-specific configuration with the provided Dogu name and entries.
+func CreateDoguConfig(dogu SimpleDoguName, e Entries) DoguConfig {
 	return DoguConfig{
-		Config: cfg,
+		DoguName: dogu,
+		Config: Config{
+			entries:            e,
+			changeHistory:      make([]Change, 0),
+			PersistenceContext: nil,
+		},
+	}
+}
+
+// SensitiveDoguConfig represents a Dogu-specific configuration that contains sensitive data for a dogu.
+type SensitiveDoguConfig struct {
+	DoguName SimpleDoguName
+	Config
+}
+
+// CreateSensitiveDoguConfig creates a new Dogu-specific configuration with the provided Dogu name and sensitive entries.
+func CreateSensitiveDoguConfig(dogu SimpleDoguName, e Entries) SensitiveDoguConfig {
+	return SensitiveDoguConfig{
+		DoguName: dogu,
+		Config: Config{
+			entries:            e,
+			changeHistory:      make([]Change, 0),
+			PersistenceContext: nil,
+		},
 	}
 }
