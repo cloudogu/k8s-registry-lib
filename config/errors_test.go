@@ -139,3 +139,38 @@ func TestIsConnectionError(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAlreadyExistsError(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		xResult bool
+	}{
+		{
+			name:    "AlreadyExistsError",
+			err:     NewAlreadyExistsError(assert.AnError),
+			xResult: true,
+		},
+		{
+			name:    "NotFoundError",
+			err:     NewNotFoundError(assert.AnError),
+			xResult: false,
+		},
+		{
+			name:    "No config error",
+			err:     assert.AnError,
+			xResult: false,
+		},
+		{
+			name:    "error is nil",
+			err:     nil,
+			xResult: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.xResult, IsAlreadyExistsError(tc.err))
+		})
+	}
+}

@@ -55,12 +55,26 @@ type Config struct {
 	PersistenceContext any
 }
 
+type ConfigOption func(config *Config)
+
+func WithPersistenceContext(pCtx any) ConfigOption {
+	return func(config *Config) {
+		config.PersistenceContext = pCtx
+	}
+}
+
 // CreateConfig creates a new configuration with the provided entries.
-func CreateConfig(data Entries) Config {
-	return Config{
+func CreateConfig(data Entries, options ...ConfigOption) Config {
+	cfg := Config{
 		entries:       data,
 		changeHistory: make([]Change, 0),
 	}
+
+	for _, o := range options {
+		o(&cfg)
+	}
+
+	return cfg
 }
 
 // Set sets the value for the given key in the configuration.
@@ -257,11 +271,7 @@ type GlobalConfig struct {
 // CreateGlobalConfig creates a new global configuration with the provided entries.
 func CreateGlobalConfig(e Entries) GlobalConfig {
 	return GlobalConfig{
-		Config: Config{
-			entries:            e,
-			changeHistory:      make([]Change, 0),
-			PersistenceContext: nil,
-		},
+		Config: CreateConfig(e),
 	}
 }
 
@@ -275,11 +285,7 @@ type DoguConfig struct {
 func CreateDoguConfig(dogu SimpleDoguName, e Entries) DoguConfig {
 	return DoguConfig{
 		DoguName: dogu,
-		Config: Config{
-			entries:            e,
-			changeHistory:      make([]Change, 0),
-			PersistenceContext: nil,
-		},
+		Config:   CreateConfig(e),
 	}
 }
 
@@ -293,10 +299,6 @@ type SensitiveDoguConfig struct {
 func CreateSensitiveDoguConfig(dogu SimpleDoguName, e Entries) SensitiveDoguConfig {
 	return SensitiveDoguConfig{
 		DoguName: dogu,
-		Config: Config{
-			entries:            e,
-			changeHistory:      make([]Change, 0),
-			PersistenceContext: nil,
-		},
+		Config:   CreateConfig(e),
 	}
 }

@@ -8,6 +8,7 @@ const (
 	_ErrNotFound errorType = iota + 1
 	_ErrConflict
 	_ErrConnection
+	_ErrAlreadyExists
 )
 
 var _ error = Error{}
@@ -42,6 +43,13 @@ func NewConnectionError(err error) Error {
 	}
 }
 
+func NewAlreadyExistsError(err error) Error {
+	return Error{
+		errType: _ErrAlreadyExists,
+		cause:   err,
+	}
+}
+
 func isError(err error, t errorType) bool {
 	var e Error
 	if ok := errors.As(err, &e); !ok {
@@ -65,4 +73,8 @@ func IsConflictError(err error) bool {
 
 func IsConnectionError(err error) bool {
 	return isError(err, _ErrConnection)
+}
+
+func IsAlreadyExistsError(err error) bool {
+	return isError(err, _ErrAlreadyExists)
 }
