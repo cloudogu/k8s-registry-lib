@@ -7,7 +7,7 @@ import (
 )
 
 type DoguConfigRepository struct {
-	configRepository
+	generalConfigRepository
 }
 
 func NewDoguConfigRepository(client ConfigMapClient) *DoguConfigRepository {
@@ -15,12 +15,12 @@ func NewDoguConfigRepository(client ConfigMapClient) *DoguConfigRepository {
 	cfgRepository := newConfigRepo(cfgClient)
 
 	return &DoguConfigRepository{
-		configRepository: cfgRepository,
+		generalConfigRepository: cfgRepository,
 	}
 }
 
 func (dcr DoguConfigRepository) Get(ctx context.Context, name config.SimpleDoguName) (config.DoguConfig, error) {
-	cfg, err := dcr.configRepository.get(ctx, createConfigName(name.String()))
+	cfg, err := dcr.get(ctx, createConfigName(name.String()))
 	if err != nil {
 		return config.DoguConfig{}, fmt.Errorf("could not get config for dogu %s: %w", name.String(), err)
 	}
@@ -34,7 +34,7 @@ func (dcr DoguConfigRepository) Get(ctx context.Context, name config.SimpleDoguN
 func (dcr DoguConfigRepository) Create(ctx context.Context, doguConfig config.DoguConfig) (config.DoguConfig, error) {
 	doguName := doguConfig.DoguName
 
-	cfg, err := dcr.configRepository.create(ctx, createConfigName(doguName.String()), doguName, doguConfig.Config)
+	cfg, err := dcr.create(ctx, createConfigName(doguName.String()), doguName, doguConfig.Config)
 	if err != nil {
 		return config.DoguConfig{}, fmt.Errorf("could not create config for dogu %s: %w", doguName, err)
 	}
@@ -48,7 +48,7 @@ func (dcr DoguConfigRepository) Create(ctx context.Context, doguConfig config.Do
 func (dcr DoguConfigRepository) Update(ctx context.Context, doguConfig config.DoguConfig) (config.DoguConfig, error) {
 	doguName := doguConfig.DoguName
 
-	cfg, err := dcr.configRepository.update(ctx, createConfigName(doguName.String()), doguName, doguConfig.Config)
+	cfg, err := dcr.update(ctx, createConfigName(doguName.String()), doguName, doguConfig.Config)
 	if err != nil {
 		return config.DoguConfig{}, fmt.Errorf("could not update config for dogu %s: %w", doguName, err)
 	}
@@ -72,7 +72,7 @@ func (dcr DoguConfigRepository) SaveOrMerge(ctx context.Context, doguConfig conf
 }
 
 func (dcr DoguConfigRepository) Delete(ctx context.Context, name config.SimpleDoguName) error {
-	if err := dcr.configRepository.delete(ctx, createConfigName(name.String())); err != nil {
+	if err := dcr.delete(ctx, createConfigName(name.String())); err != nil {
 		return fmt.Errorf("could not delete config for dogu %s: %w", name, err)
 	}
 
