@@ -109,9 +109,10 @@ func TestDoguConfigRepository_SaveOrMerge(t *testing.T) {
 			generalConfigRepository: mConfigRepo,
 		}
 
-		gCfg, err := repo.SaveOrMerge(context.TODO(), config.CreateDoguConfig(_DoguName, make(config.Entries)))
+		cfg, err := repo.SaveOrMerge(context.TODO(), config.CreateDoguConfig(_DoguName, make(config.Entries)))
 		assert.NoError(t, err)
-		assert.Equal(t, resourceVersion, gCfg.PersistenceContext)
+		assert.Equal(t, _DoguName, cfg.DoguName)
+		assert.Equal(t, resourceVersion, cfg.PersistenceContext)
 	})
 
 	t.Run("Config repo error", func(t *testing.T) {
