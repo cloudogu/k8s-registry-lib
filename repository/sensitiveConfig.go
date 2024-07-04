@@ -7,7 +7,7 @@ import (
 )
 
 type SensitiveDoguConfigRepository struct {
-	configRepository
+	generalConfigRepository
 }
 
 func NewSensitiveDoguConfigRepository(client SecretClient) *SensitiveDoguConfigRepository {
@@ -15,12 +15,12 @@ func NewSensitiveDoguConfigRepository(client SecretClient) *SensitiveDoguConfigR
 	cfgRepository := newConfigRepo(cfgClient)
 
 	return &SensitiveDoguConfigRepository{
-		configRepository: cfgRepository,
+		generalConfigRepository: cfgRepository,
 	}
 }
 
 func (scr SensitiveDoguConfigRepository) Get(ctx context.Context, name config.SimpleDoguName) (config.SensitiveDoguConfig, error) {
-	cfg, err := scr.configRepository.get(ctx, createConfigName(name.String()))
+	cfg, err := scr.get(ctx, createConfigName(name.String()))
 	if err != nil {
 		return config.SensitiveDoguConfig{}, fmt.Errorf("could not get sensitive config for dogu %s: %w", name.String(), err)
 	}
@@ -34,7 +34,7 @@ func (scr SensitiveDoguConfigRepository) Get(ctx context.Context, name config.Si
 func (scr SensitiveDoguConfigRepository) Create(ctx context.Context, sensitiveConfig config.SensitiveDoguConfig) (config.SensitiveDoguConfig, error) {
 	doguName := sensitiveConfig.DoguName
 
-	cfg, err := scr.configRepository.create(ctx, createConfigName(doguName.String()), doguName, sensitiveConfig.Config)
+	cfg, err := scr.create(ctx, createConfigName(doguName.String()), doguName, sensitiveConfig.Config)
 	if err != nil {
 		return config.SensitiveDoguConfig{}, fmt.Errorf("could not create sensitive config for dogu %s: %w", doguName, err)
 	}
@@ -48,7 +48,7 @@ func (scr SensitiveDoguConfigRepository) Create(ctx context.Context, sensitiveCo
 func (scr SensitiveDoguConfigRepository) Update(ctx context.Context, sensitiveConfig config.SensitiveDoguConfig) (config.SensitiveDoguConfig, error) {
 	doguName := sensitiveConfig.DoguName
 
-	cfg, err := scr.configRepository.update(ctx, createConfigName(doguName.String()), doguName, sensitiveConfig.Config)
+	cfg, err := scr.update(ctx, createConfigName(doguName.String()), doguName, sensitiveConfig.Config)
 	if err != nil {
 		return config.SensitiveDoguConfig{}, fmt.Errorf("could not update sensitive config for dogu %s: %w", doguName, err)
 	}
@@ -72,7 +72,7 @@ func (scr SensitiveDoguConfigRepository) SaveOrMerge(ctx context.Context, sensit
 }
 
 func (scr SensitiveDoguConfigRepository) Delete(ctx context.Context, name config.SimpleDoguName) error {
-	if err := scr.configRepository.delete(ctx, createConfigName(name.String())); err != nil {
+	if err := scr.delete(ctx, createConfigName(name.String())); err != nil {
 		return fmt.Errorf("could not delete sensitive config for dogu %s: %w", name, err)
 	}
 
