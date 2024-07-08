@@ -47,6 +47,11 @@ type ConfigMapClient interface {
 	corev1client.ConfigMapInterface
 }
 
+type clientData struct {
+	dataStr string
+	rawData any
+}
+
 type configMapClient struct {
 	client ConfigMapClient
 	labels labels.Set
@@ -283,6 +288,12 @@ type clientWatcher interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
+type clientWatchResult struct {
+	dataStr           string
+	persistentContext string
+	err               error
+}
+
 func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
 	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	if err != nil {
@@ -292,50 +303,70 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 	resultChan := make(chan clientWatchResult)
 
 	go func() {
+		defer close(resultChan)
 		for {
 			select {
 			case <-ctx.Done():
 				watcher.Stop()
-				close(resultChan)
 				return
-			case result, ok := <-watcher.ResultChan():
-				if !ok {
-					// channel was closed
-					close(resultChan)
+			case result, open := <-watcher.ResultChan():
+				if !open {
 					return
 				}
 
-				if result.Type == watch.Error {
-					resultChan <- clientWatchResult{"", "", fmt.Errorf("error result in watcher of config '%s'", name)}
-					continue
-				}
-
-				var dataString, resourceVersion string
-				switch r := result.Object.(type) {
-				case *v1.Secret:
-					dataBytes, ok := r.Data[dataKeyName]
-					if !ok {
-						resultChan <- clientWatchResult{"", "", fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, name)}
-						continue
-					}
-					dataString = string(dataBytes)
-					resourceVersion = r.GetResourceVersion()
-				case *v1.ConfigMap:
-					resourceVersion = r.GetResourceVersion()
-					dataString, ok = r.Data[dataKeyName]
-					if !ok {
-						resultChan <- clientWatchResult{"", "", fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, name)}
-						continue
-					}
-				default:
-					resultChan <- clientWatchResult{"", "", fmt.Errorf("unsupported type in watch %T", r)}
-					continue
-				}
-
-				resultChan <- clientWatchResult{dataString, resourceVersion, nil}
+				resultChan <- handleWatchEvent(name, result)
 			}
 		}
 	}()
 
 	return resultChan, nil
+}
+
+func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
+	if event.Type == watch.Error {
+		return clientWatchResult{
+			dataStr:           "",
+			persistentContext: "",
+			err:               fmt.Errorf("error result in watcher for config '%s'", cfgName),
+		}
+	}
+
+	switch r := event.Object.(type) {
+	case *v1.Secret:
+		dataBytes, ok := r.Data[dataKeyName]
+		if !ok {
+			return clientWatchResult{
+				dataStr:           "",
+				persistentContext: "",
+				err:               fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, cfgName),
+			}
+		}
+
+		return clientWatchResult{
+			dataStr:           string(dataBytes),
+			persistentContext: r.GetResourceVersion(),
+			err:               nil,
+		}
+	case *v1.ConfigMap:
+		dataString, ok := r.Data[dataKeyName]
+		if !ok {
+			return clientWatchResult{
+				dataStr:           "",
+				persistentContext: "",
+				err:               fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, cfgName),
+			}
+		}
+
+		return clientWatchResult{
+			dataStr:           dataString,
+			persistentContext: r.GetResourceVersion(),
+			err:               nil,
+		}
+	default:
+		return clientWatchResult{
+			dataStr:           "",
+			persistentContext: "",
+			err:               fmt.Errorf("unsupported type in watch %T", r),
+		}
+	}
 }

@@ -303,6 +303,80 @@ func (_c *mockGeneralConfigRepository_update_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// watch provides a mock function with given fields: ctx, name, filters
+func (_m *mockGeneralConfigRepository) watch(ctx context.Context, name configName, filters ...config.WatchFilter) (<-chan configWatchResult, error) {
+	_va := make([]interface{}, len(filters))
+	for _i := range filters {
+		_va[_i] = filters[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, name)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for watch")
+	}
+
+	var r0 <-chan configWatchResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, configName, ...config.WatchFilter) (<-chan configWatchResult, error)); ok {
+		return rf(ctx, name, filters...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, configName, ...config.WatchFilter) <-chan configWatchResult); ok {
+		r0 = rf(ctx, name, filters...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan configWatchResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, configName, ...config.WatchFilter) error); ok {
+		r1 = rf(ctx, name, filters...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// mockGeneralConfigRepository_watch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'watch'
+type mockGeneralConfigRepository_watch_Call struct {
+	*mock.Call
+}
+
+// watch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - name configName
+//   - filters ...config.WatchFilter
+func (_e *mockGeneralConfigRepository_Expecter) watch(ctx interface{}, name interface{}, filters ...interface{}) *mockGeneralConfigRepository_watch_Call {
+	return &mockGeneralConfigRepository_watch_Call{Call: _e.mock.On("watch",
+		append([]interface{}{ctx, name}, filters...)...)}
+}
+
+func (_c *mockGeneralConfigRepository_watch_Call) Run(run func(ctx context.Context, name configName, filters ...config.WatchFilter)) *mockGeneralConfigRepository_watch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]config.WatchFilter, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(config.WatchFilter)
+			}
+		}
+		run(args[0].(context.Context), args[1].(configName), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *mockGeneralConfigRepository_watch_Call) Return(_a0 <-chan configWatchResult, _a1 error) *mockGeneralConfigRepository_watch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *mockGeneralConfigRepository_watch_Call) RunAndReturn(run func(context.Context, configName, ...config.WatchFilter) (<-chan configWatchResult, error)) *mockGeneralConfigRepository_watch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // newMockGeneralConfigRepository creates a new instance of mockGeneralConfigRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func newMockGeneralConfigRepository(t interface {

@@ -78,3 +78,37 @@ func (scr SensitiveDoguConfigRepository) Delete(ctx context.Context, name config
 
 	return nil
 }
+
+type SensitiveDoguConfigWatchResult struct {
+	PrevState config.SensitiveDoguConfig
+	NewState  config.SensitiveDoguConfig
+	Err       error
+}
+
+func (scr SensitiveDoguConfigRepository) Watch(ctx context.Context, dName config.SimpleDoguName, filters ...config.WatchFilter) (<-chan SensitiveDoguConfigWatchResult, error) {
+	cfgWatch, err := scr.watch(ctx, createConfigName(dName.String()), filters...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to start watch for sensitive config from dogu %s: %w", dName, err)
+	}
+
+	watchChan := make(chan SensitiveDoguConfigWatchResult)
+
+	go func() {
+		defer close(watchChan)
+		for result := range cfgWatch {
+			watchChan <- SensitiveDoguConfigWatchResult{
+				PrevState: config.SensitiveDoguConfig{
+					DoguName: dName,
+					Config:   result.prevState,
+				},
+				NewState: config.SensitiveDoguConfig{
+					DoguName: dName,
+					Config:   result.newState,
+				},
+				Err: result.err,
+			}
+		}
+	}()
+
+	return watchChan, nil
+}

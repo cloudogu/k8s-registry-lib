@@ -860,7 +860,7 @@ func Test_watchWithClient(t *testing.T) {
 		go func() {
 			for result := range watchChan {
 				assert.Error(t, result.err)
-				assert.ErrorContains(t, result.err, "error result in watcher of config 'dogu-config'")
+				assert.ErrorContains(t, result.err, "error result in watcher for config 'dogu-config'")
 				cancel <- true
 			}
 		}()

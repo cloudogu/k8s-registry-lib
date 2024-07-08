@@ -78,3 +78,37 @@ func (dcr DoguConfigRepository) Delete(ctx context.Context, name config.SimpleDo
 
 	return nil
 }
+
+type DoguConfigWatchResult struct {
+	PrevState config.DoguConfig
+	NewState  config.DoguConfig
+	Err       error
+}
+
+func (dcr DoguConfigRepository) Watch(ctx context.Context, dName config.SimpleDoguName, filters ...config.WatchFilter) (<-chan DoguConfigWatchResult, error) {
+	cfgWatch, err := dcr.watch(ctx, createConfigName(dName.String()), filters...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to start watch for config from dogu %s: %w", dName, err)
+	}
+
+	watchChan := make(chan DoguConfigWatchResult)
+
+	go func() {
+		defer close(watchChan)
+		for result := range cfgWatch {
+			watchChan <- DoguConfigWatchResult{
+				PrevState: config.DoguConfig{
+					DoguName: dName,
+					Config:   result.prevState,
+				},
+				NewState: config.DoguConfig{
+					DoguName: dName,
+					Config:   result.newState,
+				},
+				Err: result.err,
+			}
+		}
+	}()
+
+	return watchChan, nil
+}

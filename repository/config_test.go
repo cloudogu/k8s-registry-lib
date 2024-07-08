@@ -6,7 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
+	"sync"
 	"testing"
+	"time"
 )
 
 type configRepo_testcase int
@@ -612,66 +615,195 @@ func TestMergeConfigData(t *testing.T) {
 	}
 }
 
-/*
-	func Test_configRepo_watch(t *testing.T) {
-		ctx := context.Background()
+func Test_configRepo_watch(t *testing.T) {
+	ctx := context.TODO()
 
-		t.Run("should watch config", func(t *testing.T) {
-			resultChan := make(chan clientWatchResult)
+	t.Run("should watch config for any changes", func(t *testing.T) {
+		resultChan := make(chan clientWatchResult)
 
-			mockClient := newMockConfigClient(t)
-			mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
-			mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
+		ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
 
-			repo, err := newConfigRepo(mockClient)
-			require.NoError(t, err)
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
 
-			watch, err := repo.watch(ctx)
+		repo := newConfigRepo(mockClient)
 
-			require.NoError(t, err)
-			assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}), watch.InitialConfig)
+		var wg sync.WaitGroup
 
-			cancel := make(chan bool, 1)
+		wgDone := make(chan struct{})
+		defer close(wgDone)
 
-			go func() {
-				resultChan <- clientWatchResult{"foo: value", nil}
-				resultChan <- clientWatchResult{"key: other", nil}
-				resultChan <- clientWatchResult{"", assert.AnError}
-			}()
+		watch, err := repo.watch(ctxTimeout, "dogu-config")
+		assert.NoError(t, err)
 
-			go func() {
-				i := 0
-				for result := range watch.ResultChan {
-					if i == 0 {
-						assert.NoError(t, result.err)
-						assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}), result.config)
-					}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-					if i == 1 {
-						assert.NoError(t, result.err)
-						assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}), result.config)
-					}
+			resultChan <- clientWatchResult{"foo: value", "", nil}
+			resultChan <- clientWatchResult{"key: other", "", nil}
+			resultChan <- clientWatchResult{"", "", assert.AnError}
 
-					if i == 2 {
-						assert.Error(t, result.err)
-						assert.ErrorIs(t, result.err, assert.AnError)
-						assert.ErrorContains(t, result.err, "error watching config:")
-						cancel <- true
-					}
+			close(resultChan)
+		}()
 
-					i++
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			i := 0
+			for result := range watch {
+				if i == 0 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}, config.WithPersistenceContext("")), result.newState)
 				}
-			}()
 
-			select {
-			case <-cancel:
-				close(resultChan)
-			case <-time.After(5 * time.Second):
-				close(resultChan)
-				t.Errorf("did not reach all evente in time")
+				if i == 1 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}, config.WithPersistenceContext("")), result.newState)
+				}
+
+				if i == 2 {
+					assert.ErrorIs(t, result.err, assert.AnError)
+					assert.ErrorContains(t, result.err, "client watch error:")
+				}
+
+				i++
 			}
-		})
+		}()
 
+		go func() {
+			wg.Wait()
+			wgDone <- struct{}{}
+		}()
+
+		select {
+		case <-wgDone:
+		case <-ctxTimeout.Done():
+			t.Errorf("did not reach all evente in time")
+		}
+	})
+
+	t.Run("should watch config for changes that matches filter", func(t *testing.T) {
+		resultChan := make(chan clientWatchResult)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
+
+		repo := newConfigRepo(mockClient)
+
+		var wg sync.WaitGroup
+
+		wgDone := make(chan struct{})
+		defer close(wgDone)
+
+		watch, err := repo.watch(ctxTimeout, "dogu-config", config.KeyFilter("key"))
+		assert.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			resultChan <- clientWatchResult{"foo: value", "", nil}
+			resultChan <- clientWatchResult{"key: other", "", nil}
+			resultChan <- clientWatchResult{"", "", assert.AnError}
+
+			close(resultChan)
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			i := 0
+			for result := range watch {
+				if i == 0 {
+					assert.NoError(t, result.err)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}, config.WithPersistenceContext("")), result.newState)
+				}
+
+				if i == 1 {
+					assert.ErrorIs(t, result.err, assert.AnError)
+					assert.ErrorContains(t, result.err, "client watch error:")
+				}
+
+				i++
+			}
+		}()
+
+		go func() {
+			wg.Wait()
+			wgDone <- struct{}{}
+		}()
+
+		select {
+		case <-wgDone:
+		case <-ctxTimeout.Done():
+			t.Errorf("did not reach all evente in time")
+		}
+	})
+
+	t.Run("should not notify when filter is not matching", func(t *testing.T) {
+		resultChan := make(chan clientWatchResult)
+
+		ctxTimeout, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
+
+		repo := newConfigRepo(mockClient)
+
+		var wg sync.WaitGroup
+
+		wgDone := make(chan struct{})
+		defer close(wgDone)
+
+		watch, err := repo.watch(ctxTimeout, "dogu-config", config.KeyFilter("n/a"))
+		assert.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			resultChan <- clientWatchResult{"foo: value", "", nil}
+			resultChan <- clientWatchResult{"key: other", "", nil}
+
+			close(resultChan)
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for range watch {
+				assert.Fail(t, "unexpected result received, expected no notification")
+			}
+		}()
+
+		go func() {
+			wg.Wait()
+			wgDone <- struct{}{}
+		}()
+
+		select {
+		case <-wgDone:
+		case <-ctxTimeout.Done():
+			t.Errorf("did not reach all evente in time")
+		}
+	})
+
+	/*
 		t.Run("should  fail to watch config for error in yaml", func(t *testing.T) {
 			resultChan := make(chan clientWatchResult)
 
@@ -738,8 +870,9 @@ func TestMergeConfigData(t *testing.T) {
 			assert.ErrorIs(t, err, assert.AnError)
 			assert.ErrorContains(t, err, "could not get config:")
 		})
-	}
-*/
+	*/
+}
+
 func createConfigWithChanges(t *testing.T, initialEntries config.Entries, changes []config.Change) config.Config {
 	cfg := config.CreateConfig(initialEntries, config.WithPersistenceContext(""))
 

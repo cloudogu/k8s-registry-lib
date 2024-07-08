@@ -19,17 +19,6 @@ func createConfigName(simpleName string) configName {
 	return configName(fmt.Sprintf("%s-config", simpleName))
 }
 
-type clientWatchResult struct {
-	dataStr           string
-	persistentContext string
-	err               error
-}
-
-type clientData struct {
-	dataStr string
-	rawData any
-}
-
 type resourceVersionGetter interface {
 	GetResourceVersion() string
 }
@@ -74,7 +63,7 @@ func (cr configRepository) get(ctx context.Context, name configName) (config.Con
 
 	cfg := config.CreateConfig(
 		cfgData,
-		config.WithPersistenceContext(cd.rawData),
+		config.WithPersistenceContext(getPersistentContext(cd.rawData)),
 	)
 
 	return cfg, nil
@@ -185,6 +174,84 @@ func mergeConfigData(remoteCfgData config.Entries, localCfg config.Config) (conf
 	}
 
 	return remoteCfgData, nil
+}
+
+type configWatchResult struct {
+	prevState config.Config
+	newState  config.Config
+	err       error
+}
+
+func (cr configRepository) watch(ctx context.Context, name configName, filters ...config.WatchFilter) (<-chan configWatchResult, error) {
+	lastCfg, err := cr.get(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("could not get config: %w", err)
+	}
+
+	clientResultChan, err := cr.client.Watch(ctx, name.String())
+	if err != nil {
+		return nil, fmt.Errorf("could not start watch: %w", err)
+	}
+
+	resultChan := make(chan configWatchResult)
+
+	go func() {
+		defer close(resultChan)
+		for clientResult := range clientResultChan {
+			configResult := createConfigWatchResult(lastCfg, clientResult, cr.converter)
+
+			if configResult.err != nil {
+				resultChan <- configResult
+				continue
+			}
+
+			// when no filter is set, notify about every change
+			if len(filters) == 0 {
+				resultChan <- configResult
+				lastCfg = configResult.newState
+				continue
+			}
+
+			// apply filters, notify if one of the filters matches
+			for _, filter := range filters {
+				if filter(configResult.prevState.Diff(configResult.newState)) {
+					resultChan <- configResult
+					lastCfg = configResult.newState
+
+					break
+				}
+			}
+		}
+	}()
+
+	return resultChan, nil
+}
+
+func createConfigWatchResult(lastCfg config.Config, result clientWatchResult, converter config.Converter) configWatchResult {
+	if result.err != nil {
+		return configWatchResult{
+			prevState: config.Config{},
+			newState:  config.Config{},
+			err:       fmt.Errorf("client watch error: %w", result.err),
+		}
+	}
+
+	reader := strings.NewReader(result.dataStr)
+
+	cfgData, err := converter.Read(reader)
+	if err != nil {
+		return configWatchResult{
+			prevState: config.Config{},
+			newState:  config.Config{},
+			err:       fmt.Errorf("could not convert client data to config data: %w", err),
+		}
+	}
+
+	return configWatchResult{
+		prevState: lastCfg,
+		newState:  config.CreateConfig(cfgData, config.WithPersistenceContext(result.persistentContext)),
+		err:       nil,
+	}
 }
 
 func getPersistentContext(rawData any) string {

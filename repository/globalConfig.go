@@ -72,3 +72,31 @@ func (gcr GlobalConfigRepository) Delete(ctx context.Context) error {
 
 	return nil
 }
+
+type GlobalConfigWatchResult struct {
+	PrevState config.GlobalConfig
+	NewState  config.GlobalConfig
+	Err       error
+}
+
+func (gcr GlobalConfigRepository) Watch(ctx context.Context, filters ...config.WatchFilter) (<-chan GlobalConfigWatchResult, error) {
+	cfgWatch, err := gcr.watch(ctx, createConfigName(_SimpleGlobalConfigName), filters...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to start watch for global config: %w", err)
+	}
+
+	watchChan := make(chan GlobalConfigWatchResult)
+
+	go func() {
+		defer close(watchChan)
+		for result := range cfgWatch {
+			watchChan <- GlobalConfigWatchResult{
+				PrevState: config.GlobalConfig{Config: result.prevState},
+				NewState:  config.GlobalConfig{Config: result.newState},
+				Err:       result.err,
+			}
+		}
+	}()
+
+	return watchChan, nil
+}

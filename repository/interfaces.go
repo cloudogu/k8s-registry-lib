@@ -11,4 +11,5 @@ type generalConfigRepository interface {
 	create(context.Context, configName, config.SimpleDoguName, config.Config) (config.Config, error)
 	update(context.Context, configName, config.SimpleDoguName, config.Config) (config.Config, error)
 	saveOrMerge(context.Context, configName, config.Config) (config.Config, error)
+	watch(ctx context.Context, name configName, filters ...config.WatchFilter) (<-chan configWatchResult, error)
 }
