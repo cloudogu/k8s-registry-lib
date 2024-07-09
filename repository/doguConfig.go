@@ -19,6 +19,15 @@ func NewDoguConfigRepository(client ConfigMapClient) *DoguConfigRepository {
 	}
 }
 
+func NewSensitiveDoguConfigRepository(client SecretClient) *DoguConfigRepository {
+	cfgClient := createSecretClient(client, sensitiveConfigType)
+	cfgRepository := newConfigRepo(cfgClient)
+
+	return &DoguConfigRepository{
+		generalConfigRepository: cfgRepository,
+	}
+}
+
 func (dcr DoguConfigRepository) Get(ctx context.Context, name config.SimpleDoguName) (config.DoguConfig, error) {
 	cfg, err := dcr.get(ctx, createConfigName(name.String()))
 	if err != nil {
