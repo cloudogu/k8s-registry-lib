@@ -16,7 +16,7 @@ func (c configName) String() string {
 }
 
 func createConfigName(simpleName string) configName {
-	return configName(fmt.Sprintf("%s-config", simpleName))
+	return configName(strings.ToLower(fmt.Sprintf("%s-config", simpleName)))
 }
 
 type resourceVersionGetter interface {
