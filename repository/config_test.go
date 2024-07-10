@@ -802,75 +802,22 @@ func Test_configRepo_watch(t *testing.T) {
 			t.Errorf("did not reach all evente in time")
 		}
 	})
+}
 
-	/*
-		t.Run("should  fail to watch config for error in yaml", func(t *testing.T) {
-			resultChan := make(chan clientWatchResult)
+func Test_createConfigWatchResult(t *testing.T) {
+	t.Run("should fail to create configWatchResult for error reading config", func(t *testing.T) {
+		watchResult := clientWatchResult{
+			dataStr: "noValidYaml!!",
+		}
 
-			mockClient := newMockConfigClient(t)
-			mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
-			mockClient.EXPECT().Watch(ctx, "dogu-config").Return(resultChan, nil)
+		result := createConfigWatchResult(config.Config{}, watchResult, &config.YamlConverter{})
 
-			repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
-			require.NoError(t, err)
+		assert.Equal(t, config.Config{}, result.prevState)
+		assert.Equal(t, config.Config{}, result.newState)
+		assert.Error(t, result.err)
+		assert.ErrorContains(t, result.err, "could not convert client data to config data: unable to decode yaml from reader")
 
-			watch, err := repo.watch(ctx)
-
-			require.NoError(t, err)
-			assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}), watch.InitialConfig)
-
-			cancel := make(chan bool, 1)
-
-			go func() {
-				resultChan <- clientWatchResult{"noYAML-<", nil}
-			}()
-
-			go func() {
-				for result := range watch.ResultChan {
-					assert.Error(t, result.err)
-					assert.ErrorContains(t, result.err, "could not convert client data to config data: unable to decode yaml from reader")
-					cancel <- true
-				}
-			}()
-
-			select {
-			case <-cancel:
-				close(resultChan)
-			case <-time.After(5 * time.Second):
-				close(resultChan)
-				t.Errorf("did not reach all evente in time")
-			}
-		})
-
-		t.Run("should fail to watch config for error while starting watch", func(t *testing.T) {
-			mockClient := newMockConfigClient(t)
-			mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{"foo: bar", nil}, nil)
-			mockClient.EXPECT().Watch(ctx, "dogu-config").Return(nil, assert.AnError)
-
-			repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
-			require.NoError(t, err)
-
-			_, err = repo.watch(ctx)
-
-			require.Error(t, err)
-			assert.ErrorIs(t, err, assert.AnError)
-			assert.ErrorContains(t, err, "could not start watch:")
-		})
-
-		t.Run("should fail to watch config for error while getting initial config", func(t *testing.T) {
-			mockClient := newMockConfigClient(t)
-			mockClient.EXPECT().Get(ctx, "dogu-config").Return(clientData{}, assert.AnError)
-
-			repo, err := newConfigRepo(withDoguName("dogu"), mockClient)
-			require.NoError(t, err)
-
-			_, err = repo.watch(ctx)
-
-			require.Error(t, err)
-			assert.ErrorIs(t, err, assert.AnError)
-			assert.ErrorContains(t, err, "could not get config:")
-		})
-	*/
+	})
 }
 
 func createConfigWithChanges(t *testing.T, initialEntries config.Entries, changes []config.Change) config.Config {

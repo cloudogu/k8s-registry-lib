@@ -26,7 +26,7 @@ func (_m *MockConverter) Read(reader io.Reader) (Entries, error) {
 	ret := _m.Called(reader)
 
 	if len(ret) == 0 {
-		panic("no return Value specified for Read")
+		panic("no return value specified for Read")
 	}
 
 	var r0 Entries
@@ -84,7 +84,7 @@ func (_m *MockConverter) Write(writer io.Writer, cfgData Entries) error {
 	ret := _m.Called(writer, cfgData)
 
 	if len(ret) == 0 {
-		panic("no return Value specified for Write")
+		panic("no return value specified for Write")
 	}
 
 	var r0 error
@@ -127,7 +127,7 @@ func (_c *MockConverter_Write_Call) RunAndReturn(run func(io.Writer, Entries) er
 }
 
 // NewMockConverter creates a new instance of MockConverter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
-// The first argument is typically a *testing.T Value.
+// The first argument is typically a *testing.T value.
 func NewMockConverter(t interface {
 	mock.TestingT
 	Cleanup(func())

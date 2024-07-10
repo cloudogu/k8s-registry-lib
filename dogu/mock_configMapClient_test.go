@@ -448,7 +448,7 @@ func (_m *mockConfigMapClient) Update(ctx context.Context, configMap *corev1.Con
 	ret := _m.Called(ctx, configMap, opts)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateClientData")
+		panic("no return value specified for Update")
 	}
 
 	var r0 *corev1.ConfigMap
@@ -473,7 +473,7 @@ func (_m *mockConfigMapClient) Update(ctx context.Context, configMap *corev1.Con
 	return r0, r1
 }
 
-// mockConfigMapClient_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClientData'
+// mockConfigMapClient_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
 type mockConfigMapClient_Update_Call struct {
 	*mock.Call
 }
@@ -483,7 +483,7 @@ type mockConfigMapClient_Update_Call struct {
 //   - configMap *corev1.ConfigMap
 //   - opts metav1.UpdateOptions
 func (_e *mockConfigMapClient_Expecter) Update(ctx interface{}, configMap interface{}, opts interface{}) *mockConfigMapClient_Update_Call {
-	return &mockConfigMapClient_Update_Call{Call: _e.mock.On("UpdateClientData", ctx, configMap, opts)}
+	return &mockConfigMapClient_Update_Call{Call: _e.mock.On("Update", ctx, configMap, opts)}
 }
 
 func (_c *mockConfigMapClient_Update_Call) Run(run func(ctx context.Context, configMap *corev1.ConfigMap, opts metav1.UpdateOptions)) *mockConfigMapClient_Update_Call {
