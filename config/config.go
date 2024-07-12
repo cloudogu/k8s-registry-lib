@@ -95,7 +95,7 @@ func (c Config) Set(k Key, v Value) (Config, error) {
 
 	for configKey := range c.entries {
 		if strings.HasPrefix(configKey.String(), subKey.String()) {
-			return Config{}, fmt.Errorf("key %s is alreaedy used as dictionary", configKey)
+			return Config{}, fmt.Errorf("key %s is already used as dictionary", configKey)
 		}
 	}
 
