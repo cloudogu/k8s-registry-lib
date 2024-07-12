@@ -264,13 +264,13 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k2",
-					Value:      "v2",
-					OtherValue: "v3",
+					Value:      OptionalValue{String: "v2", Exists: true},
+					OtherValue: OptionalValue{String: "v3", Exists: true},
 				},
 				{
 					Key:        "k3",
-					Value:      "v3",
-					OtherValue: "v4",
+					Value:      OptionalValue{String: "v3", Exists: true},
+					OtherValue: OptionalValue{String: "v4", Exists: true},
 				},
 			},
 		},
@@ -292,8 +292,8 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k1",
-					Value:      "",
-					OtherValue: "v1",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "v1", Exists: true},
 				},
 			},
 		},
@@ -315,10 +315,90 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k2",
-					Value:      "v2",
-					OtherValue: "",
+					Value:      OptionalValue{String: "v2", Exists: true},
+					OtherValue: OptionalValue{Exists: false},
 				},
 			},
+		},
+		{
+			name: "Missing key k1 in config and empty key in other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "",
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k1",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "", Exists: true},
+				},
+			},
+		},
+		{
+			name: "Empty key k2 in config and missing key in other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{
+				{
+					Key:        "k2",
+					Value:      OptionalValue{String: "", Exists: true},
+					OtherValue: OptionalValue{Exists: false},
+				},
+			},
+		},
+		{
+			name: "Empty key k2 in config and empty key k2 in other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k1": "v1",
+					"k2": "",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{},
+		},
+		{
+			name: "Missing key k1 in config and missing key k1 in other config",
+			cfg: Config{
+				entries: map[Key]Value{
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			oCfg: Config{
+				entries: map[Key]Value{
+					"k2": "v2",
+					"k3": "v3",
+				},
+			},
+			expMods: []DiffResult{},
 		},
 		{
 			name: "Multiple keys keys added to other config",
@@ -339,28 +419,28 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k1",
-					Value:      "v1",
-					OtherValue: "new",
+					Value:      OptionalValue{String: "v1", Exists: true},
+					OtherValue: OptionalValue{String: "new", Exists: true},
 				},
 				{
 					Key:        "k2",
-					Value:      "",
-					OtherValue: "v2",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "v2", Exists: true},
 				},
 				{
 					Key:        "k3",
-					Value:      "",
-					OtherValue: "v3",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "v3", Exists: true},
 				},
 				{
 					Key:        "k4",
-					Value:      "",
-					OtherValue: "v4",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "v4", Exists: true},
 				},
 				{
 					Key:        "k5",
-					Value:      "",
-					OtherValue: "v5",
+					Value:      OptionalValue{Exists: false},
+					OtherValue: OptionalValue{String: "v5", Exists: true},
 				},
 			},
 		},
@@ -377,8 +457,8 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k1",
-					Value:      "v1",
-					OtherValue: "",
+					Value:      OptionalValue{String: "v1", Exists: true},
+					OtherValue: OptionalValue{Exists: false},
 				},
 			},
 		},
@@ -393,8 +473,8 @@ func TestConfig_Diff(t *testing.T) {
 			expMods: []DiffResult{
 				{
 					Key:        "k1",
-					Value:      "v1",
-					OtherValue: "",
+					Value:      OptionalValue{String: "v1", Exists: true},
+					OtherValue: OptionalValue{Exists: false},
 				},
 			},
 		},

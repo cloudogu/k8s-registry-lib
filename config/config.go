@@ -31,6 +31,12 @@ func (v Value) String() string {
 	return string(v)
 }
 
+// OptionalValue represents a configuration value as a string that may be null.
+type OptionalValue struct {
+	String string
+	Exists bool // Exists is true if String is not NULL
+}
+
 // Entries represents a map of configuration keys and values.
 type Entries map[Key]Value
 
@@ -43,8 +49,8 @@ type Change struct {
 // DiffResult represents a result of a configuration comparison.
 type DiffResult struct {
 	Key        Key
-	Value      Value
-	OtherValue Value
+	Value      OptionalValue
+	OtherValue OptionalValue
 }
 
 // Config represents a general configuration with entries and change history.
@@ -211,8 +217,8 @@ func (c Config) Diff(other Config) []DiffResult {
 	for k, v := range c.entries {
 		m[k] = DiffResult{
 			Key:        k,
-			Value:      v,
-			OtherValue: "",
+			Value:      OptionalValue{String: v.String(), Exists: true},
+			OtherValue: OptionalValue{Exists: false},
 		}
 	}
 
@@ -221,8 +227,8 @@ func (c Config) Diff(other Config) []DiffResult {
 		if !ok {
 			m[kOther] = DiffResult{
 				Key:        kOther,
-				Value:      "",
-				OtherValue: vOther,
+				Value:      OptionalValue{Exists: false},
+				OtherValue: OptionalValue{String: vOther.String(), Exists: true},
 			}
 
 			continue
@@ -231,13 +237,13 @@ func (c Config) Diff(other Config) []DiffResult {
 		m[kOther] = DiffResult{
 			Key:        kOther,
 			Value:      mod.Value,
-			OtherValue: vOther,
+			OtherValue: OptionalValue{String: vOther.String(), Exists: true},
 		}
 	}
 
 	mods := make([]DiffResult, 0, len(m))
 	for _, v := range m {
-		if v.Value != v.OtherValue {
+		if v.Value.Exists != v.OtherValue.Exists || v.Value.String != v.OtherValue.String {
 			mods = append(mods, v)
 		}
 	}

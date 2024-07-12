@@ -6,8 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- [#3] Add config registries for global, dogu and sensitive dogu
-- [#3] Add option to watch for keys
+- [#3] Add config repositories for global, dogu and sensitive config
+- [#3] Add option to watch for config-changes
 
 ### Changed
 - Refactor local dogu registry 
