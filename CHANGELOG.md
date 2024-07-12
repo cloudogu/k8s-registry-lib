@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2024-07-12
+### Added
+- [#3] Add config repositories for global, dogu and sensitive config
+- [#3] Add option to watch for config-changes
+
+### Changed
+- Refactor local dogu registry 
+- Remove fallback option to etcd
+
 ## [v0.1.0] - 2024-05-08
 ### Added
 - [#1] Local dogu registry
