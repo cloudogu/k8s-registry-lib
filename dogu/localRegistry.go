@@ -37,7 +37,7 @@ func NewLocalRegistry(client configMapClient) *LocalDoguRegistry {
 	}
 }
 
-func getSpecConfigMapName(simpleDoguName string) string {
+func getSpecConfigMapName(simpleDoguName SimpleDoguName) string {
 	return fmt.Sprintf("dogu-spec-%s", simpleDoguName)
 }
 
