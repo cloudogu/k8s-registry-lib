@@ -6,8 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.2] - 2024-08-02
+### Added
+- [#8] Exposed function to create config entries from map
+
 ## [v0.2.1] - 2024-08-01
-## Fixed
+### Fixed
 - [#6] DoguRegistry method IsEnabled returns an error when the configmap for the spec is not available - now it returns false instead
 
 ## [v0.2.0] - 2024-07-12
