@@ -521,6 +521,20 @@ func Test_clusterNativeLocalDoguRegistry_IsEnabled(t *testing.T) {
 			},
 		},
 		{
+			name: "should return false in case config map is not available",
+			configMapClientFn: func(t *testing.T) configMapClient {
+				cmClient := newMockConfigMapClient(t)
+				cmClient.EXPECT().Get(testCtx, "dogu-spec-ldap", metav1.GetOptions{}).Return(nil, k8sErrs.NewNotFound(schema.GroupResource{}, ""))
+				return cmClient
+			},
+			simpleDoguName: "ldap",
+			want:           false,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				assert.NoError(t, err)
+				return true
+			},
+		},
+		{
 			name: "should return false",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMap := &corev1.ConfigMap{Data: map[string]string{}}
