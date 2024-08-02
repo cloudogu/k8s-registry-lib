@@ -81,9 +81,13 @@ func (yc *YamlConverter) Read(reader io.Reader) (Entries, error) {
 		return nil, fmt.Errorf("unable to decode yaml from reader: %w", err)
 	}
 
+	return MapToEntries(yamlMap)
+}
+
+func MapToEntries(inputMap map[string]any) (Entries, error) {
 	var cfgData Entries
-	if err := mapToConfig(yamlMap, &cfgData, ""); err != nil {
-		return nil, fmt.Errorf("cannot convert yaml Entries to Config Entries: %w", err)
+	if err := mapToConfig(inputMap, &cfgData, ""); err != nil {
+		return nil, fmt.Errorf("cannot convert map Entries to Config Entries: %w", err)
 	}
 
 	return cfgData, nil
