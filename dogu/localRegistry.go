@@ -69,7 +69,7 @@ func (cmr *LocalDoguRegistry) Register(ctx context.Context, dogu *core.Dogu) err
 		jsonErr = fmt.Errorf("failed to serialize dogu.json of %q: %w", dogu.Name, jsonErr)
 	}
 
-	specConfigMapName := getSpecConfigMapName(dogu.GetSimpleName())
+	specConfigMapName := getSpecConfigMapName(SimpleDoguName(dogu.GetSimpleName()))
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		specConfigMap, getErr := cmr.getSpecConfigMapForDogu(ctx, dogu.GetSimpleName())
 		if jsonErr != nil || client.IgnoreNotFound(getErr) != nil {
@@ -112,7 +112,7 @@ func (cmr *LocalDoguRegistry) Register(ctx context.Context, dogu *core.Dogu) err
 // Deletes the backing ConfigMap. Resetting the specLocation field in the dogu resource's status is not necessary
 // as the resource will either be deleted or the field will be overwritten.
 func (cmr *LocalDoguRegistry) UnregisterAllVersions(ctx context.Context, simpleDoguName string) error {
-	err := cmr.configMapClient.Delete(ctx, getSpecConfigMapName(simpleDoguName), metav1.DeleteOptions{})
+	err := cmr.configMapClient.Delete(ctx, getSpecConfigMapName(SimpleDoguName(simpleDoguName)), metav1.DeleteOptions{})
 	if client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete local registry for dogu %q: %w", simpleDoguName, err)
 	}
@@ -189,7 +189,7 @@ func (cmr *LocalDoguRegistry) IsEnabled(ctx context.Context, simpleDoguName stri
 }
 
 func (cmr *LocalDoguRegistry) getSpecConfigMapForDogu(ctx context.Context, simpleDoguName string) (*corev1.ConfigMap, error) {
-	specConfigMapName := getSpecConfigMapName(simpleDoguName)
+	specConfigMapName := getSpecConfigMapName(SimpleDoguName(simpleDoguName))
 	specConfigMap, err := cmr.configMapClient.Get(ctx, specConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get local registry for dogu %q: %w", simpleDoguName, err)

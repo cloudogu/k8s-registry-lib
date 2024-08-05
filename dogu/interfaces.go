@@ -38,10 +38,8 @@ type DoguVersion struct {
 type DoguVersionRegistry interface {
 	GetCurrent(context.Context, SimpleDoguName) (DoguVersion, error)
 	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
-	// TODO Check useage of type DoguVersion instead of SimpleDoguName.
 	IsEnabled(context.Context, DoguVersion) (bool, error)
-	// enable
-	// Enable(context.Context, DoguVersion) error
+	Enable(context.Context, DoguVersion) error
 	WatchAllCurrent(context.Context) (CurrentVersionsWatch, error)
 }
 
