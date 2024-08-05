@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudogu/cesapp-lib/core"
-	errors2 "github.com/cloudogu/k8s-registry-lib/errors"
+	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/retry"
 	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -57,7 +58,7 @@ func getDoguVersionParseError(currentVersion string, name SimpleDoguName, err er
 }
 
 func getDoguRegistryKeyNotFoundError(key string, name SimpleDoguName) error {
-	return errors2.NewNotFoundError(fmt.Errorf("failed to get value for key %q for dogu registry %q", key, name))
+	return cloudoguerrors.NewNotFoundError(fmt.Errorf("failed to get value for key %q for dogu registry %q", key, name))
 }
 
 func getOrCreateSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
@@ -152,20 +153,23 @@ func (vr *versionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (
 }
 
 func (vr *versionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
-	specConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
-	if err != nil {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		specConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
+		if err != nil {
+			return err
+		}
+		if !isDoguVersionInstalled(*specConfigMap, doguVersion.Version) {
+			return fmt.Errorf("failed to enable dogu. dogu spec is not available")
+		}
+		specConfigMap.Data[currentVersionKey] = doguVersion.Version.Raw
+		_, err = vr.configMapClient.Update(ctx, specConfigMap, metav1.UpdateOptions{})
 		return err
+	})
+	if err != nil {
+		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to enable dogu %s with version %s", doguVersion.Name, doguVersion.Version.Raw))
 	}
 
-	if !isDoguVersionInstalled(*specConfigMap, doguVersion.Version) {
-		return fmt.Errorf("failed to enable dogu. dogu spec is not available")
-	}
-
-	specConfigMap.Data[currentVersionKey] = doguVersion.Version.Raw
-
-	// TODO implement retry
-	_, err = vr.configMapClient.Update(ctx, specConfigMap, metav1.UpdateOptions{})
-	return err
+	return nil
 }
 
 func isDoguVersionInstalled(specConfigMap corev1.ConfigMap, version core.Version) bool {

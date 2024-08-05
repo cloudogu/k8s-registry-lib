@@ -8,6 +8,7 @@ import (
 	"github.com/cloudogu/cesapp-lib/core"
 	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 )
 
 type specRepository struct {
@@ -90,27 +91,34 @@ func (vr *specRepository) GetAll(ctx context.Context, doguVersions []DoguVersion
 }
 
 func (vr *specRepository) Add(ctx context.Context, name SimpleDoguName, dogu *core.Dogu) error {
-	doguSpecConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, name)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		doguSpecConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, name)
+		if err != nil {
+			return cloudoguerrors.NewGenericError(err)
+		}
+
+		_, ok := doguSpecConfigMap.Data[dogu.Version]
+		if ok {
+			return cloudoguerrors.NewAlreadyExistsError(fmt.Errorf("dogu spec already exists for version %s", dogu.Version))
+		}
+
+		doguBytes, err := json.Marshal(dogu)
+		if err != nil {
+			return cloudoguerrors.NewGenericError(fmt.Errorf("failed to marshal dogu %v: %w", dogu, err))
+		}
+
+		doguSpecConfigMap.Data[dogu.Version] = string(doguBytes)
+
+		_, err = vr.configMapClient.Update(ctx, doguSpecConfigMap, v1.UpdateOptions{})
+		if err != nil {
+			return cloudoguerrors.NewGenericError(fmt.Errorf("failed to update dogu spec configmap %s: %w", doguSpecConfigMap.Name, err))
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return cloudoguerrors.NewGenericError(err)
-	}
-
-	_, ok := doguSpecConfigMap.Data[dogu.Version]
-	if ok {
-		return cloudoguerrors.NewAlreadyExistsError(fmt.Errorf("dogu spec already exists for version %s", dogu.Version))
-	}
-
-	doguBytes, err := json.Marshal(dogu)
-	if err != nil {
-		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to marshal dogu %v: %w", dogu, err))
-	}
-
-	doguSpecConfigMap.Data[dogu.Version] = string(doguBytes)
-
-	// TODO retry
-	_, err = vr.configMapClient.Update(ctx, doguSpecConfigMap, v1.UpdateOptions{})
-	if err != nil {
-		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to update dogu spec configmap %s: %w", doguSpecConfigMap.Name, err))
+		return err
 	}
 
 	return nil
