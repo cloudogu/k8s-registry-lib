@@ -52,8 +52,8 @@ func unmarshalDoguJsonStr(doguStr string, doguName SimpleDoguName, doguVersion s
 }
 
 func (vr *specRepository) GetAll(ctx context.Context, doguVersions []DoguVersion) (map[DoguVersion]*core.Dogu, error) {
-	var allDogus map[DoguVersion]*core.Dogu
-	var versionsByDogu map[SimpleDoguName][]DoguVersion
+	allDogus := make(map[DoguVersion]*core.Dogu, len(doguVersions))
+	versionsByDogu := make(map[SimpleDoguName][]DoguVersion)
 	for _, doguVersion := range doguVersions {
 		versionsByDogu[doguVersion.Name] = append(versionsByDogu[doguVersion.Name], doguVersion)
 	}
