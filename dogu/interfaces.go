@@ -44,7 +44,7 @@ type DoguVersionRegistry interface {
 }
 
 type CurrentVersionsWatch struct {
-	ResultChan chan<- CurrentVersionsWatchResult
+	ResultChan <-chan CurrentVersionsWatchResult
 	cancelFunc context.CancelFunc
 }
 
