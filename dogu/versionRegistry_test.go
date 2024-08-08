@@ -401,6 +401,7 @@ func (mwi mockWatchInterface) ResultChan() <-chan watch.Event {
 
 func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 	addCancelCtx, addCancelFunc := context.WithCancel(context.Background())
+	emptyAddCancelCtx, emptyAddCancelFunc := context.WithCancel(context.Background())
 	modifyCancelCtx, modifyCancelFunc := context.WithCancel(context.Background())
 	deleteCancelCtx, deleteCancelFunc := context.WithCancel(context.Background())
 	errorCancelCtx, errorCancelFunc := context.WithCancel(context.Background())
@@ -408,6 +409,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 	initialDoguVersionCtx := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr)}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 	registryCmList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*ldapRegistryCm}}
+	emptyLdapRegistryCm := &corev1.ConfigMap{Data: map[string]string{}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}}
 
 	type args struct {
 		ctx context.Context
@@ -504,6 +506,46 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
 
 				addCancelFunc()
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should throw no event with add event without current key",
+			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+				configMapClientMock := newMockConfigMapClient(t)
+				configMapClientMock.EXPECT().Watch(emptyAddCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
+				configMapClientMock.EXPECT().List(emptyAddCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
+
+				return configMapClientMock
+			},
+			args: args{ctx: emptyAddCancelCtx},
+			eventMockFn: func(watchInterface *mockWatchInterface) {
+				event := watch.Event{
+					Type:   watch.Added,
+					Object: emptyLdapRegistryCm,
+				}
+
+				watchInterface.channel <- event
+
+				// We have to send two events because is not possible to check if no event is thrown.
+				event = watch.Event{
+					Type:   watch.Added,
+					Object: casRegistryCm,
+				}
+
+				watchInterface.channel <- event
+			},
+			expectFn: func(t *testing.T, watch CurrentVersionsWatch) {
+				channel := watch.ResultChan
+
+				result := <-channel
+				require.NoError(t, result.Err)
+				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
+				casVersion := parseVersionStr(t, casVersionStr)
+				assert.Equal(t, result.Versions, map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
+				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
+
+				emptyAddCancelFunc()
 			},
 			wantErr: assert.NoError,
 		},

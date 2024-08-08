@@ -246,7 +246,17 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 }
 
 func handleDeleteWatchEvent(event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
-	eventDoguVersion, err := getCurrentDoguVersionFromEvent(event)
+	specConfigMap, err := getSpecConfigMapFromEvent(event)
+	if err != nil {
+		return err
+	}
+
+	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+		// disabled dogus deleted. Do nothing
+		return nil
+	}
+
+	eventDoguVersion, err := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
 	if err != nil {
 		return err
 	}
@@ -260,27 +270,56 @@ func handleDeleteWatchEvent(event watch.Event, persistenceContext map[SimpleDogu
 
 func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
 	logger := log.FromContext(ctx).WithName("VersionRegistry.handleModifiedWatchEvent")
-	eventDoguVersion, err := getCurrentDoguVersionFromEvent(event)
+	specConfigMap, err := getSpecConfigMapFromEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Detect change
-	version, ok := persistenceContext[eventDoguVersion.Name]
-	if ok && version.IsEqualTo(eventDoguVersion.Version) {
-		logger.Info("current versions %s for dogu %s from persistent context and modified event are equal", eventDoguVersion.Version.Raw, eventDoguVersion.Name)
-		return nil
+	oldPersistenceContext := copyPersistenceContext(persistenceContext)
+
+	// Skip process. Configmap was possible created empty and will get modified event on Enable.
+	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+		// Dogu was disabled
+		doguName := SimpleDoguName(specConfigMap.Labels[doguNameLabelKey])
+		version, ok := oldPersistenceContext[doguName]
+		if !ok {
+			// Dogu ist still disabled and cm got other updates than current deletion
+			return nil
+		}
+		fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{{Name: doguName, Version: version}})
+		delete(persistenceContext, doguName)
+	} else {
+		// Detect change
+		eventDoguVersion, getErr := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
+		if getErr != nil {
+			return getErr
+		}
+
+		version, ok := persistenceContext[eventDoguVersion.Name]
+		if ok && version.IsEqualTo(eventDoguVersion.Version) {
+			logger.Info("current versions %s for dogu %s from persistent context and modified event are equal", eventDoguVersion.Version.Raw, eventDoguVersion.Name)
+			return nil
+		}
+
+		persistenceContext[eventDoguVersion.Name] = eventDoguVersion.Version
+		fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{eventDoguVersion})
 	}
 
-	oldPersistenceContext := copyPersistenceContext(persistenceContext)
-	persistenceContext[eventDoguVersion.Name] = eventDoguVersion.Version
-
-	fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{eventDoguVersion})
 	return nil
 }
 
 func handleAddWatchEvent(event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
-	eventDoguVersion, err := getCurrentDoguVersionFromEvent(event)
+	specConfigMap, err := getSpecConfigMapFromEvent(event)
+	if err != nil {
+		return err
+	}
+
+	// Skip process. Configmap was possible created empty and will get modified event on Enable.
+	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+		return nil
+	}
+
+	eventDoguVersion, err := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
 	if err != nil {
 		return err
 	}
@@ -313,18 +352,13 @@ func fireWatchResultWithError(channel chan CurrentVersionsWatchResult, prevPersi
 	channel <- result
 }
 
-func getCurrentDoguVersionFromEvent(event watch.Event) (DoguVersion, error) {
+func getSpecConfigMapFromEvent(event watch.Event) (*corev1.ConfigMap, error) {
 	configMap, ok := event.Object.(*corev1.ConfigMap)
 	if !ok {
-		return DoguVersion{}, fmt.Errorf("failed to cast event object to %T. wrong type %T", corev1.ConfigMap{}, event.Object)
+		return nil, fmt.Errorf("failed to cast event object to %T. wrong type %T", corev1.ConfigMap{}, event.Object)
 	}
 
-	eventDoguVersion, err := getCurrentDoguVersionFromDoguSpecConfigMap(*configMap)
-	if err != nil {
-		return DoguVersion{}, err
-	}
-
-	return eventDoguVersion, nil
+	return configMap, nil
 }
 
 func getCurrentDoguVersionFromDoguSpecConfigMap(cm corev1.ConfigMap) (DoguVersion, error) {
@@ -344,6 +378,19 @@ func getCurrentDoguVersionFromDoguSpecConfigMap(cm corev1.ConfigMap) (DoguVersio
 	}
 
 	return DoguVersion{Name: SimpleDoguName(doguName), Version: version}, nil
+}
+
+func hasDoguSpecConfigMapCurrentKey(cm *corev1.ConfigMap) bool {
+	return hasDoguSpecConfigMapKey(cm, currentVersionKey)
+}
+
+func hasDoguSpecConfigMapKey(cm *corev1.ConfigMap, key string) bool {
+	if cm != nil && cm.Data != nil {
+		_, ok := cm.Data[key]
+		return ok
+	}
+
+	return false
 }
 
 func createCurrentPersistenceContext(specConfigMaps []corev1.ConfigMap) (map[SimpleDoguName]core.Version, error) {
