@@ -7,7 +7,6 @@ import (
 	"github.com/cloudogu/cesapp-lib/core"
 	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/util/retry"
@@ -15,9 +14,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	errMsgWatch = "failed to watch dogu registry"
+)
+
 type versionRegistry struct {
-	configMapClient           configMapClient
-	currentPersistenceContext map[SimpleDoguName]core.Dogu
+	configMapClient configMapClient
 }
 
 func NewDoguVersionRegistry(configMapClient configMapClient) *versionRegistry {
@@ -29,17 +31,17 @@ func NewDoguVersionRegistry(configMapClient configMapClient) *versionRegistry {
 func (vr *versionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) (DoguVersion, error) {
 	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
-		return DoguVersion{}, err
+		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
 
 	currentVersion, ok := specConfigMap.Data[currentVersionKey]
 	if !ok {
-		return DoguVersion{}, getDoguRegistryKeyNotFoundError(currentVersion, name)
+		return DoguVersion{}, getDoguRegistryKeyNotFoundError(currentVersionKey, name)
 	}
 
 	version, err := parseDoguVersion(currentVersion, name)
 	if err != nil {
-		return DoguVersion{}, err
+		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
 
 	return DoguVersion{Name: name, Version: version}, nil
@@ -61,69 +63,42 @@ func getDoguRegistryKeyNotFoundError(key string, name SimpleDoguName) error {
 	return cloudoguerrors.NewNotFoundError(fmt.Errorf("failed to get value for key %q for dogu registry %q", key, name))
 }
 
-func getOrCreateSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
-	specConfigMap, err := getSpecConfigMapForDogu(ctx, configMapClient, simpleDoguName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			var createErr error
-			specConfigMap, createErr = createSpecConfigMapForDogu(ctx, configMapClient, simpleDoguName)
-			if createErr != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("failed to get local registry for dogu %q: %w", simpleDoguName, err)
-		}
-	}
-
-	return specConfigMap, nil
-}
-
 func getSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
 	specConfigMapName := getSpecConfigMapName(simpleDoguName)
 	get, err := configMapClient.Get(ctx, specConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get dogu spec config map for dogu %s", simpleDoguName)
+		return nil, fmt.Errorf("failed to get dogu spec config map for dogu %q: %w", simpleDoguName, err)
 	}
 	return get, nil
-}
-
-func createSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
-	specConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: getSpecConfigMapName(simpleDoguName),
-			Labels: map[string]string{
-				appLabelKey:      appLabelValueCes,
-				doguNameLabelKey: string(simpleDoguName),
-				typeLabelKey:     typeLabelValueLocalDoguRegistry,
-			},
-		},
-	}
-
-	_, createErr := configMapClient.Create(ctx, specConfigMap, metav1.CreateOptions{})
-	if createErr != nil {
-		return nil, fmt.Errorf("failed to create local registry for dogu %q: %w", simpleDoguName, createErr)
-	}
-
-	return specConfigMap, nil
 }
 
 func (vr *versionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
 	registryList, err := getAllSpecConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
-		return []DoguVersion{}, err
+		return nil, cloudoguerrors.NewGenericError(err)
 	}
 
 	var errs []error
 	doguVersions := make([]DoguVersion, 0, len(registryList.Items))
 	for _, localRegistry := range registryList.Items {
-		doguVersion, getErr := vr.GetCurrent(ctx, SimpleDoguName(localRegistry.Labels[doguNameLabelKey]))
-		errs = append(errs, getErr)
-		doguVersions = append(doguVersions, doguVersion)
+		currentVersion, ok := localRegistry.Data[currentVersionKey]
+		if !ok {
+			continue
+		}
+
+		doguName := SimpleDoguName(localRegistry.Labels[doguNameLabelKey])
+		version, parseErr := parseDoguVersion(currentVersion, doguName)
+		if parseErr != nil {
+			errs = append(errs, parseErr)
+			continue
+		}
+
+		doguVersions = append(doguVersions, DoguVersion{Name: doguName, Version: version})
 	}
 
 	err = errors.Join(errs...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get some dogu versions: %w", err)
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to get some dogu versions: %w", err))
 	}
 
 	return doguVersions, nil
@@ -145,7 +120,7 @@ func getAllLocalDoguRegistriesSelector() string {
 func (vr *versionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (bool, error) {
 	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
-		return false, err
+		return false, cloudoguerrors.NewGenericError(err)
 	}
 
 	_, enabled := specConfigMap.Data[currentVersionKey]
@@ -154,19 +129,20 @@ func (vr *versionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (
 
 func (vr *versionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		specConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
+		// do not create the registry here if not existent because it would be an invalid state without the dogu spec.
+		specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
 		if err != nil {
 			return err
 		}
 		if !isDoguVersionInstalled(*specConfigMap, doguVersion.Version) {
-			return fmt.Errorf("failed to enable dogu. dogu spec is not available")
+			return fmt.Errorf("dogu spec is not available")
 		}
 		specConfigMap.Data[currentVersionKey] = doguVersion.Version.Raw
 		_, err = vr.configMapClient.Update(ctx, specConfigMap, metav1.UpdateOptions{})
 		return err
 	})
 	if err != nil {
-		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to enable dogu %s with version %s", doguVersion.Name, doguVersion.Version.Raw))
+		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to enable dogu %q with version %q: %w", doguVersion.Name, doguVersion.Version.Raw, err))
 	}
 
 	return nil
@@ -186,7 +162,7 @@ func (vr *versionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersions
 	selector := getAllLocalDoguRegistriesSelector()
 	watchInterface, watchErr := vr.configMapClient.Watch(ctx, metav1.ListOptions{LabelSelector: selector})
 	if watchErr != nil {
-		return CurrentVersionsWatch{}, fmt.Errorf("failed to create watches for selector %q: %w", selector, watchErr)
+		return CurrentVersionsWatch{}, cloudoguerrors.NewGenericError(fmt.Errorf("failed to create watches for selector %q: %w", selector, watchErr))
 	}
 
 	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
@@ -199,12 +175,14 @@ func (vr *versionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersions
 		// Fetch all specConfigMaps
 		list, err := getAllSpecConfigMaps(ctx, vr.configMapClient)
 		if err != nil {
-			// TODO Log error
+			throwAndLogWatchError(ctx, err, currentVersionsWatchResult)
+			watchInterface.Stop()
 			return
 		}
 		persistenceContext, err := createCurrentPersistenceContext(list.Items)
 		if err != nil {
-			// TODO Log error
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to create persistent context: %w", err), currentVersionsWatchResult)
+			watchInterface.Stop()
 			return
 		}
 
@@ -212,6 +190,14 @@ func (vr *versionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersions
 	}()
 
 	return currentVersionsWatch, nil
+}
+
+func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan CurrentVersionsWatchResult) {
+	logger := log.FromContext(ctx).WithName("VersionRegistry.WatchAllCurrent")
+	logger.Error(err, errMsgWatch)
+	resultChannel <- CurrentVersionsWatchResult{
+		Err: cloudoguerrors.NewGenericError(err),
+	}
 }
 
 func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) {
@@ -231,31 +217,28 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 			case watch.Added:
 				err := handleAddWatchEvent(event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
-					logger.Error(err, "failed to handle add watch event")
+					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
 				}
 				break
 			case watch.Modified:
 				err := handleModifiedWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
-					logger.Error(err, "failed to handle modified watch event")
+					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle modified watch event: %w", err), currentVersionsWatchResult)
 				}
 				break
 			case watch.Deleted:
 				err := handleDeleteWatchEvent(event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
-					logger.Error(err, "failed to handle delete watch event")
+					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
 				}
 				break
 			case watch.Error:
-				// TODO Map errors
 				status, ok := event.Object.(*metav1.Status)
 				if !ok {
-					logger.Error(fmt.Errorf("failed to cast event object to %T", metav1.Status{}), "failed to handle error watch event")
+					throwAndLogWatchError(ctx, fmt.Errorf("failed to cast event object to %T", metav1.Status{}), currentVersionsWatchResult)
 					break
 				}
-
-				logger.Error(fmt.Errorf("failed to handle error watch event"), status.String())
-
+				throwAndLogWatchError(ctx, fmt.Errorf("watch event type is error: %q", status.String()), currentVersionsWatchResult)
 				return
 			}
 		}
@@ -368,24 +351,19 @@ func createCurrentPersistenceContext(specConfigMaps []corev1.ConfigMap) (map[Sim
 
 	var multiErr []error
 	for _, cm := range specConfigMaps {
-		doguStr, ok := cm.Data[currentVersionKey]
+		versionStr, ok := cm.Data[currentVersionKey]
 		if !ok {
+			// TODO Logging
 			continue
 		}
 		doguName := SimpleDoguName(cm.Labels[doguNameLabelKey])
-		dogu, err := unmarshalDoguJsonStr(doguStr, doguName, currentVersionKey)
+		parseVersion, err := parseDoguVersion(versionStr, doguName)
 		if err != nil {
 			multiErr = append(multiErr, err)
 			continue
 		}
 
-		version, err := dogu.GetVersion()
-		if err != nil {
-			multiErr = append(multiErr, err)
-			continue
-		}
-
-		currentPersistenceContext[doguName] = version
+		currentPersistenceContext[doguName] = parseVersion
 	}
 
 	err := errors.Join(multiErr...)

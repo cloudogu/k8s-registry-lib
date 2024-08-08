@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"github.com/cloudogu/k8s-registry-lib/config"
+	errors2 "github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -163,7 +163,7 @@ func TestConfigMapClient_Get(t *testing.T) {
 			name:   "Return Error: Not Found",
 			tc:     returnNotFound,
 			xErr:   true,
-			valErr: config.IsNotFoundError,
+			valErr: errors2.IsNotFoundError,
 		},
 		{
 			name:   "Return Error",
@@ -484,7 +484,7 @@ func TestSecretClient_Get(t *testing.T) {
 			name:   "Return Error: Not Found",
 			tc:     returnNotFound,
 			xErr:   true,
-			valErr: config.IsNotFoundError,
+			valErr: errors2.IsNotFoundError,
 		},
 		{
 			name:   "Return Error",
@@ -896,7 +896,7 @@ func Test_watchWithClient(t *testing.T) {
 		cancelCtxFunc()
 
 		select {
-		//wait for watcher to stopped
+		// wait for watcher to stopped
 		case <-time.After(200 * time.Millisecond):
 			assert.Equal(t, -1, i)
 			assert.True(t, fakeWatcher.IsStopped())
@@ -959,33 +959,33 @@ func Test_handleError(t *testing.T) {
 		{
 			name:   "NotFoundErr",
 			err:    k8serrors.NewNotFound(schema.GroupResource{}, ""),
-			valErr: config.IsNotFoundError,
+			valErr: errors2.IsNotFoundError,
 		},
 		{
 			name:   "ConflictErr",
 			err:    k8serrors.NewConflict(schema.GroupResource{}, "", assert.AnError),
-			valErr: config.IsConflictError,
+			valErr: errors2.IsConflictError,
 		},
 		{
 			name:   "ServerTimeoutErr",
 			err:    k8serrors.NewServerTimeout(schema.GroupResource{}, "", 0),
-			valErr: config.IsConnectionError,
+			valErr: errors2.IsConnectionError,
 		},
 		{
 			name:   "TimeoutErr",
 			err:    k8serrors.NewTimeoutError("", 0),
-			valErr: config.IsConnectionError,
+			valErr: errors2.IsConnectionError,
 		},
 		{
 			name:   "AlreadyExistsErr",
 			err:    k8serrors.NewAlreadyExists(schema.GroupResource{}, ""),
-			valErr: config.IsAlreadyExistsError,
+			valErr: errors2.IsAlreadyExistsError,
 		},
 		{
 			name: "InternetErr",
 			err:  k8serrors.NewInternalError(assert.AnError),
 			valErr: func(err error) bool {
-				var cfgErr config.Error
+				var cfgErr errors2.Error
 				return !errors.As(err, &cfgErr)
 			},
 		},

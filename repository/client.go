@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/config"
+	"github.com/cloudogu/k8s-registry-lib/errors"
 	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,19 +71,19 @@ func createConfigMapClient(c ConfigMapClient, t configType) configMapClient {
 
 func handleError(err error) error {
 	if k8sErrs.IsNotFound(err) {
-		return config.NewNotFoundError(err)
+		return errors.NewNotFoundError(err)
 	}
 
 	if k8sErrs.IsConflict(err) {
-		return config.NewConflictError(err)
+		return errors.NewConflictError(err)
 	}
 
 	if k8sErrs.IsServerTimeout(err) || k8sErrs.IsTimeout(err) {
-		return config.NewConnectionError(err)
+		return errors.NewConnectionError(err)
 	}
 
 	if k8sErrs.IsAlreadyExists(err) {
-		return config.NewAlreadyExistsError(err)
+		return errors.NewAlreadyExistsError(err)
 	}
 
 	return fmt.Errorf("%v", err)
