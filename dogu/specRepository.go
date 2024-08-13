@@ -170,6 +170,10 @@ func createSpecConfigMapForDogu(ctx context.Context, configMapClient configMapCl
 	return specConfigMap, nil
 }
 
+func getSpecConfigMapName(simpleDoguName SimpleDoguName) string {
+	return fmt.Sprintf("dogu-spec-%s", simpleDoguName)
+}
+
 func (vr *specRepository) DeleteAll(ctx context.Context, name SimpleDoguName) error {
 	err := vr.configMapClient.Delete(ctx, getSpecConfigMapName(name), metav1.DeleteOptions{})
 	if err != nil {

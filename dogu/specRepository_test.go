@@ -21,6 +21,8 @@ const (
 	upgradeLdapVersionStr = "2.6.8-3"
 )
 
+var testCtx = context.Background()
+
 func TestNewSpecRepository(t *testing.T) {
 	// given
 	configMapClientMock := newMockConfigMapClient(t)

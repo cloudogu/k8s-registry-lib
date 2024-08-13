@@ -16,6 +16,13 @@ import (
 
 const (
 	errMsgWatch = "failed to watch dogu registry"
+
+	appLabelKey                     = "app"
+	appLabelValueCes                = "ces"
+	doguNameLabelKey                = "dogu.name"
+	typeLabelKey                    = "k8s.cloudogu.com/type"
+	typeLabelValueLocalDoguRegistry = "local-dogu-registry"
+	currentVersionKey               = "current"
 )
 
 type versionRegistry struct {
