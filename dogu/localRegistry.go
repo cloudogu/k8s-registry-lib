@@ -180,8 +180,12 @@ func (cmr *LocalDoguRegistry) GetCurrentOfAll(ctx context.Context) ([]*core.Dogu
 // by verifying that the specLocation field in the dogu resource's status is set.
 func (cmr *LocalDoguRegistry) IsEnabled(ctx context.Context, simpleDoguName string) (bool, error) {
 	specConfigMap, err := cmr.getSpecConfigMapForDogu(ctx, simpleDoguName)
+	if k8sErrs.IsNotFound(err) {
+		return false, nil
+	}
+
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("unable to get configmap for spec of dogu %s: %w", simpleDoguName, err)
 	}
 
 	_, enabled := specConfigMap.Data[currentVersionKey]
