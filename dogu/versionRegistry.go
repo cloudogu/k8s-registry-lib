@@ -219,19 +219,16 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 				if err != nil {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
 				}
-				break
 			case watch.Modified:
 				err := handleModifiedWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle modified watch event: %w", err), currentVersionsWatchResult)
 				}
-				break
 			case watch.Deleted:
 				err := handleDeleteWatchEvent(event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
 				}
-				break
 			case watch.Error:
 				status, ok := event.Object.(*metav1.Status)
 				if !ok {
