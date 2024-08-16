@@ -209,7 +209,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args: args{ctx: testCtx},
-			want: nil,
+			want: []DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get some dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc: strconv.Atoi: parsing \"abc\": invalid syntax\nfailed to parse version \"abcd\" for dogu \"ldap\": failed to parse major version abcd: strconv.Atoi: parsing \"abcd\": invalid syntax")
