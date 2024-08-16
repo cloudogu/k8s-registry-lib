@@ -234,8 +234,8 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 	casRegistryCmWithCurrent := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 	casRegistryCmWithOutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t)}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 	type args struct {
-		ctx  context.Context
-		name SimpleDoguName
+		ctx         context.Context
+		doguVersion DoguVersion
 	}
 	tests := []struct {
 		name              string
@@ -252,7 +252,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args:    args{ctx: testCtx, name: "cas"},
+			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
 			want:    true,
 			wantErr: assert.NoError,
 		},
@@ -264,7 +264,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args:    args{ctx: testCtx, name: "cas"},
+			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
 			want:    false,
 			wantErr: assert.NoError,
 		},
@@ -276,7 +276,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, name: "cas"},
+			args: args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\"")
@@ -288,11 +288,11 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
-			got, err := vr.IsEnabled(tt.args.ctx, tt.args.name)
-			if !tt.wantErr(t, err, fmt.Sprintf("IsEnabled(%v, %v)", tt.args.ctx, tt.args.name)) {
+			got, err := vr.IsEnabled(tt.args.ctx, tt.args.doguVersion)
+			if !tt.wantErr(t, err, fmt.Sprintf("IsEnabled(%v, %v)", tt.args.ctx, tt.args.doguVersion)) {
 				return
 			}
-			assert.Equalf(t, tt.want, got, "IsEnabled(%v, %v)", tt.args.ctx, tt.args.name)
+			assert.Equalf(t, tt.want, got, "IsEnabled(%v, %v)", tt.args.ctx, tt.args.doguVersion)
 		})
 	}
 }

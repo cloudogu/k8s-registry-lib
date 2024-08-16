@@ -124,14 +124,18 @@ func getAllLocalDoguRegistriesSelector() string {
 	return fmt.Sprintf("%s=%s,%s,%s=%s", appLabelKey, appLabelValueCes, doguNameLabelKey, typeLabelKey, typeLabelValueLocalDoguRegistry)
 }
 
-func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (bool, error) {
-	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
+func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, doguVersion DoguVersion) (bool, error) {
+	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
 	if err != nil {
 		return false, cloudoguerrors.NewGenericError(err)
 	}
 
-	_, enabled := specConfigMap.Data[currentVersionKey]
-	return enabled, nil
+	enabledVersion, found := specConfigMap.Data[currentVersionKey]
+	if !found || doguVersion.Version.Raw != enabledVersion {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
