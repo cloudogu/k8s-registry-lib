@@ -23,7 +23,7 @@ const (
 
 var testCtx = context.Background()
 
-func TestNewSpecRepository(t *testing.T) {
+func TestNewLocalDoguDescriptorRepository(t *testing.T) {
 	// given
 	configMapClientMock := newMockConfigMapClient(t)
 
@@ -35,7 +35,7 @@ func TestNewSpecRepository(t *testing.T) {
 	assert.Equal(t, configMapClientMock, sut.configMapClient)
 }
 
-func Test_specRepository_Add(t *testing.T) {
+func Test_localDoguDescriptorRepository_Add(t *testing.T) {
 	casDogu := readCasDogu(t)
 	expectedCasRegistryCm := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t)}}
 
@@ -63,7 +63,7 @@ func Test_specRepository_Add(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "should create dogu spec config map if not existent",
+			name: "should create dogu descriptor config map if not existent",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				cmToCreate := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
@@ -90,7 +90,7 @@ func Test_specRepository_Add(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "should return error on not existent dogu spec configmap",
+			name: "should return error on not existent dogu descriptor configmap",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(&corev1.ConfigMap{}, assert.AnError)
@@ -100,11 +100,11 @@ func Test_specRepository_Add(t *testing.T) {
 			args: args{ctx: testCtx, name: "cas", dogu: casDogu},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err)) &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"")
 			},
 		},
 		{
-			name: "should return error if the spec already exists",
+			name: "should return error if the descriptor already exists",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(&corev1.ConfigMap{Data: map[string]string{casVersionStr: "exists"}}, nil)
@@ -114,7 +114,7 @@ func Test_specRepository_Add(t *testing.T) {
 			args: args{ctx: testCtx, name: "cas", dogu: casDogu},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsAlreadyExistsError(err)) &&
-					assert.ErrorContains(t, err, "\"cas\" dogu spec already exists for version \"7.0.5.1-1\"")
+					assert.ErrorContains(t, err, "\"cas\" dogu descriptor already exists for version \"7.0.5.1-1\"")
 			},
 		},
 		{
@@ -129,7 +129,7 @@ func Test_specRepository_Add(t *testing.T) {
 			args: args{ctx: testCtx, name: "cas", dogu: casDogu},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.Error(t, err) &&
-					assert.ErrorContains(t, err, "failed to update dogu spec configmap for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to update dogu descriptor configmap for dogu \"cas\"")
 			},
 		},
 		{
@@ -157,7 +157,7 @@ func Test_specRepository_Add(t *testing.T) {
 	}
 }
 
-func Test_specRepository_DeleteAll(t *testing.T) {
+func Test_localDoguDescriptorRepository_DeleteAll(t *testing.T) {
 	type args struct {
 		ctx  context.Context
 		name SimpleDoguName
@@ -196,7 +196,7 @@ func Test_specRepository_DeleteAll(t *testing.T) {
 			},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err)) &&
-					assert.ErrorContains(t, err, "failed to delete dogu spec configmap for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to delete dogu descriptor configmap for dogu \"cas\"")
 			},
 		},
 	}
@@ -210,7 +210,7 @@ func Test_specRepository_DeleteAll(t *testing.T) {
 	}
 }
 
-func Test_specRepository_Get(t *testing.T) {
+func Test_localDoguDescriptorRepository_Get(t *testing.T) {
 	casVersion := parseVersionStr(t, casVersionStr)
 	doguVersion := DoguVersion{
 		Name:    "cas",
@@ -259,7 +259,7 @@ func Test_specRepository_Get(t *testing.T) {
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err)) &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"")
 			},
 		},
 		{
@@ -277,7 +277,7 @@ func Test_specRepository_Get(t *testing.T) {
 			},
 		},
 		{
-			name: "should return error on invalid dogu spec",
+			name: "should return error on invalid dogu descriptor",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(invalidCasRegistryCm, nil)
@@ -287,7 +287,7 @@ func Test_specRepository_Get(t *testing.T) {
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err)) &&
-					assert.ErrorContains(t, err, "failed to unmarshal spec for dogu \"cas\" with version \"7.0.5.1-1\"")
+					assert.ErrorContains(t, err, "failed to unmarshal descriptor for dogu \"cas\" with version \"7.0.5.1-1\"")
 			},
 		},
 	}
@@ -305,7 +305,7 @@ func Test_specRepository_Get(t *testing.T) {
 	}
 }
 
-func Test_specRepository_GetAll(t *testing.T) {
+func Test_localDoguDescriptorRepository_GetAll(t *testing.T) {
 	casVersion := parseVersionStr(t, casVersionStr)
 	ldapVersion := parseVersionStr(t, ldapVersionStr)
 	casDogu := readCasDogu(t)
@@ -361,13 +361,13 @@ func Test_specRepository_GetAll(t *testing.T) {
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to get some dogu specs:") &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"ldap\": assert.AnError general error for testing") &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\": assert.AnError general error for testing")
+					assert.ErrorContains(t, err, "failed to get some dogu descriptors:") &&
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"ldap\": assert.AnError general error for testing") &&
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\": assert.AnError general error for testing")
 			},
 		},
 		{
-			name: "should return multi error on invalid dogu specs",
+			name: "should return multi error on invalid dogu descriptors",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(invalidCasRegistryCm, nil)
@@ -379,13 +379,13 @@ func Test_specRepository_GetAll(t *testing.T) {
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to get some dogu specs:") &&
-					assert.ErrorContains(t, err, "failed to unmarshal spec for dogu \"cas\" with version \"7.0.5.1-1\": invalid character 'o' in literal null (expecting 'u')") &&
-					assert.ErrorContains(t, err, "failed to unmarshal spec for dogu \"ldap\" with version \"2.6.7-3\": invalid character 'o' in literal null (expecting 'u')")
+					assert.ErrorContains(t, err, "failed to get some dogu descriptors:") &&
+					assert.ErrorContains(t, err, "failed to unmarshal descriptor for dogu \"cas\" with version \"7.0.5.1-1\": invalid character 'o' in literal null (expecting 'u')") &&
+					assert.ErrorContains(t, err, "failed to unmarshal descriptor for dogu \"ldap\" with version \"2.6.7-3\": invalid character 'o' in literal null (expecting 'u')")
 			},
 		},
 		{
-			name: "should return multi error on not existent dogu specs",
+			name: "should return multi error on not existent dogu descriptors",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCm, nil)
@@ -397,9 +397,9 @@ func Test_specRepository_GetAll(t *testing.T) {
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, errors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to get some dogu specs:") &&
-					assert.ErrorContains(t, err, "did not find expected version \"1.222.11-1\" for dogu \"cas\" in dogu spec configmap") &&
-					assert.ErrorContains(t, err, "did not find expected version \"1.222.11-1\" for dogu \"ldap\" in dogu spec configmap")
+					assert.ErrorContains(t, err, "failed to get some dogu descriptors:") &&
+					assert.ErrorContains(t, err, "did not find expected version \"1.222.11-1\" for dogu \"cas\" in dogu descriptor configmap") &&
+					assert.ErrorContains(t, err, "did not find expected version \"1.222.11-1\" for dogu \"ldap\" in dogu descriptor configmap")
 			},
 		},
 	}

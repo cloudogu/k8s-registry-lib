@@ -36,12 +36,12 @@ func NewDoguVersionRegistry(configMapClient configMapClient) *doguVersionRegistr
 }
 
 func (vr *doguVersionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) (DoguVersion, error) {
-	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
+	descriptor, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
 		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
 
-	currentDoguVersion, ok := specConfigMap.Data[currentVersionKey]
+	currentDoguVersion, ok := descriptor.Data[currentVersionKey]
 	if !ok {
 		return DoguVersion{}, getDoguRegistryKeyNotFoundError(currentVersionKey, name)
 	}
@@ -70,17 +70,17 @@ func getDoguRegistryKeyNotFoundError(key string, name SimpleDoguName) error {
 	return cloudoguerrors.NewNotFoundError(fmt.Errorf("failed to get value for key %q for dogu registry %q", key, name))
 }
 
-func getSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
-	specConfigMapName := getSpecConfigMapName(simpleDoguName)
-	get, err := configMapClient.Get(ctx, specConfigMapName, metav1.GetOptions{})
+func getDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
+	descriptorConfigMapName := getDescriptorConfigMapName(simpleDoguName)
+	get, err := configMapClient.Get(ctx, descriptorConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get dogu spec config map for dogu %q: %w", simpleDoguName, err)
+		return nil, fmt.Errorf("failed to get dogu descriptor config map for dogu %q: %w", simpleDoguName, err)
 	}
 	return get, nil
 }
 
 func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
-	registryList, err := getAllSpecConfigMaps(ctx, vr.configMapClient)
+	registryList, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
 		return nil, cloudoguerrors.NewGenericError(err)
 	}
@@ -111,7 +111,7 @@ func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersi
 	return doguVersions, nil
 }
 
-func getAllSpecConfigMaps(ctx context.Context, configMapClient configMapClient) (*corev1.ConfigMapList, error) {
+func getAllDescriptorConfigMaps(ctx context.Context, configMapClient configMapClient) (*corev1.ConfigMapList, error) {
 	allLocalDoguRegistriesSelector := getAllLocalDoguRegistriesSelector()
 	registryList, err := configMapClient.List(ctx, metav1.ListOptions{LabelSelector: allLocalDoguRegistriesSelector})
 	if err != nil {
@@ -125,12 +125,12 @@ func getAllLocalDoguRegistriesSelector() string {
 }
 
 func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, doguVersion DoguVersion) (bool, error) {
-	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
+	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
 	if err != nil {
 		return false, cloudoguerrors.NewGenericError(err)
 	}
 
-	enabledVersion, found := specConfigMap.Data[currentVersionKey]
+	enabledVersion, found := descriptorConfigMap.Data[currentVersionKey]
 	if !found || doguVersion.Version.Raw != enabledVersion {
 		return false, nil
 	}
@@ -140,16 +140,16 @@ func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, doguVersion DoguVe
 
 func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// do not create the registry here if not existent because it would be an invalid state without the dogu spec.
-		specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
+		// do not create the registry here if not existent because it would be an invalid state without the dogu descriptor.
+		descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
 		if err != nil {
 			return err
 		}
-		if !isDoguVersionInstalled(*specConfigMap, doguVersion.Version) {
-			return fmt.Errorf("dogu spec is not available")
+		if !isDoguVersionInstalled(*descriptorConfigMap, doguVersion.Version) {
+			return fmt.Errorf("dogu descriptor is not available")
 		}
-		specConfigMap.Data[currentVersionKey] = doguVersion.Version.Raw
-		_, err = vr.configMapClient.Update(ctx, specConfigMap, metav1.UpdateOptions{})
+		descriptorConfigMap.Data[currentVersionKey] = doguVersion.Version.Raw
+		_, err = vr.configMapClient.Update(ctx, descriptorConfigMap, metav1.UpdateOptions{})
 		return err
 	})
 	if err != nil {
@@ -159,8 +159,8 @@ func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion DoguVersi
 	return nil
 }
 
-func isDoguVersionInstalled(specConfigMap corev1.ConfigMap, version core.Version) bool {
-	for key := range specConfigMap.Data {
+func isDoguVersionInstalled(descriptorConfigMap corev1.ConfigMap, version core.Version) bool {
+	for key := range descriptorConfigMap.Data {
 		if key == version.Raw {
 			return true
 		}
@@ -183,8 +183,8 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVers
 	}
 
 	go func() {
-		// Fetch all specConfigMaps
-		list, err := getAllSpecConfigMaps(ctx, vr.configMapClient)
+		// Fetch all descriptor ConfigMaps
+		list, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
 		if err != nil {
 			throwAndLogWatchError(ctx, err, currentVersionsWatchResult)
 			watchInterface.Stop()
@@ -254,18 +254,18 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 
 func handleDeleteWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
 	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleDeleteWatchEvent")
-	specConfigMap, err := getSpecConfigMapFromEvent(event)
+	descriptorConfigMap, err := getDescriptorConfigMapFromEvent(event)
 	if err != nil {
 		return err
 	}
 
-	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+	if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
 		// disabled dogus deleted. Do nothing
 		logger.Info("dogu registry config map without current key was deleted. do nothing.")
 		return nil
 	}
 
-	eventDoguVersion, err := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
+	eventDoguVersion, err := getCurrentDoguVersionFromDoguDescriptorConfigMap(*descriptorConfigMap)
 	if err != nil {
 		return err
 	}
@@ -279,7 +279,7 @@ func handleDeleteWatchEvent(ctx context.Context, event watch.Event, persistenceC
 
 func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
 	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleModifiedWatchEvent")
-	specConfigMap, err := getSpecConfigMapFromEvent(event)
+	descriptorConfigMap, err := getDescriptorConfigMapFromEvent(event)
 	if err != nil {
 		return err
 	}
@@ -287,9 +287,9 @@ func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenc
 	oldPersistenceContext := copyPersistenceContext(persistenceContext)
 
 	// Skip process. Configmap was possible created empty and will get modified event on Enable.
-	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+	if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
 		// Dogu was disabled
-		doguName := SimpleDoguName(specConfigMap.Labels[doguNameLabelKey])
+		doguName := SimpleDoguName(descriptorConfigMap.Labels[doguNameLabelKey])
 		version, ok := oldPersistenceContext[doguName]
 		if !ok {
 			// Dogu ist still disabled and cm got other updates than current deletion
@@ -299,7 +299,7 @@ func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenc
 		delete(persistenceContext, doguName)
 	} else {
 		// Detect change
-		eventDoguVersion, getErr := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
+		eventDoguVersion, getErr := getCurrentDoguVersionFromDoguDescriptorConfigMap(*descriptorConfigMap)
 		if getErr != nil {
 			return getErr
 		}
@@ -319,18 +319,18 @@ func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenc
 
 func handleAddWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
 	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleAddWatchEvent")
-	specConfigMap, err := getSpecConfigMapFromEvent(event)
+	descriptorConfigMap, err := getDescriptorConfigMapFromEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Skip process. Configmap was created empty.
-	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+	if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
 		logger.Info("dogu registry config map was created but without current key. do nothing.")
 		return nil
 	}
 
-	eventDoguVersion, err := getCurrentDoguVersionFromDoguSpecConfigMap(*specConfigMap)
+	eventDoguVersion, err := getCurrentDoguVersionFromDoguDescriptorConfigMap(*descriptorConfigMap)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func fireWatchResultWithError(channel chan CurrentVersionsWatchResult, prevPersi
 	channel <- result
 }
 
-func getSpecConfigMapFromEvent(event watch.Event) (*corev1.ConfigMap, error) {
+func getDescriptorConfigMapFromEvent(event watch.Event) (*corev1.ConfigMap, error) {
 	configMap, ok := event.Object.(*corev1.ConfigMap)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast event object to %T. wrong type %T", corev1.ConfigMap{}, event.Object)
@@ -372,15 +372,15 @@ func getSpecConfigMapFromEvent(event watch.Event) (*corev1.ConfigMap, error) {
 	return configMap, nil
 }
 
-func getCurrentDoguVersionFromDoguSpecConfigMap(cm corev1.ConfigMap) (DoguVersion, error) {
+func getCurrentDoguVersionFromDoguDescriptorConfigMap(cm corev1.ConfigMap) (DoguVersion, error) {
 	doguName, ok := cm.Labels[doguNameLabelKey]
 	if !ok {
-		return DoguVersion{}, fmt.Errorf("dogu spec configmap does not contain label %q", doguNameLabelKey)
+		return DoguVersion{}, fmt.Errorf("dogu descriptor configmap does not contain label %q", doguNameLabelKey)
 	}
 
 	currentVersion, ok := cm.Data[currentVersionKey]
 	if !ok {
-		return DoguVersion{}, fmt.Errorf("dogu spec configmap does not contain key %q", currentVersionKey)
+		return DoguVersion{}, fmt.Errorf("dogu descriptor configmap does not contain key %q", currentVersionKey)
 	}
 
 	version, err := core.ParseVersion(currentVersion)
@@ -391,11 +391,11 @@ func getCurrentDoguVersionFromDoguSpecConfigMap(cm corev1.ConfigMap) (DoguVersio
 	return DoguVersion{Name: SimpleDoguName(doguName), Version: version}, nil
 }
 
-func hasDoguSpecConfigMapCurrentKey(cm *corev1.ConfigMap) bool {
-	return hasDoguSpecConfigMapKey(cm, currentVersionKey)
+func hasDoguDescriptorConfigMapCurrentKey(cm *corev1.ConfigMap) bool {
+	return hasDoguDescriptorConfigMapKey(cm, currentVersionKey)
 }
 
-func hasDoguSpecConfigMapKey(cm *corev1.ConfigMap, key string) bool {
+func hasDoguDescriptorConfigMapKey(cm *corev1.ConfigMap, key string) bool {
 	if cm != nil && cm.Data != nil {
 		_, ok := cm.Data[key]
 		return ok
@@ -404,12 +404,12 @@ func hasDoguSpecConfigMapKey(cm *corev1.ConfigMap, key string) bool {
 	return false
 }
 
-func createCurrentPersistenceContext(ctx context.Context, specConfigMaps []corev1.ConfigMap) (map[SimpleDoguName]core.Version, error) {
+func createCurrentPersistenceContext(ctx context.Context, descriptorConfigMaps []corev1.ConfigMap) (map[SimpleDoguName]core.Version, error) {
 	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.createCurrentPersistenceContext")
 	currentPersistenceContext := make(map[SimpleDoguName]core.Version)
 
 	var multiErr []error
-	for _, cm := range specConfigMaps {
+	for _, cm := range descriptorConfigMaps {
 		versionStr, ok := cm.Data[currentVersionKey]
 		if !ok {
 			logger.Info("got dogu version registry config map without current key. skip create persistence context for it.")

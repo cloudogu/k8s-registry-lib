@@ -84,7 +84,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 			want: DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\"", i)
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"", i)
 			},
 		},
 		{
@@ -183,7 +183,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "should return error on error getting all dogu spec configmaps",
+			name: "should return error on error getting all dogu descriptor configmaps",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().List(testCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(nil, assert.AnError)
@@ -279,7 +279,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 			args: args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to get dogu spec config map for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"")
 			},
 		},
 	}
@@ -351,11 +351,11 @@ func Test_versionRegistry_Enable(t *testing.T) {
 			args: casArgs,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to enable dogu \"cas\" with version \"7.0.5.1-1\": failed to get dogu spec config map for dogu \"cas\"")
+					assert.ErrorContains(t, err, "failed to enable dogu \"cas\" with version \"7.0.5.1-1\": failed to get dogu descriptor config map for dogu \"cas\"")
 			},
 		},
 		{
-			name: "should return error if the spec of the specified version is not found",
+			name: "should return error if the descriptor of the specified version is not found",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				casRegistryCmWithOutSpec := &corev1.ConfigMap{Data: map[string]string{}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 				configMapClientMock := newMockConfigMapClient(t)
@@ -366,7 +366,7 @@ func Test_versionRegistry_Enable(t *testing.T) {
 			args: casArgs,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
-					assert.ErrorContains(t, err, "failed to enable dogu \"cas\" with version \"7.0.5.1-1\": dogu spec is not available")
+					assert.ErrorContains(t, err, "failed to enable dogu \"cas\" with version \"7.0.5.1-1\": dogu descriptor is not available")
 			},
 		},
 	}
@@ -438,7 +438,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 			expectFn: func(t *testing.T, watch CurrentVersionsWatch) {},
 		},
 		{
-			name: "should return error on error getting initial dogu spec configmaps",
+			name: "should return error on error getting initial dogu descriptor configmaps",
 			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Watch(testCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
