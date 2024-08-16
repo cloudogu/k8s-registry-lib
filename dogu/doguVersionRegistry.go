@@ -192,9 +192,7 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVers
 		}
 		persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
 		if err != nil {
-			throwAndLogWatchError(ctx, fmt.Errorf("failed to create persistent context: %w", err), currentVersionsWatchResult)
-			watchInterface.Stop()
-			return
+			throwAndLogWatchError(ctx, fmt.Errorf("error during persistence context creation. watch is still active: %w", err), currentVersionsWatchResult)
 		}
 
 		waitForWatchEvents(ctx, watchInterface, persistenceContext, currentVersionsWatchResult)

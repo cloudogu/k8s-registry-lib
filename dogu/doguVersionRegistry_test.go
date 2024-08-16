@@ -474,7 +474,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 
 				result := <-channel
 				require.True(t, cloudoguerrors.IsGenericError(result.Err))
-				assert.ErrorContains(t, result.Err, "failed to create persistent context: failed to parse version \"abc\" for dogu \"cas\"")
+				assert.ErrorContains(t, result.Err, "error during persistence context creation. watch is still active: failed to parse version \"abc\" for dogu \"cas\"")
 			},
 		},
 		{
