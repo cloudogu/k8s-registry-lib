@@ -186,7 +186,7 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVers
 			watchInterface.Stop()
 			return
 		}
-		persistenceContext, err := createCurrentPersistenceContext(list.Items)
+		persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
 		if err != nil {
 			throwAndLogWatchError(ctx, fmt.Errorf("failed to create persistent context: %w", err), currentVersionsWatchResult)
 			watchInterface.Stop()
@@ -200,7 +200,7 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVers
 }
 
 func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan CurrentVersionsWatchResult) {
-	logger := log.FromContext(ctx).WithName("VersionRegistry.WatchAllCurrent")
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.throwAndLogWatchError")
 	logger.Error(err, errMsgWatch)
 	resultChannel <- CurrentVersionsWatchResult{
 		Err: cloudoguerrors.NewGenericError(err),
@@ -208,7 +208,7 @@ func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan Cu
 }
 
 func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) {
-	logger := log.FromContext(ctx).WithName("VersionRegistry.waitForWatchEvents")
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.waitForWatchEvents")
 	for {
 		select {
 		case <-ctx.Done():
@@ -222,7 +222,7 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 			}
 			switch event.Type {
 			case watch.Added:
-				err := handleAddWatchEvent(event, persistenceContext, currentVersionsWatchResult)
+				err := handleAddWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
 				}
@@ -232,7 +232,7 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle modified watch event: %w", err), currentVersionsWatchResult)
 				}
 			case watch.Deleted:
-				err := handleDeleteWatchEvent(event, persistenceContext, currentVersionsWatchResult)
+				err := handleDeleteWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
 				if err != nil {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
 				}
@@ -240,16 +240,16 @@ func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, per
 				status, ok := event.Object.(*metav1.Status)
 				if !ok {
 					throwAndLogWatchError(ctx, fmt.Errorf("failed to cast event object to %T", metav1.Status{}), currentVersionsWatchResult)
-					break
+				} else {
+					throwAndLogWatchError(ctx, fmt.Errorf("watch event type is error: %q", status.String()), currentVersionsWatchResult)
 				}
-				throwAndLogWatchError(ctx, fmt.Errorf("watch event type is error: %q", status.String()), currentVersionsWatchResult)
-				return
 			}
 		}
 	}
 }
 
-func handleDeleteWatchEvent(event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
+func handleDeleteWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleDeleteWatchEvent")
 	specConfigMap, err := getSpecConfigMapFromEvent(event)
 	if err != nil {
 		return err
@@ -257,6 +257,7 @@ func handleDeleteWatchEvent(event watch.Event, persistenceContext map[SimpleDogu
 
 	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
 		// disabled dogus deleted. Do nothing
+		logger.Info("dogu registry config map without current key was deleted. do nothing.")
 		return nil
 	}
 
@@ -273,7 +274,7 @@ func handleDeleteWatchEvent(event watch.Event, persistenceContext map[SimpleDogu
 }
 
 func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
-	logger := log.FromContext(ctx).WithName("VersionRegistry.handleModifiedWatchEvent")
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleModifiedWatchEvent")
 	specConfigMap, err := getSpecConfigMapFromEvent(event)
 	if err != nil {
 		return err
@@ -312,14 +313,16 @@ func handleModifiedWatchEvent(ctx context.Context, event watch.Event, persistenc
 	return nil
 }
 
-func handleAddWatchEvent(event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
+func handleAddWatchEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) error {
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleAddWatchEvent")
 	specConfigMap, err := getSpecConfigMapFromEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// Skip process. Configmap was possible created empty and will get modified event on Enable.
+	// Skip process. Configmap was created empty.
 	if !hasDoguSpecConfigMapCurrentKey(specConfigMap) {
+		logger.Info("dogu registry config map was created but without current key. do nothing.")
 		return nil
 	}
 
@@ -397,14 +400,15 @@ func hasDoguSpecConfigMapKey(cm *corev1.ConfigMap, key string) bool {
 	return false
 }
 
-func createCurrentPersistenceContext(specConfigMaps []corev1.ConfigMap) (map[SimpleDoguName]core.Version, error) {
+func createCurrentPersistenceContext(ctx context.Context, specConfigMaps []corev1.ConfigMap) (map[SimpleDoguName]core.Version, error) {
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.createCurrentPersistenceContext")
 	currentPersistenceContext := make(map[SimpleDoguName]core.Version)
 
 	var multiErr []error
 	for _, cm := range specConfigMaps {
 		versionStr, ok := cm.Data[currentVersionKey]
 		if !ok {
-			// TODO Logging
+			logger.Info("got dogu version registry config map without current key. skip create persistence context for it.")
 			continue
 		}
 		doguName := SimpleDoguName(cm.Labels[doguNameLabelKey])

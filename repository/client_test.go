@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-	errors2 "github.com/cloudogu/k8s-registry-lib/errors"
+	liberrors "github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -163,7 +163,7 @@ func TestConfigMapClient_Get(t *testing.T) {
 			name:   "Return Error: Not Found",
 			tc:     returnNotFound,
 			xErr:   true,
-			valErr: errors2.IsNotFoundError,
+			valErr: liberrors.IsNotFoundError,
 		},
 		{
 			name:   "Return Error",
@@ -484,7 +484,7 @@ func TestSecretClient_Get(t *testing.T) {
 			name:   "Return Error: Not Found",
 			tc:     returnNotFound,
 			xErr:   true,
-			valErr: errors2.IsNotFoundError,
+			valErr: liberrors.IsNotFoundError,
 		},
 		{
 			name:   "Return Error",
@@ -959,33 +959,33 @@ func Test_handleError(t *testing.T) {
 		{
 			name:   "NotFoundErr",
 			err:    k8serrors.NewNotFound(schema.GroupResource{}, ""),
-			valErr: errors2.IsNotFoundError,
+			valErr: liberrors.IsNotFoundError,
 		},
 		{
 			name:   "ConflictErr",
 			err:    k8serrors.NewConflict(schema.GroupResource{}, "", assert.AnError),
-			valErr: errors2.IsConflictError,
+			valErr: liberrors.IsConflictError,
 		},
 		{
 			name:   "ServerTimeoutErr",
 			err:    k8serrors.NewServerTimeout(schema.GroupResource{}, "", 0),
-			valErr: errors2.IsConnectionError,
+			valErr: liberrors.IsConnectionError,
 		},
 		{
 			name:   "TimeoutErr",
 			err:    k8serrors.NewTimeoutError("", 0),
-			valErr: errors2.IsConnectionError,
+			valErr: liberrors.IsConnectionError,
 		},
 		{
 			name:   "AlreadyExistsErr",
 			err:    k8serrors.NewAlreadyExists(schema.GroupResource{}, ""),
-			valErr: errors2.IsAlreadyExistsError,
+			valErr: liberrors.IsAlreadyExistsError,
 		},
 		{
 			name: "InternetErr",
 			err:  k8serrors.NewInternalError(assert.AnError),
 			valErr: func(err error) bool {
-				var cfgErr errors2.Error
+				var cfgErr liberrors.Error
 				return !errors.As(err, &cfgErr)
 			},
 		},
