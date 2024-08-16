@@ -105,7 +105,7 @@ func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersi
 
 	err = errors.Join(errs...)
 	if err != nil {
-		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to get some dogu versions: %w", err))
+		return doguVersions, cloudoguerrors.NewGenericError(fmt.Errorf("failed to get some dogu versions: %w", err))
 	}
 
 	return doguVersions, nil
