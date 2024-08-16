@@ -26,6 +26,13 @@ func TestNewConnectionError(t *testing.T) {
 	assert.Equal(t, _ErrConnection, err.errType)
 }
 
+func TestNewGenericError(t *testing.T) {
+	err := NewGenericError(assert.AnError)
+
+	assert.Equal(t, assert.AnError, err.cause)
+	assert.Equal(t, _ErrGeneric, err.errType)
+}
+
 func TestError_Error(t *testing.T) {
 	err := Error{
 		errType: 0,
@@ -171,6 +178,41 @@ func TestIsAlreadyExistsError(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.xResult, IsAlreadyExistsError(tc.err))
+		})
+	}
+}
+
+func TestIsGenericError(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		xResult bool
+	}{
+		{
+			name:    "GenericError",
+			err:     NewGenericError(assert.AnError),
+			xResult: true,
+		},
+		{
+			name:    "NotFoundError",
+			err:     NewNotFoundError(assert.AnError),
+			xResult: false,
+		},
+		{
+			name:    "No config error",
+			err:     assert.AnError,
+			xResult: false,
+		},
+		{
+			name:    "error is nil",
+			err:     nil,
+			xResult: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.xResult, IsGenericError(tc.err))
 		})
 	}
 }
