@@ -13,19 +13,19 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-type specRepository struct {
+type localDoguDescriptorRepository struct {
 	configMapClient configMapClient
 }
 
-func NewSpecRepository(configMapClient configMapClient) *specRepository {
-	return &specRepository{
+func NewLocalDoguDescriptorRepository(configMapClient configMapClient) *localDoguDescriptorRepository {
+	return &localDoguDescriptorRepository{
 		configMapClient: configMapClient,
 	}
 }
 
-func (vr *specRepository) Get(ctx context.Context, doguVersion DoguVersion) (*core.Dogu, error) {
+func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion DoguVersion) (*core.Dogu, error) {
 	doguName := doguVersion.Name
-	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguName)
+	specConfigMap, err := getSpecConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 	if err != nil {
 		return nil, cloudoguerrors.NewGenericError(err)
 	}
@@ -53,7 +53,7 @@ func unmarshalDoguJsonStr(doguStr string, doguName SimpleDoguName, doguVersion s
 	return dogu, nil
 }
 
-func (vr *specRepository) GetAll(ctx context.Context, doguVersions []DoguVersion) (map[DoguVersion]*core.Dogu, error) {
+func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersions []DoguVersion) (map[DoguVersion]*core.Dogu, error) {
 	allDogus := make(map[DoguVersion]*core.Dogu, len(doguVersions))
 	versionsByDogu := map[SimpleDoguName][]DoguVersion{}
 	for _, doguVersion := range doguVersions {
@@ -65,7 +65,7 @@ func (vr *specRepository) GetAll(ctx context.Context, doguVersions []DoguVersion
 
 	var multiErr []error
 	for doguName, versions := range versionsByDogu {
-		doguSpecConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguName)
+		doguSpecConfigMap, err := getSpecConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 		if err != nil {
 			multiErr = append(multiErr, err)
 			continue
@@ -95,9 +95,9 @@ func (vr *specRepository) GetAll(ctx context.Context, doguVersions []DoguVersion
 	return allDogus, nil
 }
 
-func (vr *specRepository) Add(ctx context.Context, name SimpleDoguName, dogu *core.Dogu) error {
+func (lddr *localDoguDescriptorRepository) Add(ctx context.Context, name SimpleDoguName, dogu *core.Dogu) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		doguSpecConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, vr.configMapClient, name)
+		doguSpecConfigMap, err := getOrCreateSpecConfigMapForDogu(ctx, lddr.configMapClient, name)
 		if err != nil {
 			return cloudoguerrors.NewGenericError(err)
 		}
@@ -118,7 +118,7 @@ func (vr *specRepository) Add(ctx context.Context, name SimpleDoguName, dogu *co
 
 		doguSpecConfigMap.Data[dogu.Version] = string(doguBytes)
 
-		_, err = vr.configMapClient.Update(ctx, doguSpecConfigMap, metav1.UpdateOptions{})
+		_, err = lddr.configMapClient.Update(ctx, doguSpecConfigMap, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update dogu spec configmap for dogu %q: %w", name, err)
 		}
@@ -174,8 +174,8 @@ func getSpecConfigMapName(simpleDoguName SimpleDoguName) string {
 	return fmt.Sprintf("dogu-spec-%s", simpleDoguName)
 }
 
-func (vr *specRepository) DeleteAll(ctx context.Context, name SimpleDoguName) error {
-	err := vr.configMapClient.Delete(ctx, getSpecConfigMapName(name), metav1.DeleteOptions{})
+func (lddr *localDoguDescriptorRepository) DeleteAll(ctx context.Context, name SimpleDoguName) error {
+	err := lddr.configMapClient.Delete(ctx, getSpecConfigMapName(name), metav1.DeleteOptions{})
 	if err != nil {
 		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to delete dogu spec configmap for dogu %q: %w", name, err))
 	}

@@ -28,7 +28,7 @@ func TestNewSpecRepository(t *testing.T) {
 	configMapClientMock := newMockConfigMapClient(t)
 
 	// when
-	sut := NewSpecRepository(configMapClientMock)
+	sut := NewLocalDoguDescriptorRepository(configMapClientMock)
 
 	// then
 	require.NotNil(t, sut)
@@ -149,7 +149,7 @@ func Test_specRepository_Add(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &specRepository{
+			vr := &localDoguDescriptorRepository{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, vr.Add(tt.args.ctx, tt.args.name, tt.args.dogu), fmt.Sprintf("Add(%v, %v, %v)", tt.args.ctx, tt.args.name, tt.args.dogu))
@@ -202,7 +202,7 @@ func Test_specRepository_DeleteAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &specRepository{
+			vr := &localDoguDescriptorRepository{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, vr.DeleteAll(tt.args.ctx, tt.args.name), fmt.Sprintf("DeleteAll(%v, %v)", tt.args.ctx, tt.args.name))
@@ -293,7 +293,7 @@ func Test_specRepository_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &specRepository{
+			vr := &localDoguDescriptorRepository{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := vr.Get(tt.args.ctx, tt.args.doguVersion)
@@ -406,7 +406,7 @@ func Test_specRepository_GetAll(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &specRepository{
+			vr := &localDoguDescriptorRepository{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := vr.GetAll(tt.args.ctx, tt.args.doguVersions)

@@ -25,17 +25,17 @@ const (
 	currentVersionKey               = "current"
 )
 
-type versionRegistry struct {
+type doguVersionRegistry struct {
 	configMapClient configMapClient
 }
 
-func NewDoguVersionRegistry(configMapClient configMapClient) *versionRegistry {
-	return &versionRegistry{
+func NewDoguVersionRegistry(configMapClient configMapClient) *doguVersionRegistry {
+	return &doguVersionRegistry{
 		configMapClient: configMapClient,
 	}
 }
 
-func (vr *versionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) (DoguVersion, error) {
+func (vr *doguVersionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) (DoguVersion, error) {
 	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
 		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
@@ -79,7 +79,7 @@ func getSpecConfigMapForDogu(ctx context.Context, configMapClient configMapClien
 	return get, nil
 }
 
-func (vr *versionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
+func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
 	registryList, err := getAllSpecConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
 		return nil, cloudoguerrors.NewGenericError(err)
@@ -124,7 +124,7 @@ func getAllLocalDoguRegistriesSelector() string {
 	return fmt.Sprintf("%s=%s,%s,%s=%s", appLabelKey, appLabelValueCes, doguNameLabelKey, typeLabelKey, typeLabelValueLocalDoguRegistry)
 }
 
-func (vr *versionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (bool, error) {
+func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (bool, error) {
 	specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
 		return false, cloudoguerrors.NewGenericError(err)
@@ -134,7 +134,7 @@ func (vr *versionRegistry) IsEnabled(ctx context.Context, name SimpleDoguName) (
 	return enabled, nil
 }
 
-func (vr *versionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
+func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion DoguVersion) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// do not create the registry here if not existent because it would be an invalid state without the dogu spec.
 		specConfigMap, err := getSpecConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
@@ -165,7 +165,7 @@ func isDoguVersionInstalled(specConfigMap corev1.ConfigMap, version core.Version
 	return false
 }
 
-func (vr *versionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersionsWatch, error) {
+func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersionsWatch, error) {
 	selector := getAllLocalDoguRegistriesSelector()
 	watchInterface, watchErr := vr.configMapClient.Watch(ctx, metav1.ListOptions{LabelSelector: selector})
 	if watchErr != nil {

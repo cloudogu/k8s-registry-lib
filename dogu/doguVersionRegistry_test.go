@@ -121,7 +121,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &versionRegistry{
+			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := vr.GetCurrent(tt.args.ctx, tt.args.name)
@@ -218,7 +218,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &versionRegistry{
+			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := vr.GetCurrentOfAll(tt.args.ctx)
@@ -285,7 +285,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &versionRegistry{
+			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			got, err := vr.IsEnabled(tt.args.ctx, tt.args.name)
@@ -372,7 +372,7 @@ func Test_versionRegistry_Enable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vr := &versionRegistry{
+			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t),
 			}
 			tt.wantErr(t, vr.Enable(tt.args.ctx, tt.args.doguVersion), fmt.Sprintf("Enable(%v, %v)", tt.args.ctx, tt.args.doguVersion))
@@ -646,7 +646,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			watchInterface := NewMockWatchInterface()
 
-			vr := &versionRegistry{
+			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t, watchInterface),
 			}
 			got, err := vr.WatchAllCurrent(tt.args.ctx)
