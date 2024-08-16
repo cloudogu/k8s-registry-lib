@@ -36,7 +36,7 @@ func (vr *specRepository) Get(ctx context.Context, doguVersion DoguVersion) (*co
 		return nil, getDoguRegistryKeyNotFoundError(versionStr, doguName)
 	}
 
-	result, err := unmarshalDoguJsonStr(doguStr, doguName, doguVersion.Version.Raw)
+	result, err := unmarshalDoguJsonStr(doguStr, doguName, versionStr)
 	if err != nil {
 		return nil, cloudoguerrors.NewGenericError(err)
 	}
@@ -106,8 +106,8 @@ func (vr *specRepository) Add(ctx context.Context, name SimpleDoguName, dogu *co
 			doguSpecConfigMap.Data = map[string]string{}
 		}
 
-		_, ok := doguSpecConfigMap.Data[dogu.Version]
-		if ok {
+		_, alreadyExists := doguSpecConfigMap.Data[dogu.Version]
+		if alreadyExists {
 			return cloudoguerrors.NewAlreadyExistsError(fmt.Errorf("%q dogu spec already exists for version %q", name, dogu.Version))
 		}
 
@@ -164,7 +164,7 @@ func createSpecConfigMapForDogu(ctx context.Context, configMapClient configMapCl
 
 	_, createErr := configMapClient.Create(ctx, specConfigMap, metav1.CreateOptions{})
 	if createErr != nil {
-		return nil, fmt.Errorf("failed to create local registry for dogu %q: %w", simpleDoguName, createErr)
+		return nil, fmt.Errorf("failed to create local registry config map for dogu %q: %w", simpleDoguName, createErr)
 	}
 
 	return specConfigMap, nil
