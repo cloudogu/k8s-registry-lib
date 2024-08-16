@@ -123,7 +123,7 @@ func (vr *specRepository) Add(ctx context.Context, name SimpleDoguName, dogu *co
 			return fmt.Errorf("failed to update dogu spec configmap for dogu %q: %w", name, err)
 		}
 
-		return err
+		return nil
 	})
 
 	if err != nil {

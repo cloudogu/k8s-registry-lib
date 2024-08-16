@@ -41,12 +41,12 @@ func (vr *versionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) 
 		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
 
-	currentVersion, ok := specConfigMap.Data[currentVersionKey]
+	currentDoguVersion, ok := specConfigMap.Data[currentVersionKey]
 	if !ok {
 		return DoguVersion{}, getDoguRegistryKeyNotFoundError(currentVersionKey, name)
 	}
 
-	version, err := parseDoguVersion(currentVersion, name)
+	version, err := parseDoguVersion(currentDoguVersion, name)
 	if err != nil {
 		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
