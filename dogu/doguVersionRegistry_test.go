@@ -298,8 +298,8 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 }
 
 func Test_versionRegistry_Enable(t *testing.T) {
-	casRegistryCmWithOutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t)}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
-	expectedCasRegistryCmWithOutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t), "current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
+	casRegistryCmWithoutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t)}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
+	expectedCasRegistryCmWithoutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t), "current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 
 	type args struct {
 		ctx         context.Context
