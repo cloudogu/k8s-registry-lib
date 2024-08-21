@@ -1,4 +1,4 @@
-package config
+package errors
 
 import "errors"
 
@@ -9,6 +9,7 @@ const (
 	_ErrConflict
 	_ErrConnection
 	_ErrAlreadyExists
+	_ErrGeneric
 )
 
 var _ error = Error{}
@@ -20,6 +21,13 @@ type Error struct {
 
 func (c Error) Error() string {
 	return c.cause.Error()
+}
+
+func NewGenericError(err error) Error {
+	return Error{
+		errType: _ErrGeneric,
+		cause:   err,
+	}
 }
 
 func NewNotFoundError(err error) Error {
@@ -61,6 +69,10 @@ func isError(err error, t errorType) bool {
 	}
 
 	return false
+}
+
+func IsGenericError(err error) bool {
+	return isError(err, _ErrGeneric)
 }
 
 func IsNotFoundError(err error) bool {
