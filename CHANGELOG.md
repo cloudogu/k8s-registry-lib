@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2024-08-21
+### Changed
+- [#5] Refactor and split the dogu registry in a dogu version registry and a dogu spec repository.
+
 ## [v0.2.2] - 2024-08-02
 ### Added
 - [#8] Exposed function to create config entries from map
