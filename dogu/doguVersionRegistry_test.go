@@ -215,6 +215,29 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 					assert.ErrorContains(t, err, "failed to get some dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc: strconv.Atoi: parsing \"abc\": invalid syntax\nfailed to parse version \"abcd\" for dogu \"ldap\": failed to parse major version abcd: strconv.Atoi: parsing \"abcd\": invalid syntax")
 			},
 		},
+		{
+			name: "should return multi error for invalid versions and dogu versions for valid versions",
+			configMapClientFn: func(t *testing.T) configMapClient {
+				invalidCasCm := &corev1.ConfigMap{Data: map[string]string{"current": "abc"}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
+				validLdapCm := &corev1.ConfigMap{Data: map[string]string{"current": "1.0.0"}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}}
+				validRegistryCmList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*invalidCasCm, *validLdapCm}}
+				configMapClientMock := newMockConfigMapClient(t)
+				configMapClientMock.EXPECT().List(testCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(validRegistryCmList, nil)
+
+				return configMapClientMock
+			},
+			args: args{ctx: testCtx},
+			want: []DoguVersion{
+				{
+					Name:    "ldap",
+					Version: parseVersionStr(t, "1.0.0"),
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
+					assert.ErrorContains(t, err, "failed to get some dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc: strconv.Atoi: parsing \"abc\": invalid syntax")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -245,7 +268,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
-			name: "should return true if the current key exists",
+			name: "should return true if the current key matches",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithCurrent, nil)
@@ -265,6 +288,18 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 				return configMapClientMock
 			},
 			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
+			want:    false,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should return false if the current key does not match",
+			configMapClientFn: func(t *testing.T) configMapClient {
+				configMapClientMock := newMockConfigMapClient(t)
+				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithCurrent, nil)
+
+				return configMapClientMock
+			},
+			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, "7.0.5.1-2")}},
 			want:    false,
 			wantErr: assert.NoError,
 		},
@@ -319,8 +354,8 @@ func Test_versionRegistry_Enable(t *testing.T) {
 			name: "success with existent registry",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithOutCurrent, nil)
-				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithOutCurrent, metav1.UpdateOptions{}).Return(expectedCasRegistryCmWithOutCurrent, nil)
+				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithoutCurrent, nil)
+				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithoutCurrent, metav1.UpdateOptions{}).Return(expectedCasRegistryCmWithoutCurrent, nil)
 
 				return configMapClientMock
 			},
@@ -331,9 +366,9 @@ func Test_versionRegistry_Enable(t *testing.T) {
 			name: "should success with conflict error on retry",
 			configMapClientFn: func(t *testing.T) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithOutCurrent, nil).Times(2)
-				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithOutCurrent, metav1.UpdateOptions{}).Return(nil, testConflictErr).Times(1)
-				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithOutCurrent, metav1.UpdateOptions{}).Return(casRegistryCmWithOutCurrent, nil).Times(1)
+				configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-cas", metav1.GetOptions{}).Return(casRegistryCmWithoutCurrent, nil).Times(2)
+				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithoutCurrent, metav1.UpdateOptions{}).Return(nil, testConflictErr).Times(1)
+				configMapClientMock.EXPECT().Update(testCtx, expectedCasRegistryCmWithoutCurrent, metav1.UpdateOptions{}).Return(casRegistryCmWithoutCurrent, nil).Times(1)
 
 				return configMapClientMock
 			},
