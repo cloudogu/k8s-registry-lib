@@ -2,6 +2,9 @@ package dogu
 
 import (
 	"context"
+	"k8s.io/client-go/tools/cache"
+
+	informerCore "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/cloudogu/cesapp-lib/core"
@@ -9,6 +12,14 @@ import (
 
 type configMapClient interface {
 	corev1client.ConfigMapInterface
+}
+
+type configMapInformer interface {
+	informerCore.ConfigMapInformer
+}
+
+type sharedInformer interface {
+	cache.SharedIndexInformer
 }
 
 type SimpleDoguName string
@@ -24,12 +35,7 @@ type DoguVersionRegistry interface {
 	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
 	IsEnabled(context.Context, DoguVersion) (bool, error)
 	Enable(context.Context, DoguVersion) error
-	WatchAllCurrent(context.Context) (CurrentVersionsWatch, error)
-}
-
-type CurrentVersionsWatch struct {
-	ResultChan <-chan CurrentVersionsWatchResult
-	cancelFunc context.CancelFunc
+	WatchAllCurrent(context.Context) (<-chan CurrentVersionsWatchResult, error)
 }
 
 type CurrentVersionsWatchResult struct {
