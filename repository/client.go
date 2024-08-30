@@ -2,15 +2,21 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/errors"
+	"github.com/cloudogu/k8s-registry-lib/config"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/watch"
+	informerCore "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	regErrs "github.com/cloudogu/k8s-registry-lib/errors"
 )
 
 type configType int
@@ -47,21 +53,36 @@ type ConfigMapClient interface {
 	corev1client.ConfigMapInterface
 }
 
+type ConfigMapInformer interface {
+	informerCore.ConfigMapInformer
+}
+
+type sharedInformer interface {
+	cache.SharedIndexInformer
+}
+
+var (
+	configMapWatchKind *v1.ConfigMap
+	secretWatchKind    *v1.Secret
+)
+
 type clientData struct {
 	dataStr string
 	rawData any
 }
 
 type configMapClient struct {
-	client ConfigMapClient
-	labels labels.Set
+	client   ConfigMapClient
+	informer ConfigMapInformer
+	labels   labels.Set
 }
 
 var _ configClient = configMapClient{}
 
-func createConfigMapClient(c ConfigMapClient, t configType) configMapClient {
+func createConfigMapClient(c ConfigMapClient, i ConfigMapInformer, t configType) configMapClient {
 	return configMapClient{
-		client: c,
+		client:   c,
+		informer: i,
 		labels: labels.Set{
 			appLabelKey:  appLabelValueCes,
 			typeLabelKey: t.String(),
@@ -71,19 +92,19 @@ func createConfigMapClient(c ConfigMapClient, t configType) configMapClient {
 
 func handleError(err error) error {
 	if k8sErrs.IsNotFound(err) {
-		return errors.NewNotFoundError(err)
+		return regErrs.NewNotFoundError(err)
 	}
 
 	if k8sErrs.IsConflict(err) {
-		return errors.NewConflictError(err)
+		return regErrs.NewConflictError(err)
 	}
 
 	if k8sErrs.IsServerTimeout(err) || k8sErrs.IsTimeout(err) {
-		return errors.NewConnectionError(err)
+		return regErrs.NewConnectionError(err)
 	}
 
 	if k8sErrs.IsAlreadyExists(err) {
-		return errors.NewAlreadyExistsError(err)
+		return regErrs.NewAlreadyExistsError(err)
 	}
 
 	return fmt.Errorf("%v", err)
@@ -172,16 +193,21 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 }
 
 func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, cmc.client)
+	return registerEventHandler(ctx, cmc.informer.Informer(), configMapWatchKind, name)
 }
 
 type SecretClient interface {
 	corev1client.SecretInterface
 }
 
+type SecretInformer interface {
+	informerCore.SecretInformer
+}
+
 type secretClient struct {
-	client SecretClient
-	labels labels.Set
+	client   SecretClient
+	informer SecretInformer
+	labels   labels.Set
 }
 
 var _ configClient = secretClient{}
@@ -281,92 +307,131 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 }
 
 func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, sc.client)
+	return registerEventHandler(ctx, sc.informer.Informer(), secretWatchKind, name)
 }
 
-type clientWatcher interface {
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+func registerEventHandler(ctx context.Context, informer sharedInformer, kind metav1.Object, name string) (<-chan clientWatchResult, error) {
+	watchCh := make(chan clientWatchResult)
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: updateHandler(kind, watchCh, name),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to register event handler for kind %T: %w", kind, err)
+	}
+
+	go func() {
+		informer.Run(ctx.Done())
+	}()
+
+	return watchCh, nil
+}
+
+func updateHandler(kind metav1.Object, watchCh chan clientWatchResult, name string) func(prevObj interface{}, newObj interface{}) {
+	return func(prevObj, newObj interface{}) {
+		prevCast, newCast, err := cast(kind, prevObj, newObj)
+		if err != nil {
+			watchCh <- clientWatchResult{
+				err: fmt.Errorf("failed to cast objects to desired kind: %w", err),
+			}
+			return
+		}
+
+		if prevCast.GetName() != newCast.GetName() {
+			// this should never happen
+			return
+		}
+
+		if prevCast.GetName() != name {
+			// this is not the resource we want to watch, skip
+			return
+		}
+
+		var newDataString string
+		var prevDataString string
+		switch kind.(type) {
+		case *v1.Secret:
+			prevDataString, newDataString, err = getSecretDataStrings(newCast, prevCast, name)
+		case *v1.ConfigMap:
+			prevDataString, newDataString, err = getConfigMapDataStrings(newCast, prevCast, name)
+		}
+		watchCh <- clientWatchResult{
+			prevConfig: configRaw{
+				data:           prevDataString,
+				persistenceCtx: prevCast.GetResourceVersion(),
+			},
+			newConfig: configRaw{
+				data:           newDataString,
+				persistenceCtx: newCast.GetResourceVersion(),
+			},
+			err: err,
+		}
+	}
+}
+
+func getSecretDataStrings(newCast metav1.Object, prevCast metav1.Object, name string) (prev string, new string, err error) {
+	var errs []error
+	prevDataBytes, ok := prevCast.(*v1.Secret).Data[dataKeyName]
+	if !ok {
+		errs = append(errs, fmt.Errorf("could not find data for key %q in previous state of secret %q", dataKeyName, name))
+	}
+
+	newDataBytes, ok := newCast.(*v1.Secret).Data[dataKeyName]
+	if !ok {
+		errs = append(errs, fmt.Errorf("could not find data for key %q in updated state of secret %q", dataKeyName, name))
+	}
+
+	return string(prevDataBytes), string(newDataBytes), errors.Join(errs...)
+}
+
+func getConfigMapDataStrings(newCast metav1.Object, prevCast metav1.Object, name string) (prev string, new string, err error) {
+	var errs []error
+
+	prevDataBytes, ok := prevCast.(*v1.ConfigMap).Data[dataKeyName]
+	if !ok {
+		errs = append(errs, fmt.Errorf("could not find data for key %q in previous state of configmap %q", dataKeyName, name))
+	}
+
+	newDataBytes, ok := newCast.(*v1.ConfigMap).Data[dataKeyName]
+	if !ok {
+		errs = append(errs, fmt.Errorf("could not find data for key %q in updated state of configmap %q", dataKeyName, name))
+	}
+
+	return prevDataBytes, newDataBytes, errors.Join(errs...)
+}
+
+func cast[K metav1.Object](kind K, prevObj, newObj interface{}) (prevCast K, newCast K, err error) {
+	var errs []error
+	prevCast, isType := prevObj.(K)
+	if !isType {
+		errs = append(errs, fmt.Errorf("previous object is not of expected kind %T", kind))
+	}
+
+	newCast, isType = newObj.(K)
+	if !isType {
+		errs = append(errs, fmt.Errorf("new object is not of expected kind %T", kind))
+	}
+
+	return prevCast, newCast, errors.Join(errs...)
+}
+
+type configRaw struct {
+	data           string
+	persistenceCtx string
+}
+
+func (c configRaw) toConfig(converter config.Converter) (config.Config, error) {
+	reader := strings.NewReader(c.data)
+
+	cfgData, err := converter.Read(reader)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("could not convert client data to config data: %w", err)
+	}
+
+	return config.CreateConfig(cfgData, config.WithPersistenceContext(c.persistenceCtx)), nil
 }
 
 type clientWatchResult struct {
-	dataStr           string
-	persistentContext string
-	err               error
-}
-
-func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
-	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
-	if err != nil {
-		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
-	}
-
-	resultChan := make(chan clientWatchResult)
-
-	go func() {
-		defer close(resultChan)
-		for {
-			select {
-			case <-ctx.Done():
-				watcher.Stop()
-				return
-			case result, open := <-watcher.ResultChan():
-				if !open {
-					return
-				}
-
-				resultChan <- handleWatchEvent(name, result)
-			}
-		}
-	}()
-
-	return resultChan, nil
-}
-
-func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
-	if event.Type == watch.Error {
-		return clientWatchResult{
-			dataStr:           "",
-			persistentContext: "",
-			err:               fmt.Errorf("error result in watcher for config '%s'", cfgName),
-		}
-	}
-
-	switch r := event.Object.(type) {
-	case *v1.Secret:
-		dataBytes, ok := r.Data[dataKeyName]
-		if !ok {
-			return clientWatchResult{
-				dataStr:           "",
-				persistentContext: "",
-				err:               fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, cfgName),
-			}
-		}
-
-		return clientWatchResult{
-			dataStr:           string(dataBytes),
-			persistentContext: r.GetResourceVersion(),
-			err:               nil,
-		}
-	case *v1.ConfigMap:
-		dataString, ok := r.Data[dataKeyName]
-		if !ok {
-			return clientWatchResult{
-				dataStr:           "",
-				persistentContext: "",
-				err:               fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, cfgName),
-			}
-		}
-
-		return clientWatchResult{
-			dataStr:           dataString,
-			persistentContext: r.GetResourceVersion(),
-			err:               nil,
-		}
-	default:
-		return clientWatchResult{
-			dataStr:           "",
-			persistentContext: "",
-			err:               fmt.Errorf("unsupported type in watch %T", r),
-		}
-	}
+	prevConfig configRaw
+	newConfig  configRaw
+	err        error
 }

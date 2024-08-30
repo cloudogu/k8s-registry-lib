@@ -12,8 +12,8 @@ type GlobalConfigRepository struct {
 	generalConfigRepository
 }
 
-func NewGlobalConfigRepository(client ConfigMapClient) *GlobalConfigRepository {
-	cfgClient := createConfigMapClient(client, globalConfigType)
+func NewGlobalConfigRepository(client ConfigMapClient, informer ConfigMapInformer) *GlobalConfigRepository {
+	cfgClient := createConfigMapClient(client, informer, globalConfigType)
 	cfgRepository := newConfigRepo(cfgClient)
 
 	return &GlobalConfigRepository{

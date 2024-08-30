@@ -10,8 +10,8 @@ type DoguConfigRepository struct {
 	generalConfigRepository
 }
 
-func NewDoguConfigRepository(client ConfigMapClient) *DoguConfigRepository {
-	cfgClient := createConfigMapClient(client, doguConfigType)
+func NewDoguConfigRepository(client ConfigMapClient, informer ConfigMapInformer) *DoguConfigRepository {
+	cfgClient := createConfigMapClient(client, informer, doguConfigType)
 	cfgRepository := newConfigRepo(cfgClient)
 
 	return &DoguConfigRepository{
