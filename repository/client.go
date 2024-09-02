@@ -195,6 +195,11 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 }
 
 func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	_, err := cmc.Get(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start watch: %w", err)
+	}
+
 	return registerEventHandler(ctx, cmc.informer.Informer(), configMapWatchKind, name)
 }
 
@@ -309,6 +314,11 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 }
 
 func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	_, err := sc.Get(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start watch: %w", err)
+	}
+
 	return registerEventHandler(ctx, sc.informer.Informer(), secretWatchKind, name)
 }
 
