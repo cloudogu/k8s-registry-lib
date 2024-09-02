@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/cloudogu/cesapp-lib/core"
 	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -222,15 +223,15 @@ func waitForWatchEvents(
 
 	_, err = informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			configMap, err := toConfigMap(obj)
+			descriptorConfigMap, err := toConfigMap(obj)
 			if err != nil {
 				return false
 			}
 
-			return selector.Matches(labels.Set(configMap.Labels))
+			selectorMatches := selector.Matches(labels.Set(descriptorConfigMap.Labels))
+			hasCurrentKey := hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap)
 
-			// TODO IDEA: use filter function to check if configmap contains current key
-			// that way, we'll only have to fire the appropriate watch events in the handler
+			return selectorMatches && hasCurrentKey
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    handleAdd(ctx, persistenceContext, currentVersionsWatchResult),
@@ -252,16 +253,9 @@ func handleDelete(
 	currentVersionsWatchResult chan CurrentVersionsWatchResult,
 ) func(obj interface{}) {
 	return func(obj interface{}) {
-		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleDelete")
 		descriptorConfigMap, err := toConfigMap(obj)
 		if err != nil {
 			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
-			return
-		}
-
-		if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
-			// disabled dogus deleted. Do nothing
-			logger.Info("dogu registry config map without current key was deleted. do nothing.")
 			return
 		}
 
@@ -273,7 +267,6 @@ func handleDelete(
 
 		oldPersistenceContext := copyPersistenceContext(persistenceContext)
 		delete(persistenceContext, eventDoguVersion.Name)
-
 		fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{eventDoguVersion})
 	}
 }
@@ -282,46 +275,30 @@ func handleUpdate(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
 	currentVersionsWatchResult chan CurrentVersionsWatchResult,
-) func(oldObj, newObj interface{}) {
-	return func(oldObj, newObj interface{}) {
+) func(prevObj, newObj interface{}) {
+	return func(prevObj, newObj interface{}) {
 		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleUpdate")
-		descriptorConfigMap, err := toConfigMap(newObj)
+		newDescriptors, err := toConfigMap(newObj)
 		if err != nil {
 			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle update watch event: %w", err), currentVersionsWatchResult)
 			return
 		}
 
-		oldPersistenceContext := copyPersistenceContext(persistenceContext)
-
-		// Skip process. Configmap was possible created empty and will get modified event on Enable.
-		if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
-			// Dogu was disabled
-			doguName := SimpleDoguName(descriptorConfigMap.Labels[doguNameLabelKey])
-			version, ok := oldPersistenceContext[doguName]
-			if !ok {
-				// Dogu ist still disabled and cm got other updates than current deletion
-				return
-			}
-			fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{{Name: doguName, Version: version}})
-			delete(persistenceContext, doguName)
-		} else {
-			// TODO maybe use both old and new object to determine the change?
-			// Detect change
-			eventDoguVersion, getErr := getCurrentDoguVersionFromDoguDescriptorConfigMap(*descriptorConfigMap)
-			if getErr != nil {
-				throwAndLogWatchError(ctx, fmt.Errorf("failed to handle update watch event: %w", getErr), currentVersionsWatchResult)
-				return
-			}
-
-			version, ok := persistenceContext[eventDoguVersion.Name]
-			if ok && version.IsEqualTo(eventDoguVersion.Version) {
-				logger.Info("current versions %s for dogu %s from persistent context and modified event are equal", eventDoguVersion.Version.Raw, eventDoguVersion.Name)
-				return
-			}
-
-			persistenceContext[eventDoguVersion.Name] = eventDoguVersion.Version
-			fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{eventDoguVersion})
+		newDoguVersion, getErr := getCurrentDoguVersionFromDoguDescriptorConfigMap(*newDescriptors)
+		if getErr != nil {
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle update watch event: %w", getErr), currentVersionsWatchResult)
+			return
 		}
+
+		version, ok := persistenceContext[newDoguVersion.Name]
+		if ok && version.IsEqualTo(newDoguVersion.Version) {
+			logger.Info("current versions %s for dogu %s from persistent context and modified event are equal", newDoguVersion.Version.Raw, newDoguVersion.Name)
+			return
+		}
+
+		oldPersistenceContext := copyPersistenceContext(persistenceContext)
+		persistenceContext[newDoguVersion.Name] = newDoguVersion.Version
+		fireWatchResult(currentVersionsWatchResult, oldPersistenceContext, persistenceContext, []DoguVersion{newDoguVersion})
 	}
 }
 
@@ -331,16 +308,9 @@ func handleAdd(
 	currentVersionsWatchResult chan CurrentVersionsWatchResult,
 ) func(obj interface{}) {
 	return func(obj interface{}) {
-		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleAdd")
 		descriptorConfigMap, err := toConfigMap(obj)
 		if err != nil {
 			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
-			return
-		}
-
-		// Skip process. Configmap was created empty.
-		if !hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap) {
-			logger.Info("dogu registry config map was created but without current key. do nothing.")
 			return
 		}
 
