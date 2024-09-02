@@ -173,35 +173,27 @@ func isDoguVersionInstalled(descriptorConfigMap corev1.ConfigMap, version core.V
 }
 
 func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (<-chan CurrentVersionsWatchResult, error) {
+	// Fetch all descriptor ConfigMaps
+	list, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to get initial state for watch: %w", err))
+	}
+
+	persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("error during persistence context creation for watch: %w", err))
+	}
+
 	informer := vr.configMapInformer.Informer()
+	watchChan, err := watchInBackground(ctx, informer, persistenceContext)
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to start watch: %w", err))
+	}
 
-	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
-
-	go func() {
-		newCtx, cancelFunc := context.WithCancel(ctx)
-		defer cancelFunc()
-
-		// Fetch all descriptor ConfigMaps
-		list, err := getAllDescriptorConfigMaps(newCtx, vr.configMapClient)
-		if err != nil {
-			throwAndLogWatchError(newCtx, err, currentVersionsWatchResult)
-			return
-		}
-		persistenceContext, err := createCurrentPersistenceContext(newCtx, list.Items)
-		if err != nil {
-			throwAndLogWatchError(newCtx, fmt.Errorf("error during persistence context creation. watch is still active: %w", err), currentVersionsWatchResult)
-		}
-
-		err = waitForWatchEvents(newCtx, informer, persistenceContext, currentVersionsWatchResult)
-		if err != nil {
-			throwAndLogWatchError(newCtx, err, currentVersionsWatchResult)
-		}
-	}()
-
-	return currentVersionsWatchResult, nil
+	return watchChan, nil
 }
 
-func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan CurrentVersionsWatchResult) {
+func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan<- CurrentVersionsWatchResult) {
 	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.throwAndLogWatchError")
 	logger.Error(err, errMsgWatch)
 	resultChannel <- CurrentVersionsWatchResult{
@@ -209,17 +201,18 @@ func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan Cu
 	}
 }
 
-func waitForWatchEvents(
+func watchInBackground(
 	ctx context.Context,
 	informer sharedInformer,
 	persistenceContext map[SimpleDoguName]core.Version,
-	currentVersionsWatchResult chan CurrentVersionsWatchResult,
-) error {
+) (<-chan CurrentVersionsWatchResult, error) {
 	selectorString := getAllLocalDoguRegistriesSelector()
 	selector, err := labels.Parse(selectorString)
 	if err != nil {
-		return fmt.Errorf("failed to parse label selector for dogu registries: %s: %w", selectorString, err)
+		return nil, fmt.Errorf("failed to parse label selector for dogu registries: %s: %w", selectorString, err)
 	}
+
+	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
 
 	_, err = informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
@@ -240,17 +233,22 @@ func waitForWatchEvents(
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add event handler for current versions: %w", err)
+		close(currentVersionsWatchResult)
+		return nil, fmt.Errorf("failed to add event handler for current versions: %w", err)
 	}
 
-	informer.Run(ctx.Done())
-	return nil
+	go func() {
+		informer.Run(ctx.Done())
+		close(currentVersionsWatchResult)
+	}()
+
+	return currentVersionsWatchResult, nil
 }
 
 func handleDelete(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
-	currentVersionsWatchResult chan CurrentVersionsWatchResult,
+	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
 ) func(obj interface{}) {
 	return func(obj interface{}) {
 		descriptorConfigMap, err := toConfigMap(obj)
@@ -274,7 +272,7 @@ func handleDelete(
 func handleUpdate(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
-	currentVersionsWatchResult chan CurrentVersionsWatchResult,
+	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
 ) func(prevObj, newObj interface{}) {
 	return func(prevObj, newObj interface{}) {
 		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleUpdate")
@@ -305,7 +303,7 @@ func handleUpdate(
 func handleAdd(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
-	currentVersionsWatchResult chan CurrentVersionsWatchResult,
+	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
 ) func(obj interface{}) {
 	return func(obj interface{}) {
 		descriptorConfigMap, err := toConfigMap(obj)
@@ -333,11 +331,11 @@ func copyPersistenceContext(persistenceContext map[SimpleDoguName]core.Version) 
 	return oldPersistenceContext
 }
 
-func fireWatchResult(channel chan CurrentVersionsWatchResult, prevPersistenceContext map[SimpleDoguName]core.Version, newPersistenceContext map[SimpleDoguName]core.Version, diffs []DoguVersion) {
+func fireWatchResult(channel chan<- CurrentVersionsWatchResult, prevPersistenceContext map[SimpleDoguName]core.Version, newPersistenceContext map[SimpleDoguName]core.Version, diffs []DoguVersion) {
 	fireWatchResultWithError(channel, prevPersistenceContext, newPersistenceContext, diffs, nil)
 }
 
-func fireWatchResultWithError(channel chan CurrentVersionsWatchResult, prevPersistenceContext map[SimpleDoguName]core.Version, newPersistenceContext map[SimpleDoguName]core.Version, diffs []DoguVersion, err error) {
+func fireWatchResultWithError(channel chan<- CurrentVersionsWatchResult, prevPersistenceContext map[SimpleDoguName]core.Version, newPersistenceContext map[SimpleDoguName]core.Version, diffs []DoguVersion, err error) {
 	result := CurrentVersionsWatchResult{
 		PrevVersions: prevPersistenceContext,
 		Versions:     newPersistenceContext,
