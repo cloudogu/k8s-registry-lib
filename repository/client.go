@@ -314,6 +314,7 @@ func registerEventHandler(ctx context.Context, informer sharedInformer, kind met
 	watchCh := make(chan clientWatchResult)
 	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: updateHandler(kind, watchCh, name),
+		DeleteFunc: deleteHandler(kind, watchCh, name),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register event handler for kind %T: %w", kind, err)
@@ -328,13 +329,16 @@ func registerEventHandler(ctx context.Context, informer sharedInformer, kind met
 
 func updateHandler(kind metav1.Object, watchCh chan clientWatchResult, name string) func(prevObj interface{}, newObj interface{}) {
 	return func(prevObj, newObj interface{}) {
-		prevCast, newCast, err := cast(kind, prevObj, newObj)
+		castObjs, err := cast(kind, prevObj, newObj)
 		if err != nil {
 			watchCh <- clientWatchResult{
-				err: fmt.Errorf("failed to cast objects to desired kind: %w", err),
+				err: fmt.Errorf("update handler: failed to cast objects to desired kind: %w", err),
 			}
 			return
 		}
+
+		prevCast := castObjs[0]
+		newCast := castObjs[1]
 
 		if prevCast.GetName() != newCast.GetName() {
 			// this should never happen
@@ -364,6 +368,28 @@ func updateHandler(kind metav1.Object, watchCh chan clientWatchResult, name stri
 				persistenceCtx: newCast.GetResourceVersion(),
 			},
 			err: err,
+		}
+	}
+}
+
+func deleteHandler(kind metav1.Object, watchCh chan clientWatchResult, name string) func(obj interface{}) {
+	return func(obj interface{}) {
+		castObjs, err := cast(kind, obj)
+		if err != nil {
+			watchCh <- clientWatchResult{
+				err: fmt.Errorf("delete handler: failed to cast object to desired kind: %w", err),
+			}
+			return
+		}
+
+		castObj := castObjs[0]
+		if castObj.GetName() != name {
+			// this is not the resource we want to watch, skip
+			return
+		}
+
+		watchCh <- clientWatchResult{
+			err: regErrs.NewNotFoundError(fmt.Errorf("subject of watch (%T %s) was deleted", kind, name)),
 		}
 	}
 }
@@ -399,19 +425,20 @@ func getConfigMapDataStrings(newCast metav1.Object, prevCast metav1.Object, name
 	return prevDataBytes, newDataBytes, errors.Join(errs...)
 }
 
-func cast[K metav1.Object](kind K, prevObj, newObj interface{}) (prevCast K, newCast K, err error) {
+func cast[K metav1.Object](kind K, objs ...interface{}) (cast []K, err error) {
 	var errs []error
-	prevCast, isType := prevObj.(K)
-	if !isType {
-		errs = append(errs, fmt.Errorf("previous object is not of expected kind %T", kind))
+
+	for i, obj := range objs {
+		castObj, isType := obj.(K)
+		if !isType {
+			errs = append(errs, fmt.Errorf("object %d is not of expected kind %T", i, kind))
+			continue
+		}
+
+		cast = append(cast, castObj)
 	}
 
-	newCast, isType = newObj.(K)
-	if !isType {
-		errs = append(errs, fmt.Errorf("new object is not of expected kind %T", kind))
-	}
-
-	return prevCast, newCast, errors.Join(errs...)
+	return cast, errors.Join(errs...)
 }
 
 type configRaw struct {
