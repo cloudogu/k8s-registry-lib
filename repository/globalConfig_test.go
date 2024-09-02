@@ -12,7 +12,8 @@ import (
 
 func TestNewGlobalConfigRepository(t *testing.T) {
 	mClient := NewMockConfigMapClient(t)
-	repo := NewGlobalConfigRepository(mClient)
+	mInformer := NewMockConfigMapInformer(t)
+	repo := NewGlobalConfigRepository(mClient, mInformer)
 	assert.NotNil(t, repo)
 }
 

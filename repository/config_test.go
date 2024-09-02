@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/api/core/v1"
 	"sync"
 	"testing"
 	"time"
@@ -625,7 +624,6 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
 		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
@@ -642,9 +640,9 @@ func Test_configRepo_watch(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			resultChan <- clientWatchResult{"foo: value", "", nil}
-			resultChan <- clientWatchResult{"key: other", "", nil}
-			resultChan <- clientWatchResult{"", "", assert.AnError}
+			resultChan <- clientWatchResult{configRaw{"foo: bar", ""}, configRaw{"foo: value", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{"foo: value", ""}, configRaw{"key: other", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{}, configRaw{}, assert.AnError}
 
 			close(resultChan)
 		}()
@@ -695,7 +693,6 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
 		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
@@ -712,9 +709,9 @@ func Test_configRepo_watch(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			resultChan <- clientWatchResult{"foo: value", "", nil}
-			resultChan <- clientWatchResult{"key: other", "", nil}
-			resultChan <- clientWatchResult{"", "", assert.AnError}
+			resultChan <- clientWatchResult{configRaw{"foo: bar", ""}, configRaw{"foo: value", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{"foo: value", ""}, configRaw{"key: other", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{}, configRaw{}, assert.AnError}
 
 			close(resultChan)
 		}()
@@ -759,7 +756,6 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
 		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
@@ -776,8 +772,9 @@ func Test_configRepo_watch(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			resultChan <- clientWatchResult{"foo: value", "", nil}
-			resultChan <- clientWatchResult{"key: other", "", nil}
+			resultChan <- clientWatchResult{configRaw{"foo: bar", ""}, configRaw{"foo: value", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{"foo: value", ""}, configRaw{"key: other", ""}, nil}
+			resultChan <- clientWatchResult{configRaw{}, configRaw{}, assert.AnError}
 
 			close(resultChan)
 		}()
@@ -807,15 +804,17 @@ func Test_configRepo_watch(t *testing.T) {
 func Test_createConfigWatchResult(t *testing.T) {
 	t.Run("should fail to create configWatchResult for error reading config", func(t *testing.T) {
 		watchResult := clientWatchResult{
-			dataStr: "noValidYaml!!",
+			prevConfig: configRaw{
+				data: "noValidYaml!!",
+			},
 		}
 
-		result := createConfigWatchResult(config.Config{}, watchResult, &config.YamlConverter{})
+		result := createConfigWatchResult(watchResult, &config.YamlConverter{})
 
 		assert.Equal(t, config.Config{}, result.prevState)
 		assert.Equal(t, config.Config{}, result.newState)
 		assert.Error(t, result.err)
-		assert.ErrorContains(t, result.err, "could not convert client data to config data: unable to decode yaml from reader")
+		assert.ErrorContains(t, result.err, "could not convert previous state to config: unable to decode yaml from reader")
 
 	})
 }

@@ -14,7 +14,8 @@ const _DoguName = config.SimpleDoguName("test")
 
 func TestNewDoguConfigRepository(t *testing.T) {
 	mClient := NewMockConfigMapClient(t)
-	repo := NewDoguConfigRepository(mClient)
+	mInformer := NewMockConfigMapInformer(t)
+	repo := NewDoguConfigRepository(mClient, mInformer)
 	assert.NotNil(t, repo)
 	assert.Equal(t, mClient, repo.generalConfigRepository.(configRepository).client.(configMapClient).client)
 }
