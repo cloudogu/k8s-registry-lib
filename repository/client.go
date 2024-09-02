@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/config"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -16,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/cloudogu/k8s-registry-lib/config"
 	regErrs "github.com/cloudogu/k8s-registry-lib/errors"
 )
 
