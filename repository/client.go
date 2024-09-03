@@ -10,8 +10,6 @@ import (
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	informerCore "k8s.io/client-go/informers/core/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -48,18 +46,6 @@ const (
 )
 
 const dataKeyName = "config.yaml"
-
-type ConfigMapClient interface {
-	corev1client.ConfigMapInterface
-}
-
-type ConfigMapInformer interface {
-	informerCore.ConfigMapInformer
-}
-
-type sharedInformer interface {
-	cache.SharedIndexInformer
-}
 
 type watchKind string
 
@@ -197,18 +183,10 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
 	_, err := cmc.Get(ctx, name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start watch: %w", err)
+		return nil, fmt.Errorf("failed to start watch: failed to get configmap %q: %w", name, err)
 	}
 
 	return registerEventHandler(ctx, cmc.informer.Informer(), configMapWatchKind, name)
-}
-
-type SecretClient interface {
-	corev1client.SecretInterface
-}
-
-type SecretInformer interface {
-	informerCore.SecretInformer
 }
 
 type secretClient struct {
@@ -316,7 +294,7 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
 	_, err := sc.Get(ctx, name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start watch: %w", err)
+		return nil, fmt.Errorf("failed to start watch: failed to get secret %q: %w", name, err)
 	}
 
 	return registerEventHandler(ctx, sc.informer.Informer(), secretWatchKind, name)
@@ -344,7 +322,7 @@ func registerEventHandler(ctx context.Context, informer sharedInformer, kind wat
 			DeleteFunc: deleteHandler(kind, watchCh, name),
 		}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to register event handler for kind %T: %w", kind, err)
+		return nil, fmt.Errorf("failed to register event handler for %s %q: %w", kind, name, err)
 	}
 
 	go func() {

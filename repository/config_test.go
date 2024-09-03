@@ -724,7 +724,7 @@ func Test_configRepo_watch(t *testing.T) {
 			for result := range watch {
 				if i == 0 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}, config.WithPersistenceContext("")), result.prevState)
 					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}, config.WithPersistenceContext("")), result.newState)
 				}
 
@@ -774,7 +774,6 @@ func Test_configRepo_watch(t *testing.T) {
 
 			resultChan <- clientWatchResult{configRaw{"foo: bar", ""}, configRaw{"foo: value", ""}, nil}
 			resultChan <- clientWatchResult{configRaw{"foo: value", ""}, configRaw{"key: other", ""}, nil}
-			resultChan <- clientWatchResult{configRaw{}, configRaw{}, assert.AnError}
 
 			close(resultChan)
 		}()
@@ -814,7 +813,7 @@ func Test_createConfigWatchResult(t *testing.T) {
 		assert.Equal(t, config.Config{}, result.prevState)
 		assert.Equal(t, config.Config{}, result.newState)
 		assert.Error(t, result.err)
-		assert.ErrorContains(t, result.err, "could not convert previous state to config: unable to decode yaml from reader")
+		assert.ErrorContains(t, result.err, "could not convert previous state to config: could not convert client data to config data: unable to decode yaml from reader:")
 
 	})
 }

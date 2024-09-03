@@ -735,9 +735,9 @@ func TestSecretClient_UpdateClientData(t *testing.T) {
 func Test_secretClient_Watch(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should return error for error when starting watch", func(t *testing.T) {
+	t.Run("should fail to get initial secret", func(t *testing.T) {
 		mockClient := NewMockSecretClient(t)
-		mockClient.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
+		mockClient.EXPECT().Get(ctx, "dogu-config", metav1.GetOptions{}).Return(nil, assert.AnError)
 
 		client := secretClient{
 			client: mockClient,
@@ -746,14 +746,35 @@ func Test_secretClient_Watch(t *testing.T) {
 		_, err := client.Watch(ctx, "dogu-config")
 
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+		assert.ErrorContains(t, err, "failed to start watch: failed to get secret \"dogu-config\"")
+	})
+
+	t.Run("should fail to add event handler", func(t *testing.T) {
+		mockClient := NewMockSecretClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config", metav1.GetOptions{}).Return(&v1.Secret{Data: map[string][]byte{dataKeyName: nil}}, nil)
+
+		mockSharedInformer := newMockSharedInformer(t)
+		mockSharedInformer.EXPECT().AddEventHandler(mock.Anything).Return(nil, assert.AnError)
+
+		mockSecretInformer := NewMockSecretInformer(t)
+		mockSecretInformer.EXPECT().Informer().Return(mockSharedInformer)
+
+		client := secretClient{
+			client:   mockClient,
+			informer: mockSecretInformer,
+		}
+
+		_, err := client.Watch(ctx, "dogu-config")
+
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "failed to register event handler for secret \"dogu-config\"")
 	})
 }
 
 func Test_configMapClient_Watch(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("should return error for error when starting watch", func(t *testing.T) {
+	t.Run("should fail to get initial secret", func(t *testing.T) {
 		mockClient := NewMockConfigMapClient(t)
 		mockClient.EXPECT().Get(ctx, "dogu-config", metav1.GetOptions{}).Return(nil, assert.AnError)
 
@@ -764,7 +785,28 @@ func Test_configMapClient_Watch(t *testing.T) {
 		_, err := client.Watch(ctx, "dogu-config")
 
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+		assert.ErrorContains(t, err, "failed to start watch: failed to get configmap \"dogu-config\"")
+	})
+
+	t.Run("should fail to add event handler", func(t *testing.T) {
+		mockClient := NewMockConfigMapClient(t)
+		mockClient.EXPECT().Get(ctx, "dogu-config", metav1.GetOptions{}).Return(&v1.ConfigMap{Data: map[string]string{dataKeyName: ""}}, nil)
+
+		mockSharedInformer := newMockSharedInformer(t)
+		mockSharedInformer.EXPECT().AddEventHandler(mock.Anything).Return(nil, assert.AnError)
+
+		mockCMInformer := NewMockConfigMapInformer(t)
+		mockCMInformer.EXPECT().Informer().Return(mockSharedInformer)
+
+		client := configMapClient{
+			client:   mockClient,
+			informer: mockCMInformer,
+		}
+
+		_, err := client.Watch(ctx, "dogu-config")
+
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "failed to register event handler for configmap \"dogu-config\"")
 	})
 }
 
