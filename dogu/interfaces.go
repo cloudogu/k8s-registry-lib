@@ -58,7 +58,7 @@ type CurrentVersionsWatchResult struct {
 // LocalDoguDescriptorRepository is an append-only Repository, no updates will happen
 type LocalDoguDescriptorRepository interface {
 	Get(context.Context, DoguVersion) (*core.Dogu, error)
-	GetAll(context.Context, []DoguVersion) map[DoguVersion]*core.Dogu
+	GetAll(context.Context, []DoguVersion) (map[DoguVersion]*core.Dogu, error)
 	Add(context.Context, SimpleDoguName, *core.Dogu) error
 	DeleteAll(context.Context, SimpleDoguName) error
 }
