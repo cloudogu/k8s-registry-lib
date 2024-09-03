@@ -617,6 +617,23 @@ func TestMergeConfigData(t *testing.T) {
 func Test_configRepo_watch(t *testing.T) {
 	ctx := context.TODO()
 
+	t.Run("should fail to create watch in client", func(t *testing.T) {
+		// given
+		mockClient := newMockConfigClient(t)
+		mockClient.EXPECT().Watch(ctx, "dogu-config").Return(nil, assert.AnError)
+
+		repo := newConfigRepo(mockClient)
+
+		// when
+		actual, err := repo.watch(ctx, "dogu-config")
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, actual)
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.ErrorContains(t, err, "could not start watch:")
+	})
+
 	t.Run("should watch config for any changes", func(t *testing.T) {
 		resultChan := make(chan clientWatchResult)
 
