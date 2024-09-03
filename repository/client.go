@@ -300,23 +300,41 @@ func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWat
 	return registerEventHandler(ctx, sc.informer.Informer(), secretWatchKind, name)
 }
 
-func registerEventHandler(ctx context.Context, informer sharedInformer, kind watchKind, name string) (<-chan clientWatchResult, error) {
+type SharedWatcher struct {
+	started  bool
+	informer sharedInformer
+}
+
+func CreateSharedWatcher(informer cache.SharedIndexInformer) *SharedWatcher {
+	return &SharedWatcher{
+		started:  false,
+		informer: informer,
+	}
+}
+
+func (sw *SharedWatcher) registerEventHandler(ctx context.Context, kind watchKind, name string) (<-chan clientWatchResult, error) {
 	watchCh := make(chan clientWatchResult)
-	_, err := informer.AddEventHandler(cache.FilteringResourceEventHandler{
+	_, err := sw.informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: createEventFilter(kind, name),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: createUpdateHandler(kind, watchCh, name),
 			DeleteFunc: createDeleteHandler(kind, watchCh, name),
 		}})
 	if err != nil {
-		close(watchCh)
 		return nil, fmt.Errorf("failed to register event handler for %s %q: %w", kind, name, err)
 	}
 
 	go func() {
-		informer.Run(ctx.Done())
+		<-ctx.Done()
 		close(watchCh)
 	}()
+
+	if !sw.started {
+		sw.started = true
+		go func() {
+			sw.informer.Run(ctx.Done())
+		}()
+	}
 
 	return watchCh, nil
 }
