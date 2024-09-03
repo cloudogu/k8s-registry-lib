@@ -309,11 +309,13 @@ func registerEventHandler(ctx context.Context, informer sharedInformer, kind wat
 			DeleteFunc: createDeleteHandler(kind, watchCh, name),
 		}})
 	if err != nil {
+		close(watchCh)
 		return nil, fmt.Errorf("failed to register event handler for %s %q: %w", kind, name, err)
 	}
 
 	go func() {
 		informer.Run(ctx.Done())
+		close(watchCh)
 	}()
 
 	return watchCh, nil
