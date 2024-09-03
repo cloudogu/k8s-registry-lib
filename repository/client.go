@@ -381,6 +381,11 @@ func getSecretWatchResult(prevObj, newObj interface{}, name string) clientWatchR
 		errs = append(errs, fmt.Errorf("could not find data for key %q in updated state of secret %q", dataKeyName, name))
 	}
 
+	err := errors.Join(errs...)
+	if err != nil {
+		err = regErrs.NewGenericError(err)
+	}
+
 	return clientWatchResult{
 		prevConfig: configRaw{
 			data:           string(prevDataBytes),
@@ -390,7 +395,7 @@ func getSecretWatchResult(prevObj, newObj interface{}, name string) clientWatchR
 			data:           string(newDataBytes),
 			persistenceCtx: newSecret.ResourceVersion,
 		},
-		err: regErrs.NewGenericError(errors.Join(errs...)),
+		err: err,
 	}
 }
 
@@ -416,6 +421,11 @@ func getConfigMapDataStrings(prevObj, newObj interface{}, name string) clientWat
 		errs = append(errs, fmt.Errorf("could not find data for key %q in updated state of configmap %q", dataKeyName, name))
 	}
 
+	err := errors.Join(errs...)
+	if err != nil {
+		err = regErrs.NewGenericError(err)
+	}
+
 	return clientWatchResult{
 		prevConfig: configRaw{
 			data:           prevDataString,
@@ -425,7 +435,7 @@ func getConfigMapDataStrings(prevObj, newObj interface{}, name string) clientWat
 			data:           newDataString,
 			persistenceCtx: newConfigMap.ResourceVersion,
 		},
-		err: regErrs.NewGenericError(errors.Join(errs...)),
+		err: err,
 	}
 }
 
