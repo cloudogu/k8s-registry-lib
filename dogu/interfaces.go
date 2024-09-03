@@ -40,12 +40,7 @@ type DoguVersionRegistry interface {
 	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
 	IsEnabled(context.Context, DoguVersion) (bool, error)
 	Enable(context.Context, DoguVersion) error
-	WatchAllCurrent(context.Context) (CurrentVersionsWatch, error)
-}
-
-type CurrentVersionsWatch struct {
-	ResultChan <-chan CurrentVersionsWatchResult
-	cancelFunc context.CancelFunc
+	WatchAllCurrent(context.Context) (<-chan CurrentVersionsWatchResult, error)
 }
 
 type CurrentVersionsWatchResult struct {

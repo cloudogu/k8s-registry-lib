@@ -3,16 +3,20 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/errors"
+
 	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/util/retry"
+	"k8s.io/client-go/tools/cache"
+	toolsWatch "k8s.io/client-go/tools/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/cloudogu/k8s-registry-lib/errors"
 )
 
 type configType int
@@ -299,16 +303,15 @@ type clientWatchResult struct {
 func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
 	logger := log.FromContext(ctx).WithName("watchWithClient")
 
-	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	watcher, err := createRetryWatcher(ctx, name, client)
 	if err != nil {
-		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
+		return nil, err
 	}
 
 	resultChan := make(chan clientWatchResult)
 
 	go func() {
 		defer close(resultChan)
-		lastResourceVersion := ""
 		for {
 			select {
 			case <-ctx.Done():
@@ -316,31 +319,13 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 				return
 			case event, open := <-watcher.ResultChan():
 				if !open {
-					logger.Info(fmt.Sprintf("watch for %q closed; restarting...", name))
+					logger.Info(fmt.Sprintf("watch for %q closed", name))
 
-					var newWatcher watch.Interface
-					err := retry.OnError(retry.DefaultRetry, func(err error) bool {
-						return true
-					}, func() error {
-						newWatcher, err = client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name, ResourceVersion: lastResourceVersion}))
-						if k8sErrs.IsGone(err) {
-							lastResourceVersion = ""
-						}
-						return err
-					})
-					if err != nil {
-						resultChan <- clientWatchResult{
-							err: fmt.Errorf("failed to restart watch for %q: %w", name, handleError(err)),
-						}
-						return
-					}
-
-					watcher = newWatcher
-					continue
+					return
 				}
 
 				var result clientWatchResult
-				result, lastResourceVersion = handleWatchEvent(name, event)
+				result = handleWatchEvent(name, event)
 				resultChan <- result
 			}
 		}
@@ -349,13 +334,37 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 	return resultChan, nil
 }
 
-func handleWatchEvent(cfgName string, event watch.Event) (result clientWatchResult, resourceVersion string) {
+func createRetryWatcher(ctx context.Context, name string, client clientWatcher) (*toolsWatch.RetryWatcher, error) {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		options.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
+		watchInterface, err := client.Watch(ctx, options)
+		if k8sErrs.IsGone(err) {
+			options.ResourceVersion = ""
+			watchInterface, err = client.Watch(ctx, options)
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
+		}
+
+		return watchInterface, nil
+	}
+	watcher, err := toolsWatch.NewRetryWatcher("1", &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil {
+		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
+	}
+
+	return watcher, nil
+}
+
+func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 	if event.Type == watch.Error {
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
 			err:               fmt.Errorf("error result in watcher for config '%s'", cfgName),
-		}, ""
+		}
 	}
 
 	switch r := event.Object.(type) {
@@ -366,14 +375,14 @@ func handleWatchEvent(cfgName string, event watch.Event) (result clientWatchResu
 				dataStr:           "",
 				persistentContext: "",
 				err:               fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, cfgName),
-			}, r.ResourceVersion
+			}
 		}
 
 		return clientWatchResult{
 			dataStr:           string(dataBytes),
 			persistentContext: r.GetResourceVersion(),
 			err:               nil,
-		}, r.ResourceVersion
+		}
 	case *v1.ConfigMap:
 		dataString, ok := r.Data[dataKeyName]
 		if !ok {
@@ -381,19 +390,19 @@ func handleWatchEvent(cfgName string, event watch.Event) (result clientWatchResu
 				dataStr:           "",
 				persistentContext: "",
 				err:               fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, cfgName),
-			}, r.ResourceVersion
+			}
 		}
 
 		return clientWatchResult{
 			dataStr:           dataString,
 			persistentContext: r.GetResourceVersion(),
 			err:               nil,
-		}, r.ResourceVersion
+		}
 	default:
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
 			err:               fmt.Errorf("unsupported type in watch %T", r),
-		}, ""
+		}
 	}
 }
