@@ -212,27 +212,27 @@ func watchInBackground(
 		return nil, fmt.Errorf("failed to parse label selector for dogu registries: %s: %w", selectorString, err)
 	}
 
-	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
+	watchChan := make(chan CurrentVersionsWatchResult)
 
 	_, err = informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: createEventFilter(selector),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    createAddHandler(ctx, persistenceContext, currentVersionsWatchResult),
-			UpdateFunc: createUpdateHandler(ctx, persistenceContext, currentVersionsWatchResult),
-			DeleteFunc: createDeleteHandler(ctx, persistenceContext, currentVersionsWatchResult),
+			AddFunc:    createAddHandler(ctx, persistenceContext, watchChan),
+			UpdateFunc: createUpdateHandler(ctx, persistenceContext, watchChan),
+			DeleteFunc: createDeleteHandler(ctx, persistenceContext, watchChan),
 		},
 	})
 	if err != nil {
-		close(currentVersionsWatchResult)
+		close(watchChan)
 		return nil, fmt.Errorf("failed to add event handler for current versions: %w", err)
 	}
 
 	go func() {
 		informer.Run(ctx.Done())
-		close(currentVersionsWatchResult)
+		close(watchChan)
 	}()
 
-	return currentVersionsWatchResult, nil
+	return watchChan, nil
 }
 
 func createEventFilter(selector labels.Selector) func(obj interface{}) bool {
