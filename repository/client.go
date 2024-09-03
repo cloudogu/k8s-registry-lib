@@ -303,23 +303,10 @@ func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWat
 func registerEventHandler(ctx context.Context, informer sharedInformer, kind watchKind, name string) (<-chan clientWatchResult, error) {
 	watchCh := make(chan clientWatchResult)
 	_, err := informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			var isType bool
-			var cast metav1.Object
-			switch kind {
-			case secretWatchKind:
-				cast, isType = obj.(*v1.Secret)
-			case configMapWatchKind:
-				cast, isType = obj.(*v1.ConfigMap)
-			default:
-				return false
-			}
-
-			return isType && cast.GetName() == name
-		},
+		FilterFunc: createEventFilter(kind, name),
 		Handler: cache.ResourceEventHandlerFuncs{
-			UpdateFunc: updateHandler(kind, watchCh, name),
-			DeleteFunc: deleteHandler(kind, watchCh, name),
+			UpdateFunc: createUpdateHandler(kind, watchCh, name),
+			DeleteFunc: createDeleteHandler(kind, watchCh, name),
 		}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register event handler for %s %q: %w", kind, name, err)
@@ -332,7 +319,24 @@ func registerEventHandler(ctx context.Context, informer sharedInformer, kind wat
 	return watchCh, nil
 }
 
-func updateHandler(kind watchKind, watchCh chan clientWatchResult, name string) func(prevObj interface{}, newObj interface{}) {
+func createEventFilter(kind watchKind, name string) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		var isType bool
+		var cast metav1.Object
+		switch kind {
+		case secretWatchKind:
+			cast, isType = obj.(*v1.Secret)
+		case configMapWatchKind:
+			cast, isType = obj.(*v1.ConfigMap)
+		default:
+			return false
+		}
+
+		return isType && cast.GetName() == name
+	}
+}
+
+func createUpdateHandler(kind watchKind, watchCh chan clientWatchResult, name string) func(prevObj interface{}, newObj interface{}) {
 	return func(prevObj, newObj interface{}) {
 		switch kind {
 		case secretWatchKind:
@@ -345,7 +349,7 @@ func updateHandler(kind watchKind, watchCh chan clientWatchResult, name string) 
 	}
 }
 
-func deleteHandler(kind watchKind, watchCh chan clientWatchResult, name string) func(obj interface{}) {
+func createDeleteHandler(kind watchKind, watchCh chan clientWatchResult, name string) func(obj interface{}) {
 	return func(obj interface{}) {
 		watchCh <- clientWatchResult{
 			err: regErrs.NewNotFoundError(fmt.Errorf("subject of watch (%s %s) was deleted", kind, name)),

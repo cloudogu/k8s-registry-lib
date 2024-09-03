@@ -215,21 +215,11 @@ func watchInBackground(
 	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
 
 	_, err = informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			descriptorConfigMap, err := toConfigMap(obj)
-			if err != nil {
-				return false
-			}
-
-			selectorMatches := selector.Matches(labels.Set(descriptorConfigMap.Labels))
-			hasCurrentKey := hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap)
-
-			return selectorMatches && hasCurrentKey
-		},
+		FilterFunc: createEventFilter(selector),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    handleAdd(ctx, persistenceContext, currentVersionsWatchResult),
-			UpdateFunc: handleUpdate(ctx, persistenceContext, currentVersionsWatchResult),
-			DeleteFunc: handleDelete(ctx, persistenceContext, currentVersionsWatchResult),
+			AddFunc:    createAddHandler(ctx, persistenceContext, currentVersionsWatchResult),
+			UpdateFunc: createUpdateHandler(ctx, persistenceContext, currentVersionsWatchResult),
+			DeleteFunc: createDeleteHandler(ctx, persistenceContext, currentVersionsWatchResult),
 		},
 	})
 	if err != nil {
@@ -245,7 +235,21 @@ func watchInBackground(
 	return currentVersionsWatchResult, nil
 }
 
-func handleDelete(
+func createEventFilter(selector labels.Selector) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		descriptorConfigMap, err := toConfigMap(obj)
+		if err != nil {
+			return false
+		}
+
+		selectorMatches := selector.Matches(labels.Set(descriptorConfigMap.Labels))
+		hasCurrentKey := hasDoguDescriptorConfigMapCurrentKey(descriptorConfigMap)
+
+		return selectorMatches && hasCurrentKey
+	}
+}
+
+func createDeleteHandler(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
 	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
@@ -269,13 +273,13 @@ func handleDelete(
 	}
 }
 
-func handleUpdate(
+func createUpdateHandler(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
 	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
 ) func(prevObj, newObj interface{}) {
 	return func(prevObj, newObj interface{}) {
-		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.handleUpdate")
+		logger := log.FromContext(ctx).WithName("DoguVersionRegistry.createUpdateHandler")
 		newDescriptors, err := toConfigMap(newObj)
 		if err != nil {
 			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle update watch event: %w", err), currentVersionsWatchResult)
@@ -300,7 +304,7 @@ func handleUpdate(
 	}
 }
 
-func handleAdd(
+func createAddHandler(
 	ctx context.Context,
 	persistenceContext map[SimpleDoguName]core.Version,
 	currentVersionsWatchResult chan<- CurrentVersionsWatchResult,
