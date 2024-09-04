@@ -19,19 +19,6 @@ func createConfigName(simpleName string) configName {
 	return configName(strings.ToLower(fmt.Sprintf("%s-config", simpleName)))
 }
 
-type resourceVersionGetter interface {
-	GetResourceVersion() string
-}
-
-type configClient interface {
-	Get(ctx context.Context, name string) (clientData, error)
-	Delete(ctx context.Context, name string) error
-	Create(ctx context.Context, name string, doguName string, dataStr string) (resourceVersionGetter, error)
-	Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error)
-	UpdateClientData(ctx context.Context, update clientData) (resourceVersionGetter, error)
-	Watch(ctx context.Context, name string) (<-chan clientWatchResult, error)
-}
-
 type configRepository struct {
 	client    configClient
 	converter config.Converter
@@ -188,7 +175,7 @@ func (cr configRepository) watch(ctx context.Context, name configName, filters .
 		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
-	clientResultChan, err := cr.client.Watch(ctx, name.String())
+	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.PersistenceContext)
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}

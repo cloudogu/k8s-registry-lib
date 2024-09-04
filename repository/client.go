@@ -177,8 +177,8 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 	return cm, nil
 }
 
-func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, cmc.client)
+func (cmc configMapClient) Watch(ctx context.Context, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, cmc.client, name, initialPersistenceContext)
 }
 
 type SecretClient interface {
@@ -286,8 +286,8 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 	return resource, nil
 }
 
-func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, sc.client)
+func (sc secretClient) Watch(ctx context.Context, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, sc.client, name, initialPersistenceContext)
 }
 
 type clientWatcher interface {
@@ -300,10 +300,15 @@ type clientWatchResult struct {
 	err               error
 }
 
-func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
+func watchWithClient(ctx context.Context, client clientWatcher, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
 	logger := log.FromContext(ctx).WithName("watchWithClient")
 
-	watcher, err := createRetryWatcher(ctx, name, client)
+	initialResourceVersion, ok := initialPersistenceContext.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast initial persistence context (%+v) to resource version (%T) for resource %q", initialPersistenceContext, initialResourceVersion, name)
+	}
+
+	watcher, err := createRetryWatcher(ctx, client, name, initialResourceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -334,23 +339,17 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 	return resultChan, nil
 }
 
-func createRetryWatcher(ctx context.Context, name string, client clientWatcher) (*toolsWatch.RetryWatcher, error) {
+func createRetryWatcher(ctx context.Context, client clientWatcher, name, initialResourceVersion string) (*toolsWatch.RetryWatcher, error) {
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
 		watchInterface, err := client.Watch(ctx, options)
-		if k8sErrs.IsGone(err) {
-			options.ResourceVersion = ""
-			watchInterface, err = client.Watch(ctx, options)
-			if err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+		if err != nil {
 			return nil, err
 		}
 
 		return watchInterface, nil
 	}
-	watcher, err := toolsWatch.NewRetryWatcher("1", &cache.ListWatch{WatchFunc: watchFunc})
+	watcher, err := toolsWatch.NewRetryWatcher(initialResourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
 		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
 	}
