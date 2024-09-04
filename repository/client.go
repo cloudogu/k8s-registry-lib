@@ -360,10 +360,18 @@ func createRetryWatcher(ctx context.Context, name string, client clientWatcher) 
 
 func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 	if event.Type == watch.Error {
+		var err error
+		status, ok := event.Object.(*metav1.Status)
+		if !ok {
+			err = fmt.Errorf("error result in watcher for config '%s'", cfgName)
+		} else {
+			err = fmt.Errorf("watch event type is error: %q", status.String())
+		}
+
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
-			err:               fmt.Errorf("error result in watcher for config '%s'", cfgName),
+			err:               err,
 		}
 	}
 
