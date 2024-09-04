@@ -36,7 +36,7 @@ func newConfigRepo(client configClient) configRepository {
 }
 
 func (cr configRepository) get(ctx context.Context, name configName) (config.Config, error) {
-	cd, err := cr.client.Get(ctx, name.String())
+	cd, listResourceVersion, err := cr.client.SingletonList(ctx, name.String())
 	if err != nil {
 		return config.Config{}, fmt.Errorf("unable to get data '%s' from cluster: %w", name, err)
 	}
@@ -52,6 +52,7 @@ func (cr configRepository) get(ctx context.Context, name configName) (config.Con
 		cfgData,
 		config.WithPersistenceContext(getPersistentContext(cd.rawData)),
 	)
+	cfg.SetListResourceVersion(listResourceVersion)
 
 	return cfg, nil
 }
@@ -175,7 +176,7 @@ func (cr configRepository) watch(ctx context.Context, name configName, filters .
 		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
-	clientResultChan, err := cr.client.Watch(ctx, name.String())
+	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.GetListResourceVersion())
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}

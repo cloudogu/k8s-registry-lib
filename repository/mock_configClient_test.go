@@ -186,6 +186,70 @@ func (_c *mockConfigClient_Get_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// SingletonList provides a mock function with given fields: ctx, name
+func (_m *mockConfigClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
+	ret := _m.Called(ctx, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SingletonList")
+	}
+
+	var r0 clientData
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (clientData, string, error)); ok {
+		return rf(ctx, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) clientData); ok {
+		r0 = rf(ctx, name)
+	} else {
+		r0 = ret.Get(0).(clientData)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) string); ok {
+		r1 = rf(ctx, name)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, name)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// mockConfigClient_SingletonList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SingletonList'
+type mockConfigClient_SingletonList_Call struct {
+	*mock.Call
+}
+
+// SingletonList is a helper method to define mock.On call
+//   - ctx context.Context
+//   - name string
+func (_e *mockConfigClient_Expecter) SingletonList(ctx interface{}, name interface{}) *mockConfigClient_SingletonList_Call {
+	return &mockConfigClient_SingletonList_Call{Call: _e.mock.On("SingletonList", ctx, name)}
+}
+
+func (_c *mockConfigClient_SingletonList_Call) Run(run func(ctx context.Context, name string)) *mockConfigClient_SingletonList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockConfigClient_SingletonList_Call) Return(_a0 clientData, _a1 string, _a2 error) *mockConfigClient_SingletonList_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *mockConfigClient_SingletonList_Call) RunAndReturn(run func(context.Context, string) (clientData, string, error)) *mockConfigClient_SingletonList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, pCtx, name, doguName, dataStr
 func (_m *mockConfigClient) Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error) {
 	ret := _m.Called(ctx, pCtx, name, doguName, dataStr)
@@ -307,9 +371,9 @@ func (_c *mockConfigClient_UpdateClientData_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// Watch provides a mock function with given fields: ctx, name
-func (_m *mockConfigClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	ret := _m.Called(ctx, name)
+// Watch provides a mock function with given fields: ctx, name, resourceVersion
+func (_m *mockConfigClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
+	ret := _m.Called(ctx, name, resourceVersion)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Watch")
@@ -317,19 +381,19 @@ func (_m *mockConfigClient) Watch(ctx context.Context, name string) (<-chan clie
 
 	var r0 <-chan clientWatchResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (<-chan clientWatchResult, error)); ok {
-		return rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (<-chan clientWatchResult, error)); ok {
+		return rf(ctx, name, resourceVersion)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) <-chan clientWatchResult); ok {
-		r0 = rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) <-chan clientWatchResult); ok {
+		r0 = rf(ctx, name, resourceVersion)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan clientWatchResult)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, name)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, name, resourceVersion)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -345,13 +409,14 @@ type mockConfigClient_Watch_Call struct {
 // Watch is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *mockConfigClient_Expecter) Watch(ctx interface{}, name interface{}) *mockConfigClient_Watch_Call {
-	return &mockConfigClient_Watch_Call{Call: _e.mock.On("Watch", ctx, name)}
+//   - resourceVersion string
+func (_e *mockConfigClient_Expecter) Watch(ctx interface{}, name interface{}, resourceVersion interface{}) *mockConfigClient_Watch_Call {
+	return &mockConfigClient_Watch_Call{Call: _e.mock.On("Watch", ctx, name, resourceVersion)}
 }
 
-func (_c *mockConfigClient_Watch_Call) Run(run func(ctx context.Context, name string)) *mockConfigClient_Watch_Call {
+func (_c *mockConfigClient_Watch_Call) Run(run func(ctx context.Context, name string, resourceVersion string)) *mockConfigClient_Watch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -361,7 +426,7 @@ func (_c *mockConfigClient_Watch_Call) Return(_a0 <-chan clientWatchResult, _a1 
 	return _c
 }
 
-func (_c *mockConfigClient_Watch_Call) RunAndReturn(run func(context.Context, string) (<-chan clientWatchResult, error)) *mockConfigClient_Watch_Call {
+func (_c *mockConfigClient_Watch_Call) RunAndReturn(run func(context.Context, string, string) (<-chan clientWatchResult, error)) *mockConfigClient_Watch_Call {
 	_c.Call.Return(run)
 	return _c
 }
