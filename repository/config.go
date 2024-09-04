@@ -175,7 +175,7 @@ func (cr configRepository) watch(ctx context.Context, name configName, filters .
 		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
-	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.PersistenceContext)
+	clientResultChan, err := cr.client.Watch(ctx, name.String())
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}

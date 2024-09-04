@@ -177,8 +177,13 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 	return cm, nil
 }
 
-func (cmc configMapClient) Watch(ctx context.Context, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, cmc.client, name, initialPersistenceContext)
+func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
+	}
+
+	return watchWithClient(ctx, cmc.client, name, list.ResourceVersion)
 }
 
 type SecretClient interface {
@@ -286,8 +291,13 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 	return resource, nil
 }
 
-func (sc secretClient) Watch(ctx context.Context, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, sc.client, name, initialPersistenceContext)
+func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
+	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list single secret %q for watch: %w", name, handleError(err))
+	}
+
+	return watchWithClient(ctx, sc.client, name, list.ResourceVersion)
 }
 
 type clientWatcher interface {
@@ -300,13 +310,8 @@ type clientWatchResult struct {
 	err               error
 }
 
-func watchWithClient(ctx context.Context, client clientWatcher, name string, initialPersistenceContext any) (<-chan clientWatchResult, error) {
+func watchWithClient(ctx context.Context, client clientWatcher, name, initialResourceVersion string) (<-chan clientWatchResult, error) {
 	logger := log.FromContext(ctx).WithName("watchWithClient")
-
-	initialResourceVersion, ok := initialPersistenceContext.(string)
-	if !ok {
-		return nil, fmt.Errorf("failed to cast initial persistence context (%+v) to resource version (%T) for resource %q", initialPersistenceContext, initialResourceVersion, name)
-	}
 
 	watcher, err := createRetryWatcher(ctx, client, name, initialResourceVersion)
 	if err != nil {
