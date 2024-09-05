@@ -59,7 +59,7 @@ type Config struct {
 	entries             Entries
 	changeHistory       []Change
 	PersistenceContext  any
-	listResourceVersion string
+	ListResourceVersion string
 }
 
 type ConfigOption func(config *Config)
@@ -67,6 +67,14 @@ type ConfigOption func(config *Config)
 func WithPersistenceContext(pCtx any) ConfigOption {
 	return func(config *Config) {
 		config.PersistenceContext = pCtx
+	}
+}
+
+// WithListResourceVersion adds the resourceVersion of the list containing the config. It's main use case is for the
+// Config-Watches that operate on lists instead of single objects.
+func WithListResourceVersion(resourceVersion string) ConfigOption {
+	return func(config *Config) {
+		config.ListResourceVersion = resourceVersion
 	}
 }
 
@@ -153,15 +161,15 @@ func (c Config) Get(k Key) (Value, bool) {
 
 // GetListResourceVersion returns the resourceVersion of the list containing the config. It's main use case is for the
 // Config-Watches that operate on lists instead of single objects.
-func (c Config) GetListResourceVersion() string {
-	return c.listResourceVersion
-}
+//func (c Config) GetListResourceVersion() string {
+//	return c.listResourceVersion
+//}
 
 // SetListResourceVersion sets the resourceVersion of the list containing the config. It's main use case is for the
 // Config-Watches that operate on lists instead of single objects.
-func (c Config) SetListResourceVersion(newResourceVersion string) {
-	c.listResourceVersion = newResourceVersion
-}
+//func (c Config) SetListResourceVersion(newResourceVersion string) {
+//	c.listResourceVersion = newResourceVersion
+//}
 
 // GetAll returns a map of all Key-Value-pairs
 func (c Config) GetAll() Entries {

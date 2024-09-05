@@ -254,6 +254,12 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 // SingletonList gets a list of secrets containing a single item. This is used for the config-watches, because they
 // are operating on lists instead of single objects.
 func (sc secretClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
+	//}
+	//logger := log.FromContext(ctx).WithName("Watch")
+	//logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
+	//return watchWithClient(ctx, sc.client, name, list.ResourceVersion)
 	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	logger := log.FromContext(ctx).WithName("SingletonList")
 	logger.Info(fmt.Sprintf("ResultList is %v and error %e", list, err))
