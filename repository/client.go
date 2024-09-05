@@ -116,8 +116,6 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 // are operating on lists instead of single objects.
 func (cmc configMapClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
 	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
-	logger := log.FromContext(ctx).WithName("SingletonList")
-	logger.Info(fmt.Sprintf("ResultList is %v and error %e", list, err))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
 	}
@@ -204,13 +202,7 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 }
 
 func (cmc configMapClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
-	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
-	}
-	logger := log.FromContext(ctx).WithName("Watch")
-	logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
-	return watchWithClient(ctx, cmc.client, name, list.ResourceVersion)
+	return watchWithClient(ctx, cmc.client, name, resourceVersion)
 }
 
 type SecretClient interface {
@@ -254,15 +246,7 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 // SingletonList gets a list of secrets containing a single item. This is used for the config-watches, because they
 // are operating on lists instead of single objects.
 func (sc secretClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
-	//}
-	//logger := log.FromContext(ctx).WithName("Watch")
-	//logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
-	//return watchWithClient(ctx, sc.client, name, list.ResourceVersion)
 	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
-	logger := log.FromContext(ctx).WithName("SingletonList")
-	logger.Info(fmt.Sprintf("ResultList is %v and error %e", list, err))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
 	}
@@ -351,13 +335,7 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 }
 
 func (sc secretClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
-	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
-	}
-	logger := log.FromContext(ctx).WithName("Watch")
-	logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
-	return watchWithClient(ctx, sc.client, name, list.ResourceVersion)
+	return watchWithClient(ctx, sc.client, name, resourceVersion)
 }
 
 type clientWatcher interface {

@@ -159,18 +159,6 @@ func (c Config) Get(k Key) (Value, bool) {
 	return v, ok
 }
 
-// GetListResourceVersion returns the resourceVersion of the list containing the config. It's main use case is for the
-// Config-Watches that operate on lists instead of single objects.
-//func (c Config) GetListResourceVersion() string {
-//	return c.listResourceVersion
-//}
-
-// SetListResourceVersion sets the resourceVersion of the list containing the config. It's main use case is for the
-// Config-Watches that operate on lists instead of single objects.
-//func (c Config) SetListResourceVersion(newResourceVersion string) {
-//	c.listResourceVersion = newResourceVersion
-//}
-
 // GetAll returns a map of all Key-Value-pairs
 func (c Config) GetAll() Entries {
 	return maps.Clone(c.entries)
