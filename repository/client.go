@@ -204,7 +204,13 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 }
 
 func (cmc configMapClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, cmc.client, name, resourceVersion)
+	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
+	}
+	logger := log.FromContext(ctx).WithName("Watch")
+	logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
+	return watchWithClient(ctx, cmc.client, name, list.ResourceVersion)
 }
 
 type SecretClient interface {
@@ -339,7 +345,13 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 }
 
 func (sc secretClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, sc.client, name, resourceVersion)
+	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list single configmap %q for watch: %w", name, handleError(err))
+	}
+	logger := log.FromContext(ctx).WithName("Watch")
+	logger.Info(fmt.Sprintf("Old ResourceVersion: %s New ResourceVersion: %s", list.ResourceVersion, resourceVersion))
+	return watchWithClient(ctx, sc.client, name, list.ResourceVersion)
 }
 
 type clientWatcher interface {
