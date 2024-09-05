@@ -415,51 +415,32 @@ func Test_versionRegistry_Enable(t *testing.T) {
 	}
 }
 
-type mockWatchInterface struct {
-	channel chan watch.Event
-}
-
-func NewMockWatchInterface() *mockWatchInterface {
-	channel := make(chan watch.Event)
-
-	return &mockWatchInterface{
-		channel: channel,
-	}
-}
-
-func (mwi mockWatchInterface) Stop() {
-}
-
-func (mwi mockWatchInterface) ResultChan() <-chan watch.Event {
-	return mwi.channel
-}
-
 func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 	addCancelCtx, addCancelFunc := context.WithCancel(context.Background())
 	emptyAddCancelCtx, emptyAddCancelFunc := context.WithCancel(context.Background())
 	modifyCancelCtx, modifyCancelFunc := context.WithCancel(context.Background())
 	deleteCancelCtx, deleteCancelFunc := context.WithCancel(context.Background())
 	errorCancelCtx, errorCancelFunc := context.WithCancel(context.Background())
-	ldapRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}}
+	ldapRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "1"}}
 	initialDoguVersionCtx := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr)}
-	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
-	registryCmList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*ldapRegistryCm}}
-	emptyLdapRegistryCm := &corev1.ConfigMap{Data: map[string]string{}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}}
+	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap, ResourceVersion: "1"}}
+	registryCmList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*ldapRegistryCm}, ListMeta: metav1.ListMeta{ResourceVersion: "1"}}
+	emptyLdapRegistryCm := &corev1.ConfigMap{Data: map[string]string{}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "1"}}
 
 	type args struct {
 		ctx context.Context
 	}
 	tests := []struct {
 		name              string
-		configMapClientFn func(t *testing.T, watchInterface *mockWatchInterface) configMapClient
+		configMapClientFn func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient
 		args              args
-		eventMockFn       func(watchInterface *mockWatchInterface)
+		eventMockFn       func(watchInterface *watch.FakeWatcher)
 		expectFn          func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult)
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
 			name: "should return error on error getting initial dogu descriptor configmaps",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				configMapClientMock.EXPECT().List(testCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(nil, assert.AnError)
 
@@ -476,7 +457,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		},
 		{
 			name: "should return error on error creating initial persistence context because of invalid current versions",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
 				invalidCasCm := &corev1.ConfigMap{Data: map[string]string{"current": "abc"}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 				invalidRegistryList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*invalidCasCm}}
@@ -494,20 +475,19 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 			},
 		},
 		{
-			name: "should return error on watch error",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			name: "should return error on watch error because the resource version of the config map list is empty",
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				casCm := &corev1.ConfigMap{Data: map[string]string{"current": "1.2.3-4"}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
-				registryList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*casCm}, ListMeta: metav1.ListMeta{ResourceVersion: "1"}}
+				casCm := &corev1.ConfigMap{Data: map[string]string{"current": "1.2.3-4"}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap, ResourceVersion: "1"}}
+				registryList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*casCm}, ListMeta: metav1.ListMeta{ResourceVersion: ""}}
 				configMapClientMock.EXPECT().List(testCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryList, nil)
-				configMapClientMock.EXPECT().Watch(context.Background(), metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(nil, assert.AnError)
 
 				return configMapClientMock
 			},
 			args: args{context.Background()},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err)) &&
-					assert.ErrorContains(t, err, "failed to create watches for selector \"app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry\"")
+					assert.ErrorContains(t, err, "failed to create watch for current dogu versions")
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				assert.Nil(t, watchCh)
@@ -515,21 +495,16 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		},
 		{
 			name: "should throw event with dogu version objects on add event",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Watch(addCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
 				configMapClientMock.EXPECT().List(addCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
+				configMapClientMock.EXPECT().Watch(addCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector, ResourceVersion: "1", AllowWatchBookmarks: true}).Return(watchInterface, nil)
 
 				return configMapClientMock
 			},
 			args: args{ctx: addCancelCtx},
-			eventMockFn: func(watchInterface *mockWatchInterface) {
-				event := watch.Event{
-					Type:   watch.Added,
-					Object: casRegistryCm,
-				}
-
-				watchInterface.channel <- event
+			eventMockFn: func(watchInterface *watch.FakeWatcher) {
+				watchInterface.Add(casRegistryCm)
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				result := <-watchCh
@@ -545,29 +520,18 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		},
 		{
 			name: "should throw no event with add event without current key",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Watch(emptyAddCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
+				configMapClientMock.EXPECT().Watch(emptyAddCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector, ResourceVersion: "1", AllowWatchBookmarks: true}).Return(watchInterface, nil)
 				configMapClientMock.EXPECT().List(emptyAddCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
 
 				return configMapClientMock
 			},
 			args: args{ctx: emptyAddCancelCtx},
-			eventMockFn: func(watchInterface *mockWatchInterface) {
-				event := watch.Event{
-					Type:   watch.Added,
-					Object: emptyLdapRegistryCm,
-				}
-
-				watchInterface.channel <- event
-
+			eventMockFn: func(watchInterface *watch.FakeWatcher) {
+				watchInterface.Add(emptyLdapRegistryCm)
 				// We have to send two events because is not possible to check if no event is thrown.
-				event = watch.Event{
-					Type:   watch.Added,
-					Object: casRegistryCm,
-				}
-
-				watchInterface.channel <- event
+				watchInterface.Add(casRegistryCm)
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				result := <-watchCh
@@ -583,21 +547,17 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		},
 		{
 			name: "should throw event with dogu version objects on modified event",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Watch(modifyCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
+				configMapClientMock.EXPECT().Watch(modifyCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector, ResourceVersion: "1", AllowWatchBookmarks: true}).Return(watchInterface, nil)
 				configMapClientMock.EXPECT().List(modifyCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
 
 				return configMapClientMock
 			},
 			args: args{ctx: modifyCancelCtx},
-			eventMockFn: func(watchInterface *mockWatchInterface) {
-				event := watch.Event{
-					Type:   watch.Modified,
-					Object: &corev1.ConfigMap{Data: map[string]string{"current": upgradeLdapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}},
-				}
-
-				watchInterface.channel <- event
+			eventMockFn: func(watchInterface *watch.FakeWatcher) {
+				configMap := &corev1.ConfigMap{Data: map[string]string{"current": upgradeLdapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "2"}}
+				watchInterface.Modify(configMap)
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				result := <-watchCh
@@ -613,21 +573,17 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		},
 		{
 			name: "should throw event with dogu version objects on delete event",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Watch(deleteCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
+				configMapClientMock.EXPECT().Watch(deleteCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector, ResourceVersion: "1", AllowWatchBookmarks: true}).Return(watchInterface, nil)
 				configMapClientMock.EXPECT().List(deleteCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
 
 				return configMapClientMock
 			},
 			args: args{ctx: deleteCancelCtx},
-			eventMockFn: func(watchInterface *mockWatchInterface) {
-				event := watch.Event{
-					Type:   watch.Deleted,
-					Object: &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap}},
-				}
-
-				watchInterface.channel <- event
+			eventMockFn: func(watchInterface *watch.FakeWatcher) {
+				object := &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "2"}}
+				watchInterface.Delete(object)
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				result := <-watchCh
@@ -642,35 +598,29 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "should return error on error event",
-			configMapClientFn: func(t *testing.T, watchInterface *mockWatchInterface) configMapClient {
+			name: "should not return error on error event because the retry watcher will retry",
+			configMapClientFn: func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient {
 				configMapClientMock := newMockConfigMapClient(t)
-				configMapClientMock.EXPECT().Watch(errorCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(watchInterface, nil)
+				configMapClientMock.EXPECT().Watch(errorCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector, ResourceVersion: "1", AllowWatchBookmarks: true}).Return(watchInterface, nil)
 				configMapClientMock.EXPECT().List(errorCancelCtx, metav1.ListOptions{LabelSelector: versionRegistryLabelSelector}).Return(registryCmList, nil)
 
 				return configMapClientMock
 			},
 			args: args{ctx: errorCancelCtx},
-			eventMockFn: func(watchInterface *mockWatchInterface) {
-				event := watch.Event{
-					Type:   watch.Error,
-					Object: &metav1.Status{Status: "123", Message: "message"},
-				}
-
-				watchInterface.channel <- event
+			eventMockFn: func(watchInterface *watch.FakeWatcher) {
+				watchInterface.Error(&metav1.Status{Status: "123", Message: "message"})
 				errorCancelFunc()
 			},
 			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
 				result := <-watchCh
-				require.True(t, cloudoguerrors.IsGenericError(result.Err))
-				assert.ErrorContains(t, result.Err, "watch event type is error: \"&Status{ListMeta:ListMeta{SelfLink:,ResourceVersion:,Continue:,RemainingItemCount:nil,},Status:123,Message:message,Reason:,Details:nil,Code:0,}\"")
+				require.NoError(t, result.Err)
 			},
 			wantErr: assert.NoError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			watchInterface := NewMockWatchInterface()
+			watchInterface := watch.NewFake()
 
 			vr := &doguVersionRegistry{
 				configMapClient: tt.configMapClientFn(t, watchInterface),
@@ -693,4 +643,149 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_getWatchFunc(t *testing.T) {
+	watcher := watch.NewFake()
+
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mockFn  func(*testing.T) *doguVersionRegistry
+		want    watch.Interface
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "should succeed",
+			args: args{
+				ctx: testCtx,
+			},
+			mockFn: func(t *testing.T) *doguVersionRegistry {
+				mockClient := newMockConfigMapClient(t)
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "5", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(watcher, nil)
+				vr := &doguVersionRegistry{
+					configMapClient: mockClient,
+				}
+
+				return vr
+			},
+			want:    watcher,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should retry creating watch on isGone error",
+			args: args{
+				ctx: testCtx,
+			},
+			mockFn: func(t *testing.T) *doguVersionRegistry {
+				mockClient := newMockConfigMapClient(t)
+				statusError := &apierrors.StatusError{ErrStatus: metav1.Status{Status: "410", Reason: "Gone"}}
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "5", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(nil, statusError).Times(1)
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(watcher, nil).Times(1)
+				vr := &doguVersionRegistry{
+					configMapClient: mockClient,
+				}
+
+				return vr
+			},
+			want:    watcher,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "should return error on initial watch creation",
+			args: args{
+				ctx: testCtx,
+			},
+			mockFn: func(t *testing.T) *doguVersionRegistry {
+				mockClient := newMockConfigMapClient(t)
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "5", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(nil, assert.AnError)
+				vr := &doguVersionRegistry{
+					configMapClient: mockClient,
+				}
+
+				return vr
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.Error(t, err) && assert.ErrorContains(t, err, "failed to create watch")
+			},
+		},
+		{
+			name: "should return error on after gone error on second watch creation",
+			args: args{
+				ctx: testCtx,
+			},
+			mockFn: func(t *testing.T) *doguVersionRegistry {
+				mockClient := newMockConfigMapClient(t)
+				statusError := &apierrors.StatusError{ErrStatus: metav1.Status{Status: "410", Reason: "Gone"}}
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "5", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(nil, statusError).Times(1)
+				mockClient.EXPECT().Watch(testCtx, metav1.ListOptions{ResourceVersion: "", LabelSelector: "app=ces,dogu.name,k8s.cloudogu.com/type=local-dogu-registry"}).Return(nil, assert.AnError).Times(1)
+				vr := &doguVersionRegistry{
+					configMapClient: mockClient,
+				}
+
+				return vr
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.Error(t, err) && assert.ErrorContains(t, err, "failed to create watch after IsGone")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			watchFunc := getWatchFunc(tt.args.ctx, tt.mockFn(t))
+			w, err := watchFunc(metav1.ListOptions{ResourceVersion: "5"})
+
+			if !tt.wantErr(t, err, fmt.Sprintf("getWatchFunc()")) {
+				return
+			}
+			assert.Equalf(t, tt.want, w, "getWatchFunc(%v)", w)
+		})
+	}
+}
+
+func Test_handleEvent(t *testing.T) {
+	t.Run("should send error from event to channel", func(t *testing.T) {
+		// given
+		event := watch.Event{
+			Type:   watch.Error,
+			Object: &metav1.Status{},
+		}
+
+		channel := make(chan CurrentVersionsWatchResult)
+
+		// when
+		go handleEvent(testCtx, event, nil, channel)
+
+		// then
+		expectedResult := <-channel
+		err := expectedResult.Err
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "watch event type is error")
+		assert.True(t, cloudoguerrors.IsGenericError(err))
+	})
+
+	t.Run("should send error because of wrong event object type", func(t *testing.T) {
+		// given
+		event := watch.Event{
+			Type:   watch.Error,
+			Object: nil,
+		}
+
+		channel := make(chan CurrentVersionsWatchResult)
+
+		// when
+		go handleEvent(testCtx, event, nil, channel)
+
+		// then
+		expectedResult := <-channel
+		err := expectedResult.Err
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "failed to cast event object to v1.Status")
+		assert.True(t, cloudoguerrors.IsGenericError(err))
+	})
 }

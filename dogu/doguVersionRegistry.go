@@ -194,7 +194,7 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (<-chan Curr
 	return startWatchInBackground(ctx, retryWatcher, persistenceContext), nil
 }
 
-func createRetryWatcher(ctx context.Context, vr *doguVersionRegistry, resourceVersion string) (*toolsWatch.RetryWatcher, error) {
+func getWatchFunc(ctx context.Context, vr *doguVersionRegistry) func(options metav1.ListOptions) (watch.Interface, error) {
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		selector := getAllLocalDoguRegistriesSelector()
 		options.LabelSelector = selector
@@ -203,14 +203,20 @@ func createRetryWatcher(ctx context.Context, vr *doguVersionRegistry, resourceVe
 			options.ResourceVersion = ""
 			watchInterface, err = vr.configMapClient.Watch(ctx, options)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to create watch after IsGone: %w", err)
 			}
 		} else if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create watch: %w", err)
 		}
 
 		return watchInterface, nil
 	}
+
+	return watchFunc
+}
+
+func createRetryWatcher(ctx context.Context, vr *doguVersionRegistry, resourceVersion string) (*toolsWatch.RetryWatcher, error) {
+	watchFunc := getWatchFunc(ctx, vr)
 	retryWatcher, err := toolsWatch.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
 		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to create watch for current dogu versions: %w", err))
