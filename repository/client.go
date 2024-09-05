@@ -116,6 +116,8 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 // are operating on lists instead of single objects.
 func (cmc configMapClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
 	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	logger := log.FromContext(ctx).WithName("SingletonList")
+	logger.Info(fmt.Sprintf("ResultList is %v and error %e", list, err))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
 	}
@@ -124,14 +126,15 @@ func (cmc configMapClient) SingletonList(ctx context.Context, name string) (clie
 		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
 	}
 
-	dataStr, ok := list.Items[0].Data[dataKeyName]
+	configMap := list.Items[0]
+	dataStr, ok := configMap.Data[dataKeyName]
 	if !ok {
 		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
 	}
 
 	return clientData{
 		dataStr: dataStr,
-		rawData: list,
+		rawData: configMap,
 	}, list.ResourceVersion, nil
 }
 
@@ -246,6 +249,8 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 // are operating on lists instead of single objects.
 func (sc secretClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
 	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	logger := log.FromContext(ctx).WithName("SingletonList")
+	logger.Info(fmt.Sprintf("ResultList is %v and error %e", list, err))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
 	}
@@ -254,14 +259,15 @@ func (sc secretClient) SingletonList(ctx context.Context, name string) (clientDa
 		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
 	}
 
-	dataBytes, ok := list.Items[0].Data[dataKeyName]
+	secret := list.Items[0]
+	dataBytes, ok := secret.Data[dataKeyName]
 	if !ok {
 		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
 	}
 
 	return clientData{
 		dataStr: string(dataBytes),
-		rawData: list,
+		rawData: secret,
 	}, list.ResourceVersion, nil
 }
 
