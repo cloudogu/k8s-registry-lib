@@ -59,6 +59,8 @@ type Config struct {
 	entries            Entries
 	changeHistory      []Change
 	PersistenceContext any
+	// this is needed for the RetryWatcher that operates on ListResourceVersions and needs an initial starting point
+	InitialListResourceVersion string
 }
 
 type ConfigOption func(config *Config)
@@ -66,6 +68,14 @@ type ConfigOption func(config *Config)
 func WithPersistenceContext(pCtx any) ConfigOption {
 	return func(config *Config) {
 		config.PersistenceContext = pCtx
+	}
+}
+
+// WithInitialListResourceVersion adds the resourceVersion of the list containing the config. It's main use case is for the
+// Config-Watches that operate on lists instead of single objects.
+func WithInitialListResourceVersion(resourceVersion string) ConfigOption {
+	return func(config *Config) {
+		config.InitialListResourceVersion = resourceVersion
 	}
 }
 

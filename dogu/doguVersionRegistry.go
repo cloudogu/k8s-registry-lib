@@ -4,14 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cloudogu/cesapp-lib/core"
-	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
+	"maps"
+
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+	toolsWatch "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/retry"
-	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/cloudogu/cesapp-lib/core"
+	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 )
 
 const (
@@ -169,36 +174,54 @@ func isDoguVersionInstalled(descriptorConfigMap corev1.ConfigMap, version core.V
 	return false
 }
 
-func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (CurrentVersionsWatch, error) {
-	selector := getAllLocalDoguRegistriesSelector()
-	watchInterface, watchErr := vr.configMapClient.Watch(ctx, metav1.ListOptions{LabelSelector: selector})
-	if watchErr != nil {
-		return CurrentVersionsWatch{}, cloudoguerrors.NewGenericError(fmt.Errorf("failed to create watches for selector %q: %w", selector, watchErr))
+func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (<-chan CurrentVersionsWatchResult, error) {
+	// Fetch all descriptor ConfigMaps
+	list, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to list initial descriptor configmaps: %w", err))
 	}
 
-	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
-	currentVersionsWatch := CurrentVersionsWatch{
-		ResultChan: currentVersionsWatchResult,
-		cancelFunc: watchInterface.Stop,
+	persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to create persistence context for current dogu versions: %w", err))
 	}
 
-	go func() {
-		// Fetch all descriptor ConfigMaps
-		list, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
-		if err != nil {
-			throwAndLogWatchError(ctx, err, currentVersionsWatchResult)
-			watchInterface.Stop()
-			return
-		}
-		persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
-		if err != nil {
-			throwAndLogWatchError(ctx, fmt.Errorf("error during persistence context creation. watch is still active: %w", err), currentVersionsWatchResult)
+	retryWatcher, err := createRetryWatcher(ctx, vr, list.ResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	return startWatchInBackground(ctx, retryWatcher, persistenceContext), nil
+}
+
+func getWatchFunc(ctx context.Context, vr *doguVersionRegistry) func(options metav1.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		selector := getAllLocalDoguRegistriesSelector()
+		options.LabelSelector = selector
+		watchInterface, err := vr.configMapClient.Watch(ctx, options)
+		if k8serrors.IsGone(err) {
+			options.ResourceVersion = ""
+			watchInterface, err = vr.configMapClient.Watch(ctx, options)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create watch after IsGone: %w", err)
+			}
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to create watch: %w", err)
 		}
 
-		waitForWatchEvents(ctx, watchInterface, persistenceContext, currentVersionsWatchResult)
-	}()
+		return watchInterface, nil
+	}
 
-	return currentVersionsWatch, nil
+	return watchFunc
+}
+
+func createRetryWatcher(ctx context.Context, vr *doguVersionRegistry, resourceVersion string) (*toolsWatch.RetryWatcher, error) {
+	watchFunc := getWatchFunc(ctx, vr)
+	retryWatcher, err := toolsWatch.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil {
+		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to create watch for current dogu versions: %w", err))
+	}
+	return retryWatcher, nil
 }
 
 func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan CurrentVersionsWatchResult) {
@@ -209,43 +232,55 @@ func throwAndLogWatchError(ctx context.Context, err error, resultChannel chan Cu
 	}
 }
 
-func waitForWatchEvents(ctx context.Context, watchInterface watch.Interface, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) {
-	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.waitForWatchEvents")
-	for {
-		select {
-		case <-ctx.Done():
-			watchInterface.Stop()
-			logger.Info("context canceled. Stop watch channel.")
-			return
-		case event, open := <-watchInterface.ResultChan():
-			if !open {
-				logger.Info("watch channel canceled. Stop watch.")
+func startWatchInBackground(ctx context.Context, watchInterface watch.Interface, persistenceContext map[SimpleDoguName]core.Version) <-chan CurrentVersionsWatchResult {
+	logger := log.FromContext(ctx).WithName("DoguVersionRegistry.startWatchInBackground")
+	currentVersionsWatchResult := make(chan CurrentVersionsWatchResult)
+
+	go func() {
+		defer close(currentVersionsWatchResult)
+		for {
+			select {
+			case <-ctx.Done():
+				watchInterface.Stop()
+				logger.Info("context canceled. Stop watch channel.")
 				return
+			case event, open := <-watchInterface.ResultChan():
+				if !open {
+					logger.Info("watch channel canceled. Stop watch.")
+					return
+				}
+
+				handleEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
 			}
-			switch event.Type {
-			case watch.Added:
-				err := handleAddWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
-				if err != nil {
-					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
-				}
-			case watch.Modified:
-				err := handleModifiedWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
-				if err != nil {
-					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle modified watch event: %w", err), currentVersionsWatchResult)
-				}
-			case watch.Deleted:
-				err := handleDeleteWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
-				if err != nil {
-					throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
-				}
-			case watch.Error:
-				status, ok := event.Object.(*metav1.Status)
-				if !ok {
-					throwAndLogWatchError(ctx, fmt.Errorf("failed to cast event object to %T", metav1.Status{}), currentVersionsWatchResult)
-				} else {
-					throwAndLogWatchError(ctx, fmt.Errorf("watch event type is error: %q", status.String()), currentVersionsWatchResult)
-				}
-			}
+		}
+	}()
+
+	return currentVersionsWatchResult
+}
+
+func handleEvent(ctx context.Context, event watch.Event, persistenceContext map[SimpleDoguName]core.Version, currentVersionsWatchResult chan CurrentVersionsWatchResult) {
+	switch event.Type {
+	case watch.Added:
+		err := handleAddWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
+		if err != nil {
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle add watch event: %w", err), currentVersionsWatchResult)
+		}
+	case watch.Modified:
+		err := handleModifiedWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
+		if err != nil {
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle modified watch event: %w", err), currentVersionsWatchResult)
+		}
+	case watch.Deleted:
+		err := handleDeleteWatchEvent(ctx, event, persistenceContext, currentVersionsWatchResult)
+		if err != nil {
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to handle delete watch event: %w", err), currentVersionsWatchResult)
+		}
+	case watch.Error:
+		status, ok := event.Object.(*metav1.Status)
+		if !ok {
+			throwAndLogWatchError(ctx, fmt.Errorf("failed to cast event object to %T", metav1.Status{}), currentVersionsWatchResult)
+		} else {
+			throwAndLogWatchError(ctx, fmt.Errorf("watch event type is error: %q", status.String()), currentVersionsWatchResult)
 		}
 	}
 }
