@@ -25,6 +25,7 @@ const (
 	returnNotFound
 	returnOtherError
 	notCalled
+	noItems
 )
 
 const resourceVersion = "testVersion"
@@ -184,6 +185,92 @@ func TestConfigMapClient_Get(t *testing.T) {
 
 			_, err := client.Get(context.TODO(), "")
 			assert.Equal(t, tc.xErr, err != nil)
+
+			if tc.valErr != nil {
+				assert.True(t, tc.valErr(err))
+			}
+		})
+	}
+}
+
+func TestConfigmapClient_GetWithListResourceVersion(t *testing.T) {
+	applyTestCase := func(m *MockConfigMapClient, tc testcase) {
+		switch tc {
+		case validReturn:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.ConfigMapList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.ConfigMap{
+					{
+						Data: map[string]string{dataKeyName: "testString"},
+					},
+				},
+			}, nil)
+		case configDataKeyNotFound:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.ConfigMapList{
+				Items: []v1.ConfigMap{{Data: map[string]string{}}},
+			}, nil)
+		case returnNotFound:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, ""))
+		case returnOtherError:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(nil, errors.New("testErr"))
+		case noItems:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.ConfigMapList{}, nil)
+		default:
+		}
+	}
+
+	tests := []struct {
+		name   string
+		tc     testcase
+		xErr   bool
+		valErr func(error) bool
+	}{
+		{
+			name:   "List",
+			tc:     validReturn,
+			xErr:   false,
+			valErr: nil,
+		},
+		{
+			name:   "No config found in secret",
+			tc:     configDataKeyNotFound,
+			xErr:   true,
+			valErr: nil,
+		},
+		{
+			name:   "Return Error: Not Found",
+			tc:     returnNotFound,
+			xErr:   true,
+			valErr: liberrors.IsNotFoundError,
+		},
+		{
+			name:   "Return Error",
+			tc:     returnOtherError,
+			xErr:   true,
+			valErr: nil,
+		},
+		{
+			name:   "No items in secret list",
+			tc:     noItems,
+			xErr:   true,
+			valErr: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			applyTestCase(m, tc.tc)
+
+			client := configMapClient{
+				client: m,
+			}
+
+			_, resourceVersion, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.Equal(t, tc.xErr, err != nil)
+			assert.Equal(t, tc.xErr, len(resourceVersion) == 0)
 
 			if tc.valErr != nil {
 				assert.True(t, tc.valErr(err))
@@ -513,6 +600,92 @@ func TestSecretClient_Get(t *testing.T) {
 	}
 }
 
+func TestSecretClient_GetWithListResourceVersion(t *testing.T) {
+	applyTestCase := func(m *MockSecretClient, tc testcase) {
+		switch tc {
+		case validReturn:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.SecretList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.Secret{
+					{
+						Data: map[string][]byte{dataKeyName: []byte("testString")},
+					},
+				},
+			}, nil)
+		case configDataKeyNotFound:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.SecretList{
+				Items: []v1.Secret{{Data: map[string][]byte{}}},
+			}, nil)
+		case returnNotFound:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, ""))
+		case returnOtherError:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(nil, errors.New("testErr"))
+		case noItems:
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.SecretList{}, nil)
+		default:
+		}
+	}
+
+	tests := []struct {
+		name   string
+		tc     testcase
+		xErr   bool
+		valErr func(error) bool
+	}{
+		{
+			name:   "List",
+			tc:     validReturn,
+			xErr:   false,
+			valErr: nil,
+		},
+		{
+			name:   "No config found in secret",
+			tc:     configDataKeyNotFound,
+			xErr:   true,
+			valErr: nil,
+		},
+		{
+			name:   "Return Error: Not Found",
+			tc:     returnNotFound,
+			xErr:   true,
+			valErr: liberrors.IsNotFoundError,
+		},
+		{
+			name:   "Return Error",
+			tc:     returnOtherError,
+			xErr:   true,
+			valErr: nil,
+		},
+		{
+			name:   "No items in secret list",
+			tc:     noItems,
+			xErr:   true,
+			valErr: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			applyTestCase(m, tc.tc)
+
+			client := secretClient{
+				client: m,
+			}
+
+			_, resourceVersion, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.Equal(t, tc.xErr, err != nil)
+			assert.Equal(t, tc.xErr, len(resourceVersion) == 0)
+
+			if tc.valErr != nil {
+				assert.True(t, tc.valErr(err))
+			}
+		})
+	}
+}
+
 func TestSecretClient_Delete(t *testing.T) {
 	applyTestCase := func(m *MockSecretClient, tc testcase) {
 		switch tc {
@@ -733,15 +906,18 @@ func TestSecretClient_UpdateClientData(t *testing.T) {
 }
 
 func Test_watchWithClient(t *testing.T) {
-	ctx := context.Background()
+	listOptions := metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})
+	listOptions.ResourceVersion = resourceVersion
+	listOptions.AllowWatchBookmarks = true
 
 	t.Run("should watch with client", func(t *testing.T) {
+		ctx := context.Background()
 		fakeWatcher := watch.NewFake()
 
 		mockWatcher := newMockClientWatcher(t)
-		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+		mockWatcher.EXPECT().Watch(ctx, listOptions).Return(fakeWatcher, nil)
 
-		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		watchChan, err := watchWithClient(ctx, mockWatcher, "dogu-config", resourceVersion)
 		require.NoError(t, err)
 		require.NotNil(t, watchChan)
 
@@ -756,7 +932,9 @@ func Test_watchWithClient(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
 				Data:       map[string]string{dataKeyName: "test-data-configmap"},
 			})
-			fakeWatcher.Modify(&v1.Namespace{})
+			fakeWatcher.Modify(&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+			})
 		}()
 
 		go func() {
@@ -776,7 +954,7 @@ func Test_watchWithClient(t *testing.T) {
 
 				if i == 2 {
 					assert.Error(t, result.err)
-					assert.ErrorContains(t, result.err, "unsupported type in watch *v1.Namespace")
+					assert.ErrorContains(t, result.err, "unsupported type in watch *v1.Pod")
 					cancel <- true
 				}
 
@@ -794,12 +972,13 @@ func Test_watchWithClient(t *testing.T) {
 	})
 
 	t.Run("should write error in result for missing data", func(t *testing.T) {
+		ctx := context.Background()
 		fakeWatcher := watch.NewFake()
 
 		mockWatcher := newMockClientWatcher(t)
-		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+		mockWatcher.EXPECT().Watch(ctx, listOptions).Return(fakeWatcher, nil)
 
-		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		watchChan, err := watchWithClient(ctx, mockWatcher, "dogu-config", resourceVersion)
 		require.NoError(t, err)
 		require.NotNil(t, watchChan)
 
@@ -807,10 +986,12 @@ func Test_watchWithClient(t *testing.T) {
 
 		go func() {
 			fakeWatcher.Modify(&v1.Secret{
-				Data: map[string][]byte{"foo": []byte("test-data-secret")},
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+				Data:       map[string][]byte{"foo": []byte("test-data-secret")},
 			})
 			fakeWatcher.Modify(&v1.ConfigMap{
-				Data: map[string]string{"foo": "test-data-configmap"},
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+				Data:       map[string]string{"foo": "test-data-configmap"},
 			})
 		}()
 
@@ -837,30 +1018,42 @@ func Test_watchWithClient(t *testing.T) {
 			fakeWatcher.Stop()
 		case <-time.After(5 * time.Second):
 			fakeWatcher.Stop()
-			t.Errorf("did not reach third event in time")
+			t.Errorf("did not reach the second event in time")
 		}
 	})
 
 	t.Run("should write error in result for error in watch-channel", func(t *testing.T) {
+		ctx := context.Background()
 		fakeWatcher := watch.NewFake()
 
 		mockWatcher := newMockClientWatcher(t)
-		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+		mockWatcher.EXPECT().Watch(ctx, listOptions).Return(fakeWatcher, nil)
 
-		watchChan, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		watchChan, err := watchWithClient(ctx, mockWatcher, "dogu-config", resourceVersion)
 		require.NoError(t, err)
 		require.NotNil(t, watchChan)
 
 		cancel := make(chan bool, 1)
 
 		go func() {
-			fakeWatcher.Error(nil)
+			fakeWatcher.Error(&metav1.Status{})
+			// Wait until channel is closed due to error to reset accordingly afterwards
+			for !fakeWatcher.IsStopped() {
+				time.Sleep(1 * time.Millisecond)
+			}
+			fakeWatcher.Reset()
+
+			fakeWatcher.Modify(&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+				Data:       map[string]string{dataKeyName: "test-data-configmap"},
+			})
 		}()
 
 		go func() {
 			for result := range watchChan {
-				assert.Error(t, result.err)
-				assert.ErrorContains(t, result.err, "error result in watcher for config 'dogu-config'")
+				assert.NoError(t, result.err)
+				assert.Equal(t, resourceVersion, result.persistentContext)
+				assert.Equal(t, "test-data-configmap", result.dataStr)
 				cancel <- true
 			}
 		}()
@@ -870,27 +1063,28 @@ func Test_watchWithClient(t *testing.T) {
 			fakeWatcher.Stop()
 		case <-time.After(5 * time.Second):
 			fakeWatcher.Stop()
-			t.Errorf("did not reach third event in time")
+			t.Errorf("did not reach the event in time")
 		}
 	})
 
 	t.Run("should stop watch on context-cancel", func(t *testing.T) {
+		ctx := context.Background()
 		fakeWatcher := watch.NewFake()
 		cancelCtx, cancelCtxFunc := context.WithCancel(ctx)
 
 		mockWatcher := newMockClientWatcher(t)
-		mockWatcher.EXPECT().Watch(cancelCtx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(fakeWatcher, nil)
+		mockWatcher.EXPECT().Watch(cancelCtx, listOptions).Return(fakeWatcher, nil)
 
-		watchChan, err := watchWithClient(cancelCtx, "dogu-config", mockWatcher)
+		watchChan, err := watchWithClient(cancelCtx, mockWatcher, "dogu-config", resourceVersion)
 		require.NoError(t, err)
 		require.NotNil(t, watchChan)
 
-		i := 1
+		isCanceled := false
 		go func() {
 			for range watchChan {
-				i++
+				isCanceled = false
 			}
-			i = -1
+			isCanceled = true
 		}()
 
 		cancelCtxFunc()
@@ -898,19 +1092,55 @@ func Test_watchWithClient(t *testing.T) {
 		select {
 		// wait for watcher to stopped
 		case <-time.After(200 * time.Millisecond):
-			assert.Equal(t, -1, i)
+			assert.True(t, isCanceled)
 			assert.True(t, fakeWatcher.IsStopped())
 		}
 	})
 
 	t.Run("should return error for error when starting watch", func(t *testing.T) {
+		ctx := context.Background()
 		mockWatcher := newMockClientWatcher(t)
-		mockWatcher.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
 
-		_, err := watchWithClient(ctx, "dogu-config", mockWatcher)
+		_, err := watchWithClient(ctx, mockWatcher, "dogu-config", "")
 
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
+	})
+}
+
+func Test_handleWatchEvent(t *testing.T) {
+	t.Run("should return status error for error of type status", func(t *testing.T) {
+		//given
+		event := watch.Event{
+			Type:   watch.Error,
+			Object: &metav1.Status{Status: metav1.StatusFailure},
+		}
+
+		//when
+		watchResult := handleWatchEvent("testName", event)
+
+		//then
+		assert.Empty(t, watchResult.dataStr)
+		assert.Empty(t, watchResult.persistentContext)
+		assert.Error(t, watchResult.err)
+		assert.ErrorContains(t, watchResult.err, "watch event type is error:")
+		assert.ErrorContains(t, watchResult.err, metav1.StatusFailure)
+	})
+	t.Run("should return generic error for error of type other than status", func(t *testing.T) {
+		//given
+		event := watch.Event{
+			Type:   watch.Error,
+			Object: &metav1.List{},
+		}
+
+		//when
+		watchResult := handleWatchEvent("testName", event)
+
+		//then
+		assert.Empty(t, watchResult.dataStr)
+		assert.Empty(t, watchResult.persistentContext)
+		assert.Error(t, watchResult.err)
+		assert.ErrorContains(t, watchResult.err, "error result in watcher for config 'testName'")
 	})
 }
 
@@ -919,13 +1149,11 @@ func Test_secretClient_Watch(t *testing.T) {
 
 	t.Run("should return error for error when starting watch", func(t *testing.T) {
 		mockClient := NewMockSecretClient(t)
-		mockClient.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
-
 		client := secretClient{
 			client: mockClient,
 		}
 
-		_, err := client.Watch(ctx, "dogu-config")
+		_, err := client.Watch(ctx, "dogu-config", "")
 
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
@@ -937,13 +1165,11 @@ func Test_configMapClient_Watch(t *testing.T) {
 
 	t.Run("should return error for error when starting watch", func(t *testing.T) {
 		mockClient := NewMockConfigMapClient(t)
-		mockClient.EXPECT().Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: "dogu-config"})).Return(nil, assert.AnError)
-
 		client := configMapClient{
 			client: mockClient,
 		}
 
-		_, err := client.Watch(ctx, "dogu-config")
+		_, err := client.Watch(ctx, "dogu-config", "")
 
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "could not watch 'dogu-config' in cluster:")
@@ -982,12 +1208,9 @@ func Test_handleError(t *testing.T) {
 			valErr: liberrors.IsAlreadyExistsError,
 		},
 		{
-			name: "InternetErr",
-			err:  k8serrors.NewInternalError(assert.AnError),
-			valErr: func(err error) bool {
-				var cfgErr liberrors.Error
-				return !errors.As(err, &cfgErr)
-			},
+			name:   "InternetErr",
+			err:    k8serrors.NewInternalError(assert.AnError),
+			valErr: liberrors.IsGenericError,
 		},
 	}
 

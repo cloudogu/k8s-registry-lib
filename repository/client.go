@@ -3,14 +3,20 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/cloudogu/k8s-registry-lib/errors"
+
 	v1 "k8s.io/api/core/v1"
 	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+	toolsWatch "k8s.io/client-go/tools/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/cloudogu/k8s-registry-lib/errors"
 )
 
 type configType int
@@ -86,7 +92,7 @@ func handleError(err error) error {
 		return errors.NewAlreadyExistsError(err)
 	}
 
-	return fmt.Errorf("%v", err)
+	return errors.NewGenericError(err)
 }
 
 func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, error) {
@@ -104,6 +110,30 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 		dataStr: dataStr,
 		rawData: cm,
 	}, nil
+}
+
+// GetWithListResourceVersion gets a list of configmaps containing a single item. This is used for the config-watches, because they
+// are operating on lists instead of single objects.
+func (cmc configMapClient) GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error) {
+	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
+	}
+
+	if len(list.Items) == 0 {
+		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
+	}
+
+	configMap := list.Items[0]
+	dataStr, ok := configMap.Data[dataKeyName]
+	if !ok {
+		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
+	}
+
+	return clientData{
+		dataStr: dataStr,
+		rawData: configMap,
+	}, list.ResourceVersion, nil
 }
 
 func (cmc configMapClient) Delete(ctx context.Context, name string) error {
@@ -171,8 +201,8 @@ func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientDa
 	return cm, nil
 }
 
-func (cmc configMapClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, cmc.client)
+func (cmc configMapClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, cmc.client, name, resourceVersion)
 }
 
 type SecretClient interface {
@@ -211,6 +241,30 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 		dataStr: string(dataBytes),
 		rawData: secret,
 	}, nil
+}
+
+// GetWithListResourceVersion gets a list of secrets containing a single item. This is used for the config-watches, because they
+// are operating on lists instead of single objects.
+func (sc secretClient) GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error) {
+	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+	if err != nil {
+		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
+	}
+
+	if len(list.Items) == 0 {
+		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
+	}
+
+	secret := list.Items[0]
+	dataBytes, ok := secret.Data[dataKeyName]
+	if !ok {
+		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
+	}
+
+	return clientData{
+		dataStr: string(dataBytes),
+		rawData: secret,
+	}, list.ResourceVersion, nil
 }
 
 func (sc secretClient) Delete(ctx context.Context, name string) error {
@@ -280,8 +334,8 @@ func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) 
 	return resource, nil
 }
 
-func (sc secretClient) Watch(ctx context.Context, name string) (<-chan clientWatchResult, error) {
-	return watchWithClient(ctx, name, sc.client)
+func (sc secretClient) Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error) {
+	return watchWithClient(ctx, sc.client, name, resourceVersion)
 }
 
 type clientWatcher interface {
@@ -294,10 +348,12 @@ type clientWatchResult struct {
 	err               error
 }
 
-func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-chan clientWatchResult, error) {
-	watcher, err := client.Watch(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
+func watchWithClient(ctx context.Context, client clientWatcher, name, initialResourceVersion string) (<-chan clientWatchResult, error) {
+	logger := log.FromContext(ctx).WithName("watchWithClient")
+
+	watcher, err := createRetryWatcher(ctx, client, name, initialResourceVersion)
 	if err != nil {
-		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
+		return nil, err
 	}
 
 	resultChan := make(chan clientWatchResult)
@@ -309,12 +365,16 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 			case <-ctx.Done():
 				watcher.Stop()
 				return
-			case result, open := <-watcher.ResultChan():
+			case event, open := <-watcher.ResultChan():
 				if !open {
+					logger.Info(fmt.Sprintf("watch for %q closed", name))
+
 					return
 				}
 
-				resultChan <- handleWatchEvent(name, result)
+				var result clientWatchResult
+				result = handleWatchEvent(name, event)
+				resultChan <- result
 			}
 		}
 	}()
@@ -322,12 +382,38 @@ func watchWithClient(ctx context.Context, name string, client clientWatcher) (<-
 	return resultChan, nil
 }
 
+func createRetryWatcher(ctx context.Context, client clientWatcher, name, initialResourceVersion string) (*toolsWatch.RetryWatcher, error) {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		options.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
+		watchInterface, err := client.Watch(ctx, options)
+		if err != nil {
+			return nil, err
+		}
+
+		return watchInterface, nil
+	}
+	watcher, err := toolsWatch.NewRetryWatcher(initialResourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil {
+		return nil, fmt.Errorf("could not watch '%s' in cluster: %w", name, handleError(err))
+	}
+
+	return watcher, nil
+}
+
 func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 	if event.Type == watch.Error {
+		var err error
+		status, ok := event.Object.(*metav1.Status)
+		if !ok {
+			err = fmt.Errorf("error result in watcher for config '%s'", cfgName)
+		} else {
+			err = fmt.Errorf("watch event type is error: %q", status.String())
+		}
+
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
-			err:               fmt.Errorf("error result in watcher for config '%s'", cfgName),
+			err:               err,
 		}
 	}
 

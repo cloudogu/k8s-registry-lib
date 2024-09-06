@@ -19,19 +19,6 @@ func createConfigName(simpleName string) configName {
 	return configName(strings.ToLower(fmt.Sprintf("%s-config", simpleName)))
 }
 
-type resourceVersionGetter interface {
-	GetResourceVersion() string
-}
-
-type configClient interface {
-	Get(ctx context.Context, name string) (clientData, error)
-	Delete(ctx context.Context, name string) error
-	Create(ctx context.Context, name string, doguName string, dataStr string) (resourceVersionGetter, error)
-	Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error)
-	UpdateClientData(ctx context.Context, update clientData) (resourceVersionGetter, error)
-	Watch(ctx context.Context, name string) (<-chan clientWatchResult, error)
-}
-
 type configRepository struct {
 	client    configClient
 	converter config.Converter
@@ -49,7 +36,7 @@ func newConfigRepo(client configClient) configRepository {
 }
 
 func (cr configRepository) get(ctx context.Context, name configName) (config.Config, error) {
-	cd, err := cr.client.Get(ctx, name.String())
+	cd, listResourceVersion, err := cr.client.GetWithListResourceVersion(ctx, name.String())
 	if err != nil {
 		return config.Config{}, fmt.Errorf("unable to get data '%s' from cluster: %w", name, err)
 	}
@@ -64,6 +51,7 @@ func (cr configRepository) get(ctx context.Context, name configName) (config.Con
 	cfg := config.CreateConfig(
 		cfgData,
 		config.WithPersistenceContext(getPersistentContext(cd.rawData)),
+		config.WithInitialListResourceVersion(listResourceVersion),
 	)
 
 	return cfg, nil
@@ -188,7 +176,7 @@ func (cr configRepository) watch(ctx context.Context, name configName, filters .
 		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
-	clientResultChan, err := cr.client.Watch(ctx, name.String())
+	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.InitialListResourceVersion)
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}
