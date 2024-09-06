@@ -112,9 +112,9 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 	}, nil
 }
 
-// SingletonList gets a list of configmaps containing a single item. This is used for the config-watches, because they
+// GetWithListResourceVersion gets a list of configmaps containing a single item. This is used for the config-watches, because they
 // are operating on lists instead of single objects.
-func (cmc configMapClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
+func (cmc configMapClient) GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error) {
 	list, err := cmc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))
@@ -243,9 +243,9 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 	}, nil
 }
 
-// SingletonList gets a list of secrets containing a single item. This is used for the config-watches, because they
+// GetWithListResourceVersion gets a list of secrets containing a single item. This is used for the config-watches, because they
 // are operating on lists instead of single objects.
-func (sc secretClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
+func (sc secretClient) GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error) {
 	list, err := sc.client.List(ctx, metav1.SingleObject(metav1.ObjectMeta{Name: name}))
 	if err != nil {
 		return clientData{}, "", fmt.Errorf("unable to list config-map from cluster: %w", handleError(err))

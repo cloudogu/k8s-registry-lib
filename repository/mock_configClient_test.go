@@ -186,12 +186,12 @@ func (_c *mockConfigClient_Get_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
-// SingletonList provides a mock function with given fields: ctx, name
-func (_m *mockConfigClient) SingletonList(ctx context.Context, name string) (clientData, string, error) {
+// GetWithListResourceVersion provides a mock function with given fields: ctx, name
+func (_m *mockConfigClient) GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error) {
 	ret := _m.Called(ctx, name)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SingletonList")
+		panic("no return value specified for GetWithListResourceVersion")
 	}
 
 	var r0 clientData
@@ -221,31 +221,31 @@ func (_m *mockConfigClient) SingletonList(ctx context.Context, name string) (cli
 	return r0, r1, r2
 }
 
-// mockConfigClient_SingletonList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SingletonList'
-type mockConfigClient_SingletonList_Call struct {
+// mockConfigClient_GetWithListResourceVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWithListResourceVersion'
+type mockConfigClient_GetWithListResourceVersion_Call struct {
 	*mock.Call
 }
 
-// SingletonList is a helper method to define mock.On call
+// GetWithListResourceVersion is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *mockConfigClient_Expecter) SingletonList(ctx interface{}, name interface{}) *mockConfigClient_SingletonList_Call {
-	return &mockConfigClient_SingletonList_Call{Call: _e.mock.On("SingletonList", ctx, name)}
+func (_e *mockConfigClient_Expecter) GetWithListResourceVersion(ctx interface{}, name interface{}) *mockConfigClient_GetWithListResourceVersion_Call {
+	return &mockConfigClient_GetWithListResourceVersion_Call{Call: _e.mock.On("GetWithListResourceVersion", ctx, name)}
 }
 
-func (_c *mockConfigClient_SingletonList_Call) Run(run func(ctx context.Context, name string)) *mockConfigClient_SingletonList_Call {
+func (_c *mockConfigClient_GetWithListResourceVersion_Call) Run(run func(ctx context.Context, name string)) *mockConfigClient_GetWithListResourceVersion_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
 
-func (_c *mockConfigClient_SingletonList_Call) Return(_a0 clientData, _a1 string, _a2 error) *mockConfigClient_SingletonList_Call {
+func (_c *mockConfigClient_GetWithListResourceVersion_Call) Return(_a0 clientData, _a1 string, _a2 error) *mockConfigClient_GetWithListResourceVersion_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *mockConfigClient_SingletonList_Call) RunAndReturn(run func(context.Context, string) (clientData, string, error)) *mockConfigClient_SingletonList_Call {
+func (_c *mockConfigClient_GetWithListResourceVersion_Call) RunAndReturn(run func(context.Context, string) (clientData, string, error)) *mockConfigClient_GetWithListResourceVersion_Call {
 	_c.Call.Return(run)
 	return _c
 }

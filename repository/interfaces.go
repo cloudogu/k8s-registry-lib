@@ -20,7 +20,7 @@ type resourceVersionGetter interface {
 
 type configClient interface {
 	Get(ctx context.Context, name string) (clientData, error)
-	SingletonList(ctx context.Context, name string) (clientData, string, error)
+	GetWithListResourceVersion(ctx context.Context, name string) (clientData, string, error)
 	Delete(ctx context.Context, name string) error
 	Create(ctx context.Context, name string, doguName string, dataStr string) (resourceVersionGetter, error)
 	Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error)

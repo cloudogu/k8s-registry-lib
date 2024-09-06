@@ -36,7 +36,7 @@ func newConfigRepo(client configClient) configRepository {
 }
 
 func (cr configRepository) get(ctx context.Context, name configName) (config.Config, error) {
-	cd, listResourceVersion, err := cr.client.SingletonList(ctx, name.String())
+	cd, listResourceVersion, err := cr.client.GetWithListResourceVersion(ctx, name.String())
 	if err != nil {
 		return config.Config{}, fmt.Errorf("unable to get data '%s' from cluster: %w", name, err)
 	}
