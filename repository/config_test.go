@@ -54,9 +54,9 @@ func TestConfigRepo_get(t *testing.T) {
 	applyTestCaseClient := func(m *mockConfigClient, tc configRepo_testcase) {
 		switch tc {
 		case repo_validReturn, repo_converterError:
-			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, nil)
+			m.EXPECT().GetWithListResourceVersion(mock.Anything, mock.Anything).Return(clientData{}, "1", nil)
 		case repo_clientError:
-			m.EXPECT().Get(mock.Anything, mock.Anything).Return(clientData{}, assert.AnError)
+			m.EXPECT().GetWithListResourceVersion(mock.Anything, mock.Anything).Return(clientData{}, "1", assert.AnError)
 		default:
 		}
 	}
@@ -625,8 +625,8 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
-		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
+		mockClient.EXPECT().GetWithListResourceVersion(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, "1", nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config", "1").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
 
@@ -657,7 +657,11 @@ func Test_configRepo_watch(t *testing.T) {
 			for result := range watch {
 				if i == 0 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(
+						map[config.Key]config.Value{"foo": "bar"},
+						config.WithPersistenceContext(""),
+						config.WithListResourceVersion("1"),
+					), result.prevState)
 					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}, config.WithPersistenceContext("")), result.newState)
 				}
 
@@ -695,8 +699,8 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
-		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
+		mockClient.EXPECT().GetWithListResourceVersion(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, "1", nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config", "1").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
 
@@ -727,7 +731,7 @@ func Test_configRepo_watch(t *testing.T) {
 			for result := range watch {
 				if i == 0 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext("")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext(""), config.WithListResourceVersion("1")), result.prevState)
 					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}, config.WithPersistenceContext("")), result.newState)
 				}
 
@@ -759,8 +763,8 @@ func Test_configRepo_watch(t *testing.T) {
 		defer cancel()
 
 		mockClient := newMockConfigClient(t)
-		mockClient.EXPECT().Get(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, nil)
-		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config").Return(resultChan, nil)
+		mockClient.EXPECT().GetWithListResourceVersion(ctxTimeout, "dogu-config").Return(clientData{"foo: bar", &v1.ConfigMap{}}, "1", nil)
+		mockClient.EXPECT().Watch(ctxTimeout, "dogu-config", "1").Return(resultChan, nil)
 
 		repo := newConfigRepo(mockClient)
 
