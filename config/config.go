@@ -56,10 +56,11 @@ type DiffResult struct {
 // Config represents a general configuration with entries and change history.
 // PersistenceContext is used by a repository to detect conflicts due to remote changes.
 type Config struct {
-	entries             Entries
-	changeHistory       []Change
-	PersistenceContext  any
-	ListResourceVersion string
+	entries            Entries
+	changeHistory      []Change
+	PersistenceContext any
+	// this is needed for the RetryWatcher that operates on ListResourceVersions and needs an initial starting point
+	InitialListResourceVersion string
 }
 
 type ConfigOption func(config *Config)
@@ -70,11 +71,11 @@ func WithPersistenceContext(pCtx any) ConfigOption {
 	}
 }
 
-// WithListResourceVersion adds the resourceVersion of the list containing the config. It's main use case is for the
+// WithInitialListResourceVersion adds the resourceVersion of the list containing the config. It's main use case is for the
 // Config-Watches that operate on lists instead of single objects.
-func WithListResourceVersion(resourceVersion string) ConfigOption {
+func WithInitialListResourceVersion(resourceVersion string) ConfigOption {
 	return func(config *Config) {
-		config.ListResourceVersion = resourceVersion
+		config.InitialListResourceVersion = resourceVersion
 	}
 }
 

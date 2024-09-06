@@ -51,7 +51,7 @@ func (cr configRepository) get(ctx context.Context, name configName) (config.Con
 	cfg := config.CreateConfig(
 		cfgData,
 		config.WithPersistenceContext(getPersistentContext(cd.rawData)),
-		config.WithListResourceVersion(listResourceVersion),
+		config.WithInitialListResourceVersion(listResourceVersion),
 	)
 
 	return cfg, nil
@@ -176,7 +176,7 @@ func (cr configRepository) watch(ctx context.Context, name configName, filters .
 		return nil, fmt.Errorf("could not get config: %w", err)
 	}
 
-	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.ListResourceVersion)
+	clientResultChan, err := cr.client.Watch(ctx, name.String(), lastCfg.InitialListResourceVersion)
 	if err != nil {
 		return nil, fmt.Errorf("could not start watch: %w", err)
 	}

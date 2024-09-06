@@ -660,8 +660,9 @@ func Test_configRepo_watch(t *testing.T) {
 					assert.Equal(t, config.CreateConfig(
 						map[config.Key]config.Value{"foo": "bar"},
 						config.WithPersistenceContext(""),
-						config.WithListResourceVersion("1"),
+						config.WithInitialListResourceVersion("1"),
 					), result.prevState)
+					// InitialListResourceVersion is only set on the first config since it is not needed afterward
 					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "value"}, config.WithPersistenceContext("")), result.newState)
 				}
 
@@ -731,7 +732,7 @@ func Test_configRepo_watch(t *testing.T) {
 			for result := range watch {
 				if i == 0 {
 					assert.NoError(t, result.err)
-					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext(""), config.WithListResourceVersion("1")), result.prevState)
+					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"foo": "bar"}, config.WithPersistenceContext(""), config.WithInitialListResourceVersion("1")), result.prevState)
 					assert.Equal(t, config.CreateConfig(map[config.Key]config.Value{"key": "other"}, config.WithPersistenceContext("")), result.newState)
 				}
 
