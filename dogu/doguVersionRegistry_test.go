@@ -789,3 +789,69 @@ func Test_handleEvent(t *testing.T) {
 		assert.True(t, cloudoguerrors.IsGenericError(err))
 	})
 }
+
+func Test_handleDeleteWatchEvent(t *testing.T) {
+	t.Run("should do nothing and return nil if the configmap has no current key on delete event", func(t *testing.T) {
+		// given
+		noCurrentConfigMap := &corev1.ConfigMap{}
+
+		event := watch.Event{
+			Type:   watch.Deleted,
+			Object: noCurrentConfigMap,
+		}
+
+		// when
+		err := handleDeleteWatchEvent(testCtx, event, nil, nil)
+
+		// then
+		require.NoError(t, err)
+	})
+}
+
+func Test_handleModifiedWatchEvent(t *testing.T) {
+	t.Run("should do nothing if the configmap has no current key and is not present in the current context on modify event", func(t *testing.T) {
+		// given
+		noCurrentConfigMap := &corev1.ConfigMap{}
+
+		event := watch.Event{
+			Type:   watch.Modified,
+			Object: noCurrentConfigMap,
+		}
+
+		persistentContext := make(map[SimpleDoguName]core.Version)
+
+		// when
+		err := handleModifiedWatchEvent(testCtx, event, persistentContext, nil)
+
+		// then
+		require.NoError(t, err)
+	})
+
+	t.Run("should fire watch result and delete dogu from persistent context if the current key will be deleted on modify event", func(t *testing.T) {
+		// given
+		noCurrentConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"dogu.name": "ldap"}}}
+
+		event := watch.Event{
+			Type:   watch.Modified,
+			Object: noCurrentConfigMap,
+		}
+
+		persistentContext := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
+		expectedOldVersions := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
+		channel := make(chan CurrentVersionsWatchResult)
+
+		// when
+		go func() {
+			err := handleModifiedWatchEvent(testCtx, event, persistentContext, channel)
+			require.NoError(t, err)
+		}()
+
+		// then
+		result := <-channel
+		require.NoError(t, result.Err)
+		assert.Len(t, result.Versions, 0)
+		assert.Equal(t, result.PrevVersions, expectedOldVersions)
+		assert.Equal(t, result.Diff, []DoguVersion{{"ldap", parseVersionStr(t, "1.0.0")}})
+		assert.Len(t, persistentContext, 0)
+	})
+}
