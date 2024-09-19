@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2024-09-19
+### Changed
+- [#14] Relicense to AGPL-3.0-only
+
 ## [v0.3.1] - 2024-09-06
 ### Changed
 - [#11] Use retry watcher because the regular kubernetes watches will interrupt in half an hour.
