@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
-- Relicense to AGPL-3.0-only
+- [#14] Relicense to AGPL-3.0-only
 
 ## [v0.3.1] - 2024-09-06
 ### Changed
