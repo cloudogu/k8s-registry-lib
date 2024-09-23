@@ -43,7 +43,7 @@ func NewDoguVersionRegistry(configMapClient configMapClient) *doguVersionRegistr
 func (vr *doguVersionRegistry) GetCurrent(ctx context.Context, name SimpleDoguName) (DoguVersion, error) {
 	descriptor, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
-		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
+		return DoguVersion{}, err
 	}
 
 	currentDoguVersion, ok := descriptor.Data[currentVersionKey]
@@ -79,7 +79,7 @@ func getDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMa
 	descriptorConfigMapName := getDescriptorConfigMapName(simpleDoguName)
 	get, err := configMapClient.Get(ctx, descriptorConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get dogu descriptor config map for dogu %q: %w", simpleDoguName, err)
+		return nil, fmt.Errorf("failed to get dogu descriptor config map for dogu %q: %w", simpleDoguName, handleK8sError(err))
 	}
 	return get, nil
 }
@@ -87,7 +87,7 @@ func getDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMa
 func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
 	registryList, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
-		return nil, cloudoguerrors.NewGenericError(err)
+		return nil, err
 	}
 
 	var errs []error
@@ -120,7 +120,7 @@ func getAllDescriptorConfigMaps(ctx context.Context, configMapClient configMapCl
 	allLocalDoguRegistriesSelector := getAllLocalDoguRegistriesSelector()
 	registryList, err := configMapClient.List(ctx, metav1.ListOptions{LabelSelector: allLocalDoguRegistriesSelector})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all cluster native local dogu registries: %w", err)
+		return nil, fmt.Errorf("failed to get all cluster native local dogu registries: %w", handleK8sError(err))
 	}
 	return registryList, err
 }
@@ -132,7 +132,7 @@ func getAllLocalDoguRegistriesSelector() string {
 func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, doguVersion DoguVersion) (bool, error) {
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name)
 	if err != nil {
-		return false, cloudoguerrors.NewGenericError(err)
+		return false, err
 	}
 
 	enabledVersion, found := descriptorConfigMap.Data[currentVersionKey]
@@ -178,7 +178,7 @@ func (vr *doguVersionRegistry) WatchAllCurrent(ctx context.Context) (<-chan Curr
 	// Fetch all descriptor ConfigMaps
 	list, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
-		return nil, cloudoguerrors.NewGenericError(fmt.Errorf("failed to list initial descriptor configmaps: %w", err))
+		return nil, fmt.Errorf("failed to list initial descriptor configmaps: %w", err)
 	}
 
 	persistenceContext, err := createCurrentPersistenceContext(ctx, list.Items)
@@ -206,7 +206,7 @@ func getWatchFunc(ctx context.Context, vr *doguVersionRegistry) func(options met
 				return nil, fmt.Errorf("failed to create watch after IsGone: %w", err)
 			}
 		} else if err != nil {
-			return nil, fmt.Errorf("failed to create watch: %w", err)
+			return nil, fmt.Errorf("failed to create watch: %w", handleK8sError(err))
 		}
 
 		return watchInterface, nil
@@ -461,4 +461,28 @@ func createCurrentPersistenceContext(ctx context.Context, descriptorConfigMaps [
 	err := errors.Join(multiErr...)
 
 	return currentPersistenceContext, err
+}
+
+func handleK8sError(err error) error {
+	if err == nil {
+		return err
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return cloudoguerrors.NewNotFoundError(err)
+	}
+
+	if k8serrors.IsConflict(err) {
+		return cloudoguerrors.NewConflictError(err)
+	}
+
+	if k8serrors.IsServerTimeout(err) || k8serrors.IsTimeout(err) {
+		return cloudoguerrors.NewConnectionError(err)
+	}
+
+	if k8serrors.IsAlreadyExists(err) {
+		return cloudoguerrors.NewAlreadyExistsError(err)
+	}
+
+	return cloudoguerrors.NewGenericError(err)
 }
