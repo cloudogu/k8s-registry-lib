@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.1] - 2024-09-25
+### Fixed
+- [#16] map k8s-errors in version-registry & descriptor-repo
+
 ## [v0.4.0] - 2024-09-19
 ### Changed
 - [#14] Relicense to AGPL-3.0-only
