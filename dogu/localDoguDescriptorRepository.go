@@ -8,7 +8,6 @@ import (
 	"github.com/cloudogu/cesapp-lib/core"
 	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 )
@@ -27,7 +26,7 @@ func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion 
 	doguName := doguVersion.Name
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 	if err != nil {
-		return nil, cloudoguerrors.NewGenericError(err)
+		return nil, handleK8sError(err)
 	}
 
 	versionStr := doguVersion.Version.Raw
@@ -99,7 +98,7 @@ func (lddr *localDoguDescriptorRepository) Add(ctx context.Context, name SimpleD
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		doguDescriptorConfigMap, err := getOrCreateDescriptorConfigMapForDogu(ctx, lddr.configMapClient, name)
 		if err != nil {
-			return cloudoguerrors.NewGenericError(err)
+			return err
 		}
 
 		if doguDescriptorConfigMap.Data == nil {
@@ -136,7 +135,7 @@ func (lddr *localDoguDescriptorRepository) Add(ctx context.Context, name SimpleD
 func getOrCreateDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMapClient, simpleDoguName SimpleDoguName) (*corev1.ConfigMap, error) {
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, configMapClient, simpleDoguName)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if cloudoguerrors.IsNotFoundError(err) {
 			var createErr error
 			descriptorConfigMap, createErr = createDescriptorConfigMapForDogu(ctx, configMapClient, simpleDoguName)
 			if createErr != nil {
@@ -177,7 +176,7 @@ func getDescriptorConfigMapName(simpleDoguName SimpleDoguName) string {
 func (lddr *localDoguDescriptorRepository) DeleteAll(ctx context.Context, name SimpleDoguName) error {
 	err := lddr.configMapClient.Delete(ctx, getDescriptorConfigMapName(name), metav1.DeleteOptions{})
 	if err != nil {
-		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to delete dogu descriptor configmap for dogu %q: %w", name, err))
+		return fmt.Errorf("failed to delete dogu descriptor configmap for dogu %q: %w", name, handleK8sError(err))
 	}
 
 	return nil
