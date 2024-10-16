@@ -87,7 +87,7 @@ func (mma *MaintenanceModeAdapter) checkForConflict(rawValue config.Value) error
 		return errors.NewGenericError(fmt.Errorf("failed to parse json of maintenance mode object: %w", err))
 	}
 	if value.Holder != mma.owner {
-		return errors.NewConflictError(fmt.Errorf("maintenance mode %s is already activated by another owner", rawValue))
+		return errors.NewConflictError(fmt.Errorf("maintenance mode %s is already activated by another owner: %s", rawValue, value.Holder))
 	}
 	return nil
 }
