@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - [#22] map every error coming from the repo to a domain error
+- [#18] add maintenance mode adapter for easier maintenance mode handling
 
 ## [v0.4.1] - 2024-09-25
 ### Fixed
