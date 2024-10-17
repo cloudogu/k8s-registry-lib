@@ -147,7 +147,7 @@ func Test_defaultSwitcher_Activate(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "failed to parse json of maintenance mode object")
+		assert.ErrorContains(t, err, "failed to parse json of maintenance mode config")
 		assert.True(t, errors.IsGenericError(err))
 	})
 
