@@ -10,6 +10,7 @@ const (
 	_ErrConnection
 	_ErrAlreadyExists
 	_ErrGeneric
+	_ErrWatch
 )
 
 var _ error = Error{}
@@ -58,6 +59,13 @@ func NewAlreadyExistsError(err error) Error {
 	}
 }
 
+func NewWatchError(err error) Error {
+	return Error{
+		errType: _ErrWatch,
+		cause:   err,
+	}
+}
+
 func isError(err error, t errorType) bool {
 	var e Error
 	if ok := errors.As(err, &e); !ok {
@@ -89,4 +97,8 @@ func IsConnectionError(err error) bool {
 
 func IsAlreadyExistsError(err error) bool {
 	return isError(err, _ErrAlreadyExists)
+}
+
+func IsWatchError(err error) bool {
+	return isError(err, _ErrWatch)
 }

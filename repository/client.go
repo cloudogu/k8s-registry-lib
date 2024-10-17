@@ -103,7 +103,7 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 
 	dataStr, ok := cm.Data[dataKeyName]
 	if !ok {
-		return clientData{}, fmt.Errorf("could not find data for key %s", dataKeyName)
+		return clientData{}, errors.NewNotFoundError(fmt.Errorf("could not find data for key %s", dataKeyName))
 	}
 
 	return clientData{
@@ -121,13 +121,13 @@ func (cmc configMapClient) GetWithListResourceVersion(ctx context.Context, name 
 	}
 
 	if len(list.Items) == 0 {
-		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
+		return clientData{}, "", errors.NewNotFoundError(fmt.Errorf("could not find a configmap with the given name: %s", name))
 	}
 
 	configMap := list.Items[0]
 	dataStr, ok := configMap.Data[dataKeyName]
 	if !ok {
-		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
+		return clientData{}, "", errors.NewNotFoundError(fmt.Errorf("could not find data for key %s", dataKeyName))
 	}
 
 	return clientData{
@@ -234,7 +234,7 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 
 	dataBytes, ok := secret.Data[dataKeyName]
 	if !ok {
-		return clientData{}, fmt.Errorf("could not find data for key %s", dataKeyName)
+		return clientData{}, errors.NewNotFoundError(fmt.Errorf("could not find data for key %s", dataKeyName))
 	}
 
 	return clientData{
@@ -252,13 +252,13 @@ func (sc secretClient) GetWithListResourceVersion(ctx context.Context, name stri
 	}
 
 	if len(list.Items) == 0 {
-		return clientData{}, "", fmt.Errorf("could not find a configmap with the given name %s", name)
+		return clientData{}, "", errors.NewNotFoundError(fmt.Errorf("could not find a configmap with the given name %s", name))
 	}
 
 	secret := list.Items[0]
 	dataBytes, ok := secret.Data[dataKeyName]
 	if !ok {
-		return clientData{}, "", fmt.Errorf("could not find data for key %s", dataKeyName)
+		return clientData{}, "", errors.NewNotFoundError(fmt.Errorf("could not find data for key %s", dataKeyName))
 	}
 
 	return clientData{
@@ -353,7 +353,7 @@ func watchWithClient(ctx context.Context, client clientWatcher, name, initialRes
 
 	watcher, err := createRetryWatcher(ctx, client, name, initialResourceVersion)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create retry watcher: %w", err)
 	}
 
 	resultChan := make(chan clientWatchResult)
@@ -387,7 +387,7 @@ func createRetryWatcher(ctx context.Context, client clientWatcher, name, initial
 		options.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
 		watchInterface, err := client.Watch(ctx, options)
 		if err != nil {
-			return nil, err
+			return nil, handleError(err)
 		}
 
 		return watchInterface, nil
@@ -413,7 +413,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
-			err:               err,
+			err:               errors.NewWatchError(err),
 		}
 	}
 
@@ -424,7 +424,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 			return clientWatchResult{
 				dataStr:           "",
 				persistentContext: "",
-				err:               fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, cfgName),
+				err:               errors.NewNotFoundError(fmt.Errorf("could not find data for key %s in secret %s", dataKeyName, cfgName)),
 			}
 		}
 
@@ -439,7 +439,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 			return clientWatchResult{
 				dataStr:           "",
 				persistentContext: "",
-				err:               fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, cfgName),
+				err:               errors.NewNotFoundError(fmt.Errorf("could not find data for key %s in configmap %s", dataKeyName, cfgName)),
 			}
 		}
 
@@ -452,7 +452,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 		return clientWatchResult{
 			dataStr:           "",
 			persistentContext: "",
-			err:               fmt.Errorf("unsupported type in watch %T", r),
+			err:               errors.NewWatchError(fmt.Errorf("unsupported type in watch %T", r)),
 		}
 	}
 }
