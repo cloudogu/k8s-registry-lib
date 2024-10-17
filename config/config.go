@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// SimpleDoguName represents a simple Dogu name as a string.
+// SimpleDoguName represents a simple Dogu name as a string, e.g. cas or ldap.
 type SimpleDoguName string
 
 // String returns the string representation of the SimpleDoguName.
@@ -56,10 +56,12 @@ type DiffResult struct {
 // Config represents a general configuration with entries and change history.
 // PersistenceContext is used by a repository to detect conflicts due to remote changes.
 type Config struct {
-	entries            Entries
-	changeHistory      []Change
+	entries       Entries
+	changeHistory []Change
+	// PersistenceContext is used internally by the repository to store version information and detect conflicts.
 	PersistenceContext any
 	// this is needed for the RetryWatcher that operates on ListResourceVersions and needs an initial starting point
+	// TODO: this should be moved into the persistenceContext as it is specific to the repository
 	InitialListResourceVersion string
 }
 
@@ -73,6 +75,7 @@ func WithPersistenceContext(pCtx any) ConfigOption {
 
 // WithInitialListResourceVersion adds the resourceVersion of the list containing the config. It's main use case is for the
 // Config-Watches that operate on lists instead of single objects.
+// FIXME: handling resource versions directly by users breaks the abstraction. It should be moved to the persistenceCtx.
 func WithInitialListResourceVersion(resourceVersion string) ConfigOption {
 	return func(config *Config) {
 		config.InitialListResourceVersion = resourceVersion
@@ -207,8 +210,8 @@ func (c Config) DeleteRecursive(k Key) Config {
 	return c.createCopy()
 }
 
-// DeleteAll removes all key values pairs for the configuration.
-// Returns a new empty Config with a change history containing all keys that haven been deleted.
+// DeleteAll removes all config entries.
+// Returns a new empty Config with a change history containing all keys that have been deleted.
 func (c Config) DeleteAll() Config {
 	// delete recursive from root
 	c.DeleteRecursive(keySeparator)
@@ -220,7 +223,7 @@ func (c Config) DeleteAll() Config {
 	}
 }
 
-// Diff returns a list of DiffResult with all values that differs for a given key.
+// Diff returns a list of DiffResult with all values that differ for a given key.
 func (c Config) Diff(other Config) []DiffResult {
 	m := make(map[Key]DiffResult, len(c.entries))
 
