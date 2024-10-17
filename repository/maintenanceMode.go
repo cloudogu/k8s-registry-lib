@@ -29,14 +29,14 @@ func NewMaintenanceModeAdapter(owner string, client ConfigMapClient) *Maintenanc
 	}
 }
 
-type maintenanceConfigObject struct {
+type maintenanceConfig struct {
 	Title  string `json:"title"`
 	Text   string `json:"text"`
 	Holder string `json:"holder,omitempty"`
 }
 
-func newMaintenanceConfigObject(owner string, description MaintenanceModeDescription) *maintenanceConfigObject {
-	return &maintenanceConfigObject{
+func newMaintenanceConfig(owner string, description MaintenanceModeDescription) *maintenanceConfig {
+	return &maintenanceConfig{
 		Title:  description.Title,
 		Text:   description.Text,
 		Holder: owner,
@@ -62,10 +62,10 @@ func (mma *MaintenanceModeAdapter) Activate(ctx context.Context, content Mainten
 }
 
 func (mma *MaintenanceModeAdapter) setMaintenanceModeInConfig(ctx context.Context, globalConfig config.GlobalConfig, content MaintenanceModeDescription) error {
-	configObject := newMaintenanceConfigObject(mma.owner, content)
-	jsonBytes, err := json.Marshal(configObject)
+	maintenanceConf := newMaintenanceConfig(mma.owner, content)
+	jsonBytes, err := json.Marshal(maintenanceConf)
 	if err != nil {
-		return errors.NewGenericError(fmt.Errorf("failed to serialize maintenance mode object: %w", err))
+		return errors.NewGenericError(fmt.Errorf("failed to serialize maintenance mode config: %w", err))
 	}
 
 	updatedConfig, err := globalConfig.Set(registryKeyMaintenance, config.Value(jsonBytes))
@@ -81,10 +81,10 @@ func (mma *MaintenanceModeAdapter) setMaintenanceModeInConfig(ctx context.Contex
 }
 
 func (mma *MaintenanceModeAdapter) checkForConflict(rawValue config.Value) error {
-	var value maintenanceConfigObject
+	var value maintenanceConfig
 	err := json.Unmarshal([]byte(rawValue), &value)
 	if err != nil {
-		return errors.NewGenericError(fmt.Errorf("failed to parse json of maintenance mode object: %w", err))
+		return errors.NewGenericError(fmt.Errorf("failed to parse json of maintenance mode config: %w", err))
 	}
 	if value.Holder != mma.owner {
 		return errors.NewConflictError(fmt.Errorf("maintenance mode %s is already activated by another owner: %s", rawValue, value.Holder))
