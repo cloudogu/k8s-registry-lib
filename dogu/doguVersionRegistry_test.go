@@ -41,7 +41,7 @@ func TestNewDoguVersionRegistry(t *testing.T) {
 
 func Test_versionRegistry_GetCurrent(t *testing.T) {
 	expectedDoguVersion := DoguVersion{
-		Name:    "cas",
+		Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
 		Version: parseVersionStr(t, casVersionStr),
 	}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}}
@@ -136,11 +136,11 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 
 func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 	expectedCasDoguVersion := DoguVersion{
-		Name:    "cas",
+		Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
 		Version: parseVersionStr(t, casVersionStr),
 	}
 	expectedLdapDoguVersion := DoguVersion{
-		Name:    "ldap",
+		Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("ldap")},
 		Version: parseVersionStr(t, ldapVersionStr),
 	}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
@@ -230,7 +230,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 			args: args{ctx: testCtx},
 			want: []DoguVersion{
 				{
-					Name:    "ldap",
+					Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("ldap")},
 					Version: parseVersionStr(t, "1.0.0"),
 				},
 			},
@@ -276,7 +276,9 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
+			args: args{ctx: testCtx, doguVersion: DoguVersion{
+				Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+				Version: parseVersionStr(t, casVersionStr)}},
 			want:    true,
 			wantErr: assert.NoError,
 		},
@@ -288,7 +290,9 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
+			args: args{ctx: testCtx, doguVersion: DoguVersion{
+				Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+				Version: parseVersionStr(t, casVersionStr)}},
 			want:    false,
 			wantErr: assert.NoError,
 		},
@@ -300,7 +304,9 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args:    args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, "7.0.5.1-2")}},
+			args: args{ctx: testCtx, doguVersion: DoguVersion{
+				Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+				Version: parseVersionStr(t, "7.0.5.1-2")}},
 			want:    false,
 			wantErr: assert.NoError,
 		},
@@ -312,7 +318,9 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, doguVersion: DoguVersion{"cas", parseVersionStr(t, casVersionStr)}},
+			args: args{ctx: testCtx, doguVersion: DoguVersion{
+				Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+				Version: parseVersionStr(t, casVersionStr)}},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"")
@@ -342,8 +350,9 @@ func Test_versionRegistry_Enable(t *testing.T) {
 		doguVersion DoguVersion
 	}
 	casArgs := args{
-		ctx:         testCtx,
-		doguVersion: DoguVersion{Name: "cas", Version: parseVersionStr(t, casVersionStr)},
+		ctx: testCtx,
+		doguVersion: DoguVersion{
+			Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")}, Version: parseVersionStr(t, casVersionStr)},
 	}
 	tests := []struct {
 		name              string
@@ -513,7 +522,8 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
 				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
-				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
+				assert.Equal(t, []DoguVersion{{
+					Name: cescommon.QualifiedDoguName{SimpleName: "cas"}, Version: casVersion}}, result.Diff)
 
 				addCancelFunc()
 			},
@@ -540,7 +550,8 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
 				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
-				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
+				assert.Equal(t, []DoguVersion{{
+					Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")}, Version: casVersion}}, result.Diff)
 
 				emptyAddCancelFunc()
 			},
@@ -566,7 +577,8 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				upgradedLdapVersion := parseVersionStr(t, upgradeLdapVersionStr)
 				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": upgradedLdapVersion})
-				assert.Equal(t, []DoguVersion{{Name: "ldap", Version: upgradedLdapVersion}}, result.Diff)
+				assert.Equal(t, []DoguVersion{{
+					Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("ldap")}, Version: upgradedLdapVersion}}, result.Diff)
 
 				modifyCancelFunc()
 			},
@@ -592,7 +604,8 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				ldapVersion := parseVersionStr(t, ldapVersionStr)
 				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{})
-				assert.Equal(t, []DoguVersion{{Name: "ldap", Version: ldapVersion}}, result.Diff)
+				assert.Equal(t, []DoguVersion{{
+					Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("ldap")}, Version: ldapVersion}}, result.Diff)
 
 				deleteCancelFunc()
 			},
@@ -852,7 +865,8 @@ func Test_handleModifiedWatchEvent(t *testing.T) {
 		require.NoError(t, result.Err)
 		assert.Len(t, result.Versions, 0)
 		assert.Equal(t, result.PrevVersions, expectedOldVersions)
-		assert.Equal(t, result.Diff, []DoguVersion{{"ldap", parseVersionStr(t, "1.0.0")}})
+		assert.Equal(t, result.Diff, []DoguVersion{{
+			Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("ldap")}, Version: parseVersionStr(t, "1.0.0")}})
 		assert.Len(t, persistentContext, 0)
 	})
 }

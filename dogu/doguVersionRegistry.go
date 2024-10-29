@@ -167,7 +167,7 @@ func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion DoguVersi
 		return err
 	})
 	if err != nil {
-		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to enable dogu %q with version %q: %w", doguVersion.Name, doguVersion.Version.Raw, err))
+		return cloudoguerrors.NewGenericError(fmt.Errorf("failed to enable dogu %q with version %q: %w", doguVersion.Name.SimpleName, doguVersion.Version.Raw, err))
 	}
 
 	return nil
