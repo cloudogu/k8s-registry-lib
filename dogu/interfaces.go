@@ -28,30 +28,25 @@ type configMapClient interface {
 	corev1client.ConfigMapInterface
 }
 
-type SimpleDoguName string
-
-// in common lib
-type DoguVersion = cescommon.QualifiedDoguVersion
-
 type DoguVersionRegistry interface {
-	GetCurrent(context.Context, cescommon.SimpleDoguName) (DoguVersion, error)
-	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
-	IsEnabled(context.Context, DoguVersion) (bool, error)
-	Enable(context.Context, DoguVersion) error
+	GetCurrent(context.Context, cescommon.SimpleDoguName) (cescommon.QualifiedDoguVersion, error)
+	GetCurrentOfAll(context.Context) ([]cescommon.QualifiedDoguVersion, error)
+	IsEnabled(context.Context, cescommon.QualifiedDoguVersion) (bool, error)
+	Enable(context.Context, cescommon.QualifiedDoguVersion) error
 	WatchAllCurrent(context.Context) (<-chan CurrentVersionsWatchResult, error)
 }
 
 type CurrentVersionsWatchResult struct {
 	Versions     map[cescommon.SimpleDoguName]core.Version
 	PrevVersions map[cescommon.SimpleDoguName]core.Version
-	Diff         []DoguVersion
+	Diff         []cescommon.QualifiedDoguVersion
 	Err          error
 }
 
 // LocalDoguDescriptorRepository is an append-only Repository, no updates will happen
 type LocalDoguDescriptorRepository interface {
-	Get(context.Context, DoguVersion) (*core.Dogu, error)
-	GetAll(context.Context, []DoguVersion) (map[DoguVersion]*core.Dogu, error)
+	Get(context.Context, cescommon.QualifiedDoguVersion) (*core.Dogu, error)
+	GetAll(context.Context, []cescommon.QualifiedDoguVersion) (map[cescommon.QualifiedDoguVersion]*core.Dogu, error)
 	Add(context.Context, cescommon.SimpleDoguName, *core.Dogu) error
 	DeleteAll(context.Context, cescommon.SimpleDoguName) error
 }

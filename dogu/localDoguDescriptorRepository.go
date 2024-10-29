@@ -23,7 +23,7 @@ func NewLocalDoguDescriptorRepository(configMapClient configMapClient) *localDog
 	}
 }
 
-func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion DoguVersion) (*core.Dogu, error) {
+func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion cescommon.QualifiedDoguVersion) (*core.Dogu, error) {
 	doguName := doguVersion.Name.SimpleName
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 	if err != nil {
@@ -53,12 +53,12 @@ func unmarshalDoguJsonStr(doguStr string, doguName cescommon.SimpleDoguName, dog
 	return dogu, nil
 }
 
-func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersions []DoguVersion) (map[DoguVersion]*core.Dogu, error) {
-	allDogus := make(map[DoguVersion]*core.Dogu, len(doguVersions))
-	versionsByDogu := map[cescommon.SimpleDoguName][]DoguVersion{}
+func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersions []cescommon.QualifiedDoguVersion) (map[cescommon.QualifiedDoguVersion]*core.Dogu, error) {
+	allDogus := make(map[cescommon.QualifiedDoguVersion]*core.Dogu, len(doguVersions))
+	versionsByDogu := map[cescommon.SimpleDoguName][]cescommon.QualifiedDoguVersion{}
 	for _, doguVersion := range doguVersions {
 		if versionsByDogu[doguVersion.Name.SimpleName] == nil {
-			versionsByDogu[doguVersion.Name.SimpleName] = []DoguVersion{}
+			versionsByDogu[doguVersion.Name.SimpleName] = []cescommon.QualifiedDoguVersion{}
 		}
 		versionsByDogu[doguVersion.Name.SimpleName] = append(versionsByDogu[doguVersion.Name.SimpleName], doguVersion)
 	}

@@ -5,6 +5,8 @@ package dogu
 import (
 	context "context"
 
+	ces_commons_libdogu "github.com/cloudogu/ces-commons-lib/dogu"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -22,7 +24,7 @@ func (_m *MockDoguVersionRegistry) EXPECT() *MockDoguVersionRegistry_Expecter {
 }
 
 // Enable provides a mock function with given fields: _a0, _a1
-func (_m *MockDoguVersionRegistry) Enable(_a0 context.Context, _a1 DoguVersion) error {
+func (_m *MockDoguVersionRegistry) Enable(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion) error {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -30,7 +32,7 @@ func (_m *MockDoguVersionRegistry) Enable(_a0 context.Context, _a1 DoguVersion) 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, DoguVersion) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
@@ -46,14 +48,14 @@ type MockDoguVersionRegistry_Enable_Call struct {
 
 // Enable is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 DoguVersion
+//   - _a1 ces_commons_libdogu.QualifiedDoguVersion
 func (_e *MockDoguVersionRegistry_Expecter) Enable(_a0 interface{}, _a1 interface{}) *MockDoguVersionRegistry_Enable_Call {
 	return &MockDoguVersionRegistry_Enable_Call{Call: _e.mock.On("Enable", _a0, _a1)}
 }
 
-func (_c *MockDoguVersionRegistry_Enable_Call) Run(run func(_a0 context.Context, _a1 DoguVersion)) *MockDoguVersionRegistry_Enable_Call {
+func (_c *MockDoguVersionRegistry_Enable_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion)) *MockDoguVersionRegistry_Enable_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(DoguVersion))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.QualifiedDoguVersion))
 	})
 	return _c
 }
@@ -63,31 +65,31 @@ func (_c *MockDoguVersionRegistry_Enable_Call) Return(_a0 error) *MockDoguVersio
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_Enable_Call) RunAndReturn(run func(context.Context, DoguVersion) error) *MockDoguVersionRegistry_Enable_Call {
+func (_c *MockDoguVersionRegistry_Enable_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) error) *MockDoguVersionRegistry_Enable_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetCurrent provides a mock function with given fields: _a0, _a1
-func (_m *MockDoguVersionRegistry) GetCurrent(_a0 context.Context, _a1 SimpleDoguName) (DoguVersion, error) {
+func (_m *MockDoguVersionRegistry) GetCurrent(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName) (ces_commons_libdogu.QualifiedDoguVersion, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCurrent")
 	}
 
-	var r0 DoguVersion
+	var r0 ces_commons_libdogu.QualifiedDoguVersion
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, SimpleDoguName) (DoguVersion, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleDoguName) (ces_commons_libdogu.QualifiedDoguVersion, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, SimpleDoguName) DoguVersion); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleDoguName) ces_commons_libdogu.QualifiedDoguVersion); ok {
 		r0 = rf(_a0, _a1)
 	} else {
-		r0 = ret.Get(0).(DoguVersion)
+		r0 = ret.Get(0).(ces_commons_libdogu.QualifiedDoguVersion)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, SimpleDoguName) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ces_commons_libdogu.SimpleDoguName) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -103,46 +105,46 @@ type MockDoguVersionRegistry_GetCurrent_Call struct {
 
 // GetCurrent is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 SimpleDoguName
+//   - _a1 ces_commons_libdogu.SimpleDoguName
 func (_e *MockDoguVersionRegistry_Expecter) GetCurrent(_a0 interface{}, _a1 interface{}) *MockDoguVersionRegistry_GetCurrent_Call {
 	return &MockDoguVersionRegistry_GetCurrent_Call{Call: _e.mock.On("GetCurrent", _a0, _a1)}
 }
 
-func (_c *MockDoguVersionRegistry_GetCurrent_Call) Run(run func(_a0 context.Context, _a1 SimpleDoguName)) *MockDoguVersionRegistry_GetCurrent_Call {
+func (_c *MockDoguVersionRegistry_GetCurrent_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName)) *MockDoguVersionRegistry_GetCurrent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(SimpleDoguName))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.SimpleDoguName))
 	})
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_GetCurrent_Call) Return(_a0 DoguVersion, _a1 error) *MockDoguVersionRegistry_GetCurrent_Call {
+func (_c *MockDoguVersionRegistry_GetCurrent_Call) Return(_a0 ces_commons_libdogu.QualifiedDoguVersion, _a1 error) *MockDoguVersionRegistry_GetCurrent_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_GetCurrent_Call) RunAndReturn(run func(context.Context, SimpleDoguName) (DoguVersion, error)) *MockDoguVersionRegistry_GetCurrent_Call {
+func (_c *MockDoguVersionRegistry_GetCurrent_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.SimpleDoguName) (ces_commons_libdogu.QualifiedDoguVersion, error)) *MockDoguVersionRegistry_GetCurrent_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetCurrentOfAll provides a mock function with given fields: _a0
-func (_m *MockDoguVersionRegistry) GetCurrentOfAll(_a0 context.Context) ([]DoguVersion, error) {
+func (_m *MockDoguVersionRegistry) GetCurrentOfAll(_a0 context.Context) ([]ces_commons_libdogu.QualifiedDoguVersion, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCurrentOfAll")
 	}
 
-	var r0 []DoguVersion
+	var r0 []ces_commons_libdogu.QualifiedDoguVersion
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]DoguVersion, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]ces_commons_libdogu.QualifiedDoguVersion, error)); ok {
 		return rf(_a0)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []DoguVersion); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []ces_commons_libdogu.QualifiedDoguVersion); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]DoguVersion)
+			r0 = ret.Get(0).([]ces_commons_libdogu.QualifiedDoguVersion)
 		}
 	}
 
@@ -173,18 +175,18 @@ func (_c *MockDoguVersionRegistry_GetCurrentOfAll_Call) Run(run func(_a0 context
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_GetCurrentOfAll_Call) Return(_a0 []DoguVersion, _a1 error) *MockDoguVersionRegistry_GetCurrentOfAll_Call {
+func (_c *MockDoguVersionRegistry_GetCurrentOfAll_Call) Return(_a0 []ces_commons_libdogu.QualifiedDoguVersion, _a1 error) *MockDoguVersionRegistry_GetCurrentOfAll_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_GetCurrentOfAll_Call) RunAndReturn(run func(context.Context) ([]DoguVersion, error)) *MockDoguVersionRegistry_GetCurrentOfAll_Call {
+func (_c *MockDoguVersionRegistry_GetCurrentOfAll_Call) RunAndReturn(run func(context.Context) ([]ces_commons_libdogu.QualifiedDoguVersion, error)) *MockDoguVersionRegistry_GetCurrentOfAll_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // IsEnabled provides a mock function with given fields: _a0, _a1
-func (_m *MockDoguVersionRegistry) IsEnabled(_a0 context.Context, _a1 DoguVersion) (bool, error) {
+func (_m *MockDoguVersionRegistry) IsEnabled(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion) (bool, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -193,16 +195,16 @@ func (_m *MockDoguVersionRegistry) IsEnabled(_a0 context.Context, _a1 DoguVersio
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, DoguVersion) (bool, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) (bool, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, DoguVersion) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) bool); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, DoguVersion) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -218,14 +220,14 @@ type MockDoguVersionRegistry_IsEnabled_Call struct {
 
 // IsEnabled is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 DoguVersion
+//   - _a1 ces_commons_libdogu.QualifiedDoguVersion
 func (_e *MockDoguVersionRegistry_Expecter) IsEnabled(_a0 interface{}, _a1 interface{}) *MockDoguVersionRegistry_IsEnabled_Call {
 	return &MockDoguVersionRegistry_IsEnabled_Call{Call: _e.mock.On("IsEnabled", _a0, _a1)}
 }
 
-func (_c *MockDoguVersionRegistry_IsEnabled_Call) Run(run func(_a0 context.Context, _a1 DoguVersion)) *MockDoguVersionRegistry_IsEnabled_Call {
+func (_c *MockDoguVersionRegistry_IsEnabled_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion)) *MockDoguVersionRegistry_IsEnabled_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(DoguVersion))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.QualifiedDoguVersion))
 	})
 	return _c
 }
@@ -235,7 +237,7 @@ func (_c *MockDoguVersionRegistry_IsEnabled_Call) Return(_a0 bool, _a1 error) *M
 	return _c
 }
 
-func (_c *MockDoguVersionRegistry_IsEnabled_Call) RunAndReturn(run func(context.Context, DoguVersion) (bool, error)) *MockDoguVersionRegistry_IsEnabled_Call {
+func (_c *MockDoguVersionRegistry_IsEnabled_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) (bool, error)) *MockDoguVersionRegistry_IsEnabled_Call {
 	_c.Call.Return(run)
 	return _c
 }
