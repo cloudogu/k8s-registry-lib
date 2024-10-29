@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,7 @@ func Test_localDoguDescriptorRepository_Add(t *testing.T) {
 
 	type args struct {
 		ctx  context.Context
-		name SimpleDoguName
+		name cescommon.SimpleDoguName
 		dogu *core.Dogu
 	}
 	tests := []struct {
@@ -160,7 +161,7 @@ func Test_localDoguDescriptorRepository_Add(t *testing.T) {
 func Test_localDoguDescriptorRepository_DeleteAll(t *testing.T) {
 	type args struct {
 		ctx  context.Context
-		name SimpleDoguName
+		name cescommon.SimpleDoguName
 	}
 	tests := []struct {
 		name              string
@@ -312,10 +313,10 @@ func Test_localDoguDescriptorRepository_GetAll(t *testing.T) {
 	ldapDogu := readLdapDogu(t)
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{casVersionStr: string(casBytes)}}
 	ldapRegistryCm := &corev1.ConfigMap{Data: map[string]string{ldapVersionStr: string(ldapBytes)}}
-	casDoguVersion := DoguVersion{Name: SimpleDoguName(casDogu.GetSimpleName()), Version: casVersion}
-	ldapDoguVersion := DoguVersion{Name: SimpleDoguName(ldapDogu.GetSimpleName()), Version: ldapVersion}
-	notFoundCasDoguVersion := DoguVersion{Name: SimpleDoguName(casDogu.GetSimpleName()), Version: parseVersionStr(t, "1.222.11-1")}
-	notFoundLdapDoguVersion := DoguVersion{Name: SimpleDoguName(ldapDogu.GetSimpleName()), Version: parseVersionStr(t, "1.222.11-1")}
+	casDoguVersion := DoguVersion{Name: cescommon.SimpleDoguName(casDogu.GetSimpleName()), Version: casVersion}
+	ldapDoguVersion := DoguVersion{Name: cescommon.SimpleDoguName(ldapDogu.GetSimpleName()), Version: ldapVersion}
+	notFoundCasDoguVersion := DoguVersion{Name: cescommon.SimpleDoguName(casDogu.GetSimpleName()), Version: parseVersionStr(t, "1.222.11-1")}
+	notFoundLdapDoguVersion := DoguVersion{Name: cescommon.SimpleDoguName(ldapDogu.GetSimpleName()), Version: parseVersionStr(t, "1.222.11-1")}
 	doguVersions := []DoguVersion{casDoguVersion, ldapDoguVersion}
 	notFoundDoguVersions := []DoguVersion{notFoundCasDoguVersion, notFoundLdapDoguVersion}
 

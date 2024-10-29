@@ -2,6 +2,7 @@ package dogu
 
 import (
 	"context"
+	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/cloudogu/cesapp-lib/core"
@@ -30,13 +31,10 @@ type configMapClient interface {
 type SimpleDoguName string
 
 // in common lib
-type DoguVersion struct {
-	Name    SimpleDoguName
-	Version core.Version
-}
+type DoguVersion = cescommon.QualifiedDoguVersion
 
 type DoguVersionRegistry interface {
-	GetCurrent(context.Context, SimpleDoguName) (DoguVersion, error)
+	GetCurrent(context.Context, cescommon.SimpleDoguName) (DoguVersion, error)
 	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
 	IsEnabled(context.Context, DoguVersion) (bool, error)
 	Enable(context.Context, DoguVersion) error
@@ -44,8 +42,8 @@ type DoguVersionRegistry interface {
 }
 
 type CurrentVersionsWatchResult struct {
-	Versions     map[SimpleDoguName]core.Version
-	PrevVersions map[SimpleDoguName]core.Version
+	Versions     map[cescommon.SimpleDoguName]core.Version
+	PrevVersions map[cescommon.SimpleDoguName]core.Version
 	Diff         []DoguVersion
 	Err          error
 }
@@ -54,6 +52,6 @@ type CurrentVersionsWatchResult struct {
 type LocalDoguDescriptorRepository interface {
 	Get(context.Context, DoguVersion) (*core.Dogu, error)
 	GetAll(context.Context, []DoguVersion) (map[DoguVersion]*core.Dogu, error)
-	Add(context.Context, SimpleDoguName, *core.Dogu) error
-	DeleteAll(context.Context, SimpleDoguName) error
+	Add(context.Context, cescommon.SimpleDoguName, *core.Dogu) error
+	DeleteAll(context.Context, cescommon.SimpleDoguName) error
 }

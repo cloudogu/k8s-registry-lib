@@ -3,6 +3,7 @@ package dogu
 import (
 	"context"
 	"fmt"
+	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/cesapp-lib/core"
 	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 
 	type args struct {
 		ctx  context.Context
-		name SimpleDoguName
+		name cescommon.SimpleDoguName
 	}
 	casArgs := args{
 		ctx:  testCtx,
@@ -422,7 +423,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 	deleteCancelCtx, deleteCancelFunc := context.WithCancel(context.Background())
 	errorCancelCtx, errorCancelFunc := context.WithCancel(context.Background())
 	ldapRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "1"}}
-	initialDoguVersionCtx := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr)}
+	initialDoguVersionCtx := map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr)}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap, ResourceVersion: "1"}}
 	registryCmList := &corev1.ConfigMapList{Items: []corev1.ConfigMap{*ldapRegistryCm}, ListMeta: metav1.ListMeta{ResourceVersion: "1"}}
 	emptyLdapRegistryCm := &corev1.ConfigMap{Data: map[string]string{}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "1"}}
@@ -511,7 +512,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
-				assert.Equal(t, result.Versions, map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
+				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
 				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
 
 				addCancelFunc()
@@ -538,7 +539,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
-				assert.Equal(t, result.Versions, map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
+				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
 				assert.Equal(t, []DoguVersion{{Name: "cas", Version: casVersion}}, result.Diff)
 
 				emptyAddCancelFunc()
@@ -564,7 +565,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				upgradedLdapVersion := parseVersionStr(t, upgradeLdapVersionStr)
-				assert.Equal(t, result.Versions, map[SimpleDoguName]core.Version{"ldap": upgradedLdapVersion})
+				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{"ldap": upgradedLdapVersion})
 				assert.Equal(t, []DoguVersion{{Name: "ldap", Version: upgradedLdapVersion}}, result.Diff)
 
 				modifyCancelFunc()
@@ -590,7 +591,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				ldapVersion := parseVersionStr(t, ldapVersionStr)
-				assert.Equal(t, result.Versions, map[SimpleDoguName]core.Version{})
+				assert.Equal(t, result.Versions, map[cescommon.SimpleDoguName]core.Version{})
 				assert.Equal(t, []DoguVersion{{Name: "ldap", Version: ldapVersion}}, result.Diff)
 
 				deleteCancelFunc()
@@ -818,7 +819,7 @@ func Test_handleModifiedWatchEvent(t *testing.T) {
 			Object: noCurrentConfigMap,
 		}
 
-		persistentContext := make(map[SimpleDoguName]core.Version)
+		persistentContext := make(map[cescommon.SimpleDoguName]core.Version)
 
 		// when
 		err := handleModifiedWatchEvent(testCtx, event, persistentContext, nil)
@@ -836,8 +837,8 @@ func Test_handleModifiedWatchEvent(t *testing.T) {
 			Object: noCurrentConfigMap,
 		}
 
-		persistentContext := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
-		expectedOldVersions := map[SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
+		persistentContext := map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
+		expectedOldVersions := map[cescommon.SimpleDoguName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
 		channel := make(chan CurrentVersionsWatchResult)
 
 		// when
