@@ -10,6 +10,8 @@ github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK3
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cloudogu/ces-commons-lib v0.0.0-20241025124828-7b1f6d570430 h1:Fvj5FPko2yXdKPUhZY+W0hElChAVKpxcikHGEcutnXY=
 github.com/cloudogu/ces-commons-lib v0.0.0-20241025124828-7b1f6d570430/go.mod h1:Ka1+otHzmNllo/Am+T/tTYfOFtQUYMT1vr7GIz3n1Eo=
+github.com/cloudogu/ces-commons-lib v0.0.0-20241030144542-5ac13c31b3f4 h1:rC2UCKH4wB3ZK3QuWoatMalprVa3HtDMV6yQ5rfKneQ=
+github.com/cloudogu/ces-commons-lib v0.0.0-20241030144542-5ac13c31b3f4/go.mod h1:4T30F7XQlJTb3gD8dXCVK/IIbvQbXD5jQHWTA+VgCLI=
 github.com/cloudogu/cesapp-lib v0.12.2 h1:++yK7s69DMCtpIt1nQ2x05cGAe6UH4KnsgEscV7wdq0=
 github.com/cloudogu/cesapp-lib v0.12.2/go.mod h1:PTQqI3xs1ReJMXYE6BGTF33yAfmS4J7P8UiE4AwDMDY=
 github.com/cloudogu/cesapp-lib v0.14.2 h1:AtRsQbS31d71DY7DXUhzwO07ZFI0Gz2+IHOhyeJdBhc=

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -45,7 +46,7 @@ func TestGlobalConfigRepository_Get(t *testing.T) {
 func TestGlobalConfigRepository_Create(t *testing.T) {
 	t.Run("Create Global Config", func(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().create(mock.Anything, createConfigName(_SimpleGlobalConfigName), config.SimpleDoguName(""), mock.Anything).Return(config.Config{PersistenceContext: resourceVersion}, nil)
+		mConfigRepo.EXPECT().create(mock.Anything, createConfigName(_SimpleGlobalConfigName), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{PersistenceContext: resourceVersion}, nil)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -58,7 +59,7 @@ func TestGlobalConfigRepository_Create(t *testing.T) {
 
 	t.Run("Config repo error", func(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().create(mock.Anything, createConfigName(_SimpleGlobalConfigName), config.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
+		mConfigRepo.EXPECT().create(mock.Anything, createConfigName(_SimpleGlobalConfigName), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -72,7 +73,7 @@ func TestGlobalConfigRepository_Create(t *testing.T) {
 func TestGlobalConfigRepository_Update(t *testing.T) {
 	t.Run("Update Global Config", func(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().update(mock.Anything, createConfigName(_SimpleGlobalConfigName), config.SimpleDoguName(""), mock.Anything).Return(config.Config{PersistenceContext: resourceVersion}, nil)
+		mConfigRepo.EXPECT().update(mock.Anything, createConfigName(_SimpleGlobalConfigName), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{PersistenceContext: resourceVersion}, nil)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -85,7 +86,7 @@ func TestGlobalConfigRepository_Update(t *testing.T) {
 
 	t.Run("Config repo error", func(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().update(mock.Anything, createConfigName(_SimpleGlobalConfigName), config.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
+		mConfigRepo.EXPECT().update(mock.Anything, createConfigName(_SimpleGlobalConfigName), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,

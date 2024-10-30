@@ -5,8 +5,8 @@ go 1.22.2
 toolchain go1.23.1
 
 require (
-	github.com/cloudogu/ces-commons-lib v0.0.0-20241025124828-7b1f6d570430
 	github.com/cloudogu/cesapp-lib v0.14.2
+	github.com/cloudogu/ces-commons-lib v0.0.0-20241030144542-5ac13c31b3f4
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 	github.com/testcontainers/testcontainers-go/modules/k3s v0.33.0
