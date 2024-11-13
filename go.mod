@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/cloudogu/ces-commons-lib v0.0.0-20241113093231-55d3fef793db
 	github.com/cloudogu/cesapp-lib v0.14.2
+	github.com/cloudogu/retry-lib v0.0.0-20241113091527-18b2721c6832
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 	github.com/testcontainers/testcontainers-go/modules/k3s v0.33.0
@@ -22,7 +23,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cloudogu/retry-lib v0.0.0-20241113091527-18b2721c6832 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.1 // indirect

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudogu/ces-commons-lib/dogu"
+	cloudoguerrors "github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/cloudogu/cesapp-lib/core"
-	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
+	"github.com/cloudogu/retry-lib/retry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 )
 
 type localDoguDescriptorRepository struct {
@@ -96,7 +96,7 @@ func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersi
 }
 
 func (lddr *localDoguDescriptorRepository) Add(ctx context.Context, name dogu.SimpleName, dogu *core.Dogu) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err := retry.OnConflict(func() error {
 		doguDescriptorConfigMap, err := getOrCreateDescriptorConfigMapForDogu(ctx, lddr.configMapClient, name)
 		if err != nil {
 			return err

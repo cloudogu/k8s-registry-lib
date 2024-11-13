@@ -7,17 +7,17 @@ import (
 	"maps"
 
 	"github.com/cloudogu/ces-commons-lib/dogu"
+	"github.com/cloudogu/retry-lib/retry"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	toolsWatch "k8s.io/client-go/tools/watch"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	cloudoguerrors "github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/cloudogu/cesapp-lib/core"
-	cloudoguerrors "github.com/cloudogu/k8s-registry-lib/errors"
 )
 
 const (
@@ -153,7 +153,7 @@ func (vr *doguVersionRegistry) IsEnabled(ctx context.Context, doguVersion dogu.Q
 }
 
 func (vr *doguVersionRegistry) Enable(ctx context.Context, doguVersion dogu.QualifiedVersion) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err := retry.OnConflict(func() error {
 		// do not create the registry here if not existent because it would be an invalid state without the dogu descriptor.
 		descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, doguVersion.Name.SimpleName)
 		if err != nil {
