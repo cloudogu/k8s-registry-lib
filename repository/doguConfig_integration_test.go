@@ -5,7 +5,6 @@ package repository
 
 import (
 	"context"
-	cescommons "github.com/cloudogu/ces-commons-lib"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ import (
 	"time"
 )
 
-func evaluateDoguConfig(ctx context.Context, t *testing.T, doguName cescommons.SimpleDoguName, expected config.Config, cmClient corev1client.ConfigMapInterface) {
+func evaluateDoguConfig(ctx context.Context, t *testing.T, doguName dogus.SimpleName, expected config.Config, cmClient corev1client.ConfigMapInterface) {
 	cm, err := cmClient.Get(ctx, createConfigName(string(doguName)).String(), metav1.GetOptions{})
 	assert.NoError(t, err)
 
@@ -27,7 +26,7 @@ func evaluateDoguConfig(ctx context.Context, t *testing.T, doguName cescommons.S
 	assert.Equal(t, expected, config.CreateConfig(cmConfig))
 }
 
-func evaluateSensitiveDoguConfig(ctx context.Context, t *testing.T, doguName cescommons.SimpleDoguName, expected config.Config, secretClient corev1client.SecretInterface) {
+func evaluateSensitiveDoguConfig(ctx context.Context, t *testing.T, doguName dogus.SimpleName, expected config.Config, secretClient corev1client.SecretInterface) {
 	cm, err := secretClient.Get(ctx, createConfigName(string(doguName)).String(), metav1.GetOptions{})
 	assert.NoError(t, err)
 
@@ -47,7 +46,7 @@ func TestDoguConfigRepository(t *testing.T) {
 	cmClient := client.CoreV1().ConfigMaps(namespace)
 	secretsClient := client.CoreV1().Secrets(namespace)
 
-	var doguName cescommons.SimpleDoguName = "myDogu"
+	var doguName dogus.SimpleName = "myDogu"
 
 	t.Run("test dogu-config-repo", func(t *testing.T) {
 		repo := NewDoguConfigRepository(cmClient)
@@ -92,7 +91,7 @@ func TestDoguConfigRepository(t *testing.T) {
 	t.Run("test sensitive-dogu-config-repo", func(t *testing.T) {
 		repo := NewSensitiveDoguConfigRepository(secretsClient)
 
-		var doguName cescommons.SimpleDoguName = "myDogu"
+		var doguName dogus.SimpleName = "myDogu"
 
 		//cleanUp
 		_ = repo.Delete(ctx, doguName)
@@ -142,7 +141,7 @@ func TestDoguConfigWatch(t *testing.T) {
 	cmClient := client.CoreV1().ConfigMaps(namespace)
 	secretsClient := client.CoreV1().Secrets(namespace)
 
-	var doguName cescommons.SimpleDoguName = "myDogu"
+	var doguName dogus.SimpleName = "myDogu"
 
 	t.Run("Watch dogu config", func(t *testing.T) {
 		doguWatchCtx, gCancel := context.WithTimeout(ctx, 3*time.Second)

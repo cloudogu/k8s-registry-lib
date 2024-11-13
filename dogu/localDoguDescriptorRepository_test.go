@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
+	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +42,7 @@ func Test_localDoguDescriptorRepository_Add(t *testing.T) {
 
 	type args struct {
 		ctx  context.Context
-		name cescommon.SimpleDoguName
+		name dogu.SimpleName
 		dogu *core.Dogu
 	}
 	tests := []struct {
@@ -161,7 +161,7 @@ func Test_localDoguDescriptorRepository_Add(t *testing.T) {
 func Test_localDoguDescriptorRepository_DeleteAll(t *testing.T) {
 	type args struct {
 		ctx  context.Context
-		name cescommon.SimpleDoguName
+		name dogu.SimpleName
 	}
 	tests := []struct {
 		name              string
@@ -213,13 +213,13 @@ func Test_localDoguDescriptorRepository_DeleteAll(t *testing.T) {
 
 func Test_localDoguDescriptorRepository_Get(t *testing.T) {
 	casVersion := parseVersionStr(t, casVersionStr)
-	doguVersion := cescommon.QualifiedDoguVersion{
-		Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+	doguVersion := dogu.QualifiedVersion{
+		Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("cas")},
 		Version: casVersion,
 	}
 
-	notFoundDoguVersion := cescommon.QualifiedDoguVersion{
-		Name:    cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName("cas")},
+	notFoundDoguVersion := dogu.QualifiedVersion{
+		Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("cas")},
 		Version: parseVersionStr(t, "1.11.12-1"),
 	}
 
@@ -229,7 +229,7 @@ func Test_localDoguDescriptorRepository_Get(t *testing.T) {
 
 	type args struct {
 		ctx         context.Context
-		doguVersion cescommon.QualifiedDoguVersion
+		doguVersion dogu.QualifiedVersion
 	}
 	tests := []struct {
 		name              string
@@ -313,27 +313,27 @@ func Test_localDoguDescriptorRepository_GetAll(t *testing.T) {
 	ldapDogu := readLdapDogu(t)
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{casVersionStr: string(casBytes)}}
 	ldapRegistryCm := &corev1.ConfigMap{Data: map[string]string{ldapVersionStr: string(ldapBytes)}}
-	casDoguVersion := cescommon.QualifiedDoguVersion{Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName(casDogu.GetSimpleName())}, Version: casVersion}
-	ldapDoguVersion := cescommon.QualifiedDoguVersion{Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName(ldapDogu.GetSimpleName())}, Version: ldapVersion}
-	notFoundCasDoguVersion := cescommon.QualifiedDoguVersion{Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName(casDogu.GetSimpleName())}, Version: parseVersionStr(t, "1.222.11-1")}
-	notFoundLdapDoguVersion := cescommon.QualifiedDoguVersion{Name: cescommon.QualifiedDoguName{SimpleName: cescommon.SimpleDoguName(ldapDogu.GetSimpleName())}, Version: parseVersionStr(t, "1.222.11-1")}
-	doguVersions := []cescommon.QualifiedDoguVersion{casDoguVersion, ldapDoguVersion}
-	notFoundDoguVersions := []cescommon.QualifiedDoguVersion{notFoundCasDoguVersion, notFoundLdapDoguVersion}
+	casDoguVersion := dogu.QualifiedVersion{Name: dogu.QualifiedName{SimpleName: dogu.SimpleName(casDogu.GetSimpleName())}, Version: casVersion}
+	ldapDoguVersion := dogu.QualifiedVersion{Name: dogu.QualifiedName{SimpleName: dogu.SimpleName(ldapDogu.GetSimpleName())}, Version: ldapVersion}
+	notFoundCasDoguVersion := dogu.QualifiedVersion{Name: dogu.QualifiedName{SimpleName: dogu.SimpleName(casDogu.GetSimpleName())}, Version: parseVersionStr(t, "1.222.11-1")}
+	notFoundLdapDoguVersion := dogu.QualifiedVersion{Name: dogu.QualifiedName{SimpleName: dogu.SimpleName(ldapDogu.GetSimpleName())}, Version: parseVersionStr(t, "1.222.11-1")}
+	doguVersions := []dogu.QualifiedVersion{casDoguVersion, ldapDoguVersion}
+	notFoundDoguVersions := []dogu.QualifiedVersion{notFoundCasDoguVersion, notFoundLdapDoguVersion}
 
-	expectedDoguVersionMap := map[cescommon.QualifiedDoguVersion]*core.Dogu{casDoguVersion: casDogu, ldapDoguVersion: ldapDogu}
+	expectedDoguVersionMap := map[dogu.QualifiedVersion]*core.Dogu{casDoguVersion: casDogu, ldapDoguVersion: ldapDogu}
 
 	invalidCasRegistryCm := &corev1.ConfigMap{Data: map[string]string{casVersionStr: "not valid"}}
 	invalidLdapRegistryCm := &corev1.ConfigMap{Data: map[string]string{ldapVersionStr: "not valid"}}
 
 	type args struct {
 		ctx          context.Context
-		doguVersions []cescommon.QualifiedDoguVersion
+		doguVersions []dogu.QualifiedVersion
 	}
 	tests := []struct {
 		name              string
 		configMapClientFn func(t *testing.T) configMapClient
 		args              args
-		want              map[cescommon.QualifiedDoguVersion]*core.Dogu
+		want              map[dogu.QualifiedVersion]*core.Dogu
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{

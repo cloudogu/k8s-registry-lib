@@ -26,7 +26,7 @@ func (_m *MockLocalDoguDescriptorRepository) EXPECT() *MockLocalDoguDescriptorRe
 }
 
 // Add provides a mock function with given fields: _a0, _a1, _a2
-func (_m *MockLocalDoguDescriptorRepository) Add(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName, _a2 *core.Dogu) error {
+func (_m *MockLocalDoguDescriptorRepository) Add(_a0 context.Context, _a1 ces_commons_libdogu.SimpleName, _a2 *core.Dogu) error {
 	ret := _m.Called(_a0, _a1, _a2)
 
 	if len(ret) == 0 {
@@ -34,7 +34,7 @@ func (_m *MockLocalDoguDescriptorRepository) Add(_a0 context.Context, _a1 ces_co
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleDoguName, *core.Dogu) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleName, *core.Dogu) error); ok {
 		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
@@ -50,15 +50,15 @@ type MockLocalDoguDescriptorRepository_Add_Call struct {
 
 // Add is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 ces_commons_libdogu.SimpleDoguName
+//   - _a1 ces_commons_libdogu.SimpleName
 //   - _a2 *core.Dogu
 func (_e *MockLocalDoguDescriptorRepository_Expecter) Add(_a0 interface{}, _a1 interface{}, _a2 interface{}) *MockLocalDoguDescriptorRepository_Add_Call {
 	return &MockLocalDoguDescriptorRepository_Add_Call{Call: _e.mock.On("Add", _a0, _a1, _a2)}
 }
 
-func (_c *MockLocalDoguDescriptorRepository_Add_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName, _a2 *core.Dogu)) *MockLocalDoguDescriptorRepository_Add_Call {
+func (_c *MockLocalDoguDescriptorRepository_Add_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.SimpleName, _a2 *core.Dogu)) *MockLocalDoguDescriptorRepository_Add_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(ces_commons_libdogu.SimpleDoguName), args[2].(*core.Dogu))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.SimpleName), args[2].(*core.Dogu))
 	})
 	return _c
 }
@@ -68,13 +68,13 @@ func (_c *MockLocalDoguDescriptorRepository_Add_Call) Return(_a0 error) *MockLoc
 	return _c
 }
 
-func (_c *MockLocalDoguDescriptorRepository_Add_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.SimpleDoguName, *core.Dogu) error) *MockLocalDoguDescriptorRepository_Add_Call {
+func (_c *MockLocalDoguDescriptorRepository_Add_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.SimpleName, *core.Dogu) error) *MockLocalDoguDescriptorRepository_Add_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // DeleteAll provides a mock function with given fields: _a0, _a1
-func (_m *MockLocalDoguDescriptorRepository) DeleteAll(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName) error {
+func (_m *MockLocalDoguDescriptorRepository) DeleteAll(_a0 context.Context, _a1 ces_commons_libdogu.SimpleName) error {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -82,7 +82,7 @@ func (_m *MockLocalDoguDescriptorRepository) DeleteAll(_a0 context.Context, _a1 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleDoguName) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.SimpleName) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
@@ -98,14 +98,14 @@ type MockLocalDoguDescriptorRepository_DeleteAll_Call struct {
 
 // DeleteAll is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 ces_commons_libdogu.SimpleDoguName
+//   - _a1 ces_commons_libdogu.SimpleName
 func (_e *MockLocalDoguDescriptorRepository_Expecter) DeleteAll(_a0 interface{}, _a1 interface{}) *MockLocalDoguDescriptorRepository_DeleteAll_Call {
 	return &MockLocalDoguDescriptorRepository_DeleteAll_Call{Call: _e.mock.On("DeleteAll", _a0, _a1)}
 }
 
-func (_c *MockLocalDoguDescriptorRepository_DeleteAll_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.SimpleDoguName)) *MockLocalDoguDescriptorRepository_DeleteAll_Call {
+func (_c *MockLocalDoguDescriptorRepository_DeleteAll_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.SimpleName)) *MockLocalDoguDescriptorRepository_DeleteAll_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(ces_commons_libdogu.SimpleDoguName))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.SimpleName))
 	})
 	return _c
 }
@@ -115,13 +115,13 @@ func (_c *MockLocalDoguDescriptorRepository_DeleteAll_Call) Return(_a0 error) *M
 	return _c
 }
 
-func (_c *MockLocalDoguDescriptorRepository_DeleteAll_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.SimpleDoguName) error) *MockLocalDoguDescriptorRepository_DeleteAll_Call {
+func (_c *MockLocalDoguDescriptorRepository_DeleteAll_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.SimpleName) error) *MockLocalDoguDescriptorRepository_DeleteAll_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Get provides a mock function with given fields: _a0, _a1
-func (_m *MockLocalDoguDescriptorRepository) Get(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion) (*core.Dogu, error) {
+func (_m *MockLocalDoguDescriptorRepository) Get(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedVersion) (*core.Dogu, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -130,10 +130,10 @@ func (_m *MockLocalDoguDescriptorRepository) Get(_a0 context.Context, _a1 ces_co
 
 	var r0 *core.Dogu
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) (*core.Dogu, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedVersion) (*core.Dogu, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) *core.Dogu); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ces_commons_libdogu.QualifiedVersion) *core.Dogu); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
@@ -141,7 +141,7 @@ func (_m *MockLocalDoguDescriptorRepository) Get(_a0 context.Context, _a1 ces_co
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ces_commons_libdogu.QualifiedVersion) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -157,14 +157,14 @@ type MockLocalDoguDescriptorRepository_Get_Call struct {
 
 // Get is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 ces_commons_libdogu.QualifiedDoguVersion
+//   - _a1 ces_commons_libdogu.QualifiedVersion
 func (_e *MockLocalDoguDescriptorRepository_Expecter) Get(_a0 interface{}, _a1 interface{}) *MockLocalDoguDescriptorRepository_Get_Call {
 	return &MockLocalDoguDescriptorRepository_Get_Call{Call: _e.mock.On("Get", _a0, _a1)}
 }
 
-func (_c *MockLocalDoguDescriptorRepository_Get_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedDoguVersion)) *MockLocalDoguDescriptorRepository_Get_Call {
+func (_c *MockLocalDoguDescriptorRepository_Get_Call) Run(run func(_a0 context.Context, _a1 ces_commons_libdogu.QualifiedVersion)) *MockLocalDoguDescriptorRepository_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(ces_commons_libdogu.QualifiedDoguVersion))
+		run(args[0].(context.Context), args[1].(ces_commons_libdogu.QualifiedVersion))
 	})
 	return _c
 }
@@ -174,33 +174,33 @@ func (_c *MockLocalDoguDescriptorRepository_Get_Call) Return(_a0 *core.Dogu, _a1
 	return _c
 }
 
-func (_c *MockLocalDoguDescriptorRepository_Get_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.QualifiedDoguVersion) (*core.Dogu, error)) *MockLocalDoguDescriptorRepository_Get_Call {
+func (_c *MockLocalDoguDescriptorRepository_Get_Call) RunAndReturn(run func(context.Context, ces_commons_libdogu.QualifiedVersion) (*core.Dogu, error)) *MockLocalDoguDescriptorRepository_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAll provides a mock function with given fields: _a0, _a1
-func (_m *MockLocalDoguDescriptorRepository) GetAll(_a0 context.Context, _a1 []ces_commons_libdogu.QualifiedDoguVersion) (map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu, error) {
+func (_m *MockLocalDoguDescriptorRepository) GetAll(_a0 context.Context, _a1 []ces_commons_libdogu.QualifiedVersion) (map[ces_commons_libdogu.QualifiedVersion]*core.Dogu, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAll")
 	}
 
-	var r0 map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu
+	var r0 map[ces_commons_libdogu.QualifiedVersion]*core.Dogu
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []ces_commons_libdogu.QualifiedDoguVersion) (map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ces_commons_libdogu.QualifiedVersion) (map[ces_commons_libdogu.QualifiedVersion]*core.Dogu, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []ces_commons_libdogu.QualifiedDoguVersion) map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ces_commons_libdogu.QualifiedVersion) map[ces_commons_libdogu.QualifiedVersion]*core.Dogu); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu)
+			r0 = ret.Get(0).(map[ces_commons_libdogu.QualifiedVersion]*core.Dogu)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []ces_commons_libdogu.QualifiedDoguVersion) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []ces_commons_libdogu.QualifiedVersion) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -216,24 +216,24 @@ type MockLocalDoguDescriptorRepository_GetAll_Call struct {
 
 // GetAll is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 []ces_commons_libdogu.QualifiedDoguVersion
+//   - _a1 []ces_commons_libdogu.QualifiedVersion
 func (_e *MockLocalDoguDescriptorRepository_Expecter) GetAll(_a0 interface{}, _a1 interface{}) *MockLocalDoguDescriptorRepository_GetAll_Call {
 	return &MockLocalDoguDescriptorRepository_GetAll_Call{Call: _e.mock.On("GetAll", _a0, _a1)}
 }
 
-func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) Run(run func(_a0 context.Context, _a1 []ces_commons_libdogu.QualifiedDoguVersion)) *MockLocalDoguDescriptorRepository_GetAll_Call {
+func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) Run(run func(_a0 context.Context, _a1 []ces_commons_libdogu.QualifiedVersion)) *MockLocalDoguDescriptorRepository_GetAll_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]ces_commons_libdogu.QualifiedDoguVersion))
+		run(args[0].(context.Context), args[1].([]ces_commons_libdogu.QualifiedVersion))
 	})
 	return _c
 }
 
-func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) Return(_a0 map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu, _a1 error) *MockLocalDoguDescriptorRepository_GetAll_Call {
+func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) Return(_a0 map[ces_commons_libdogu.QualifiedVersion]*core.Dogu, _a1 error) *MockLocalDoguDescriptorRepository_GetAll_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) RunAndReturn(run func(context.Context, []ces_commons_libdogu.QualifiedDoguVersion) (map[ces_commons_libdogu.QualifiedDoguVersion]*core.Dogu, error)) *MockLocalDoguDescriptorRepository_GetAll_Call {
+func (_c *MockLocalDoguDescriptorRepository_GetAll_Call) RunAndReturn(run func(context.Context, []ces_commons_libdogu.QualifiedVersion) (map[ces_commons_libdogu.QualifiedVersion]*core.Dogu, error)) *MockLocalDoguDescriptorRepository_GetAll_Call {
 	_c.Call.Return(run)
 	return _c
 }

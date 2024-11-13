@@ -26,7 +26,7 @@ func (_m *mockGeneralConfigRepository) EXPECT() *mockGeneralConfigRepository_Exp
 }
 
 // create provides a mock function with given fields: _a0, _a1, _a2, _a3
-func (_m *mockGeneralConfigRepository) create(_a0 context.Context, _a1 configName, _a2 dogu.SimpleDoguName, _a3 config.Config) (config.Config, error) {
+func (_m *mockGeneralConfigRepository) create(_a0 context.Context, _a1 configName, _a2 dogu.SimpleName, _a3 config.Config) (config.Config, error) {
 	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	if len(ret) == 0 {
@@ -35,16 +35,16 @@ func (_m *mockGeneralConfigRepository) create(_a0 context.Context, _a1 configNam
 
 	var r0 config.Config
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) (config.Config, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)); ok {
 		return rf(_a0, _a1, _a2, _a3)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) config.Config); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleName, config.Config) config.Config); ok {
 		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Get(0).(config.Config)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, configName, dogu.SimpleName, config.Config) error); ok {
 		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
@@ -61,15 +61,15 @@ type mockGeneralConfigRepository_create_Call struct {
 // create is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 configName
-//   - _a2 dogu.SimpleDoguName
+//   - _a2 dogu.SimpleName
 //   - _a3 config.Config
 func (_e *mockGeneralConfigRepository_Expecter) create(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}) *mockGeneralConfigRepository_create_Call {
 	return &mockGeneralConfigRepository_create_Call{Call: _e.mock.On("create", _a0, _a1, _a2, _a3)}
 }
 
-func (_c *mockGeneralConfigRepository_create_Call) Run(run func(_a0 context.Context, _a1 configName, _a2 dogu.SimpleDoguName, _a3 config.Config)) *mockGeneralConfigRepository_create_Call {
+func (_c *mockGeneralConfigRepository_create_Call) Run(run func(_a0 context.Context, _a1 configName, _a2 dogu.SimpleName, _a3 config.Config)) *mockGeneralConfigRepository_create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(configName), args[2].(dogu.SimpleDoguName), args[3].(config.Config))
+		run(args[0].(context.Context), args[1].(configName), args[2].(dogu.SimpleName), args[3].(config.Config))
 	})
 	return _c
 }
@@ -79,7 +79,7 @@ func (_c *mockGeneralConfigRepository_create_Call) Return(_a0 config.Config, _a1
 	return _c
 }
 
-func (_c *mockGeneralConfigRepository_create_Call) RunAndReturn(run func(context.Context, configName, dogu.SimpleDoguName, config.Config) (config.Config, error)) *mockGeneralConfigRepository_create_Call {
+func (_c *mockGeneralConfigRepository_create_Call) RunAndReturn(run func(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)) *mockGeneralConfigRepository_create_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -247,7 +247,7 @@ func (_c *mockGeneralConfigRepository_saveOrMerge_Call) RunAndReturn(run func(co
 }
 
 // update provides a mock function with given fields: _a0, _a1, _a2, _a3
-func (_m *mockGeneralConfigRepository) update(_a0 context.Context, _a1 configName, _a2 dogu.SimpleDoguName, _a3 config.Config) (config.Config, error) {
+func (_m *mockGeneralConfigRepository) update(_a0 context.Context, _a1 configName, _a2 dogu.SimpleName, _a3 config.Config) (config.Config, error) {
 	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	if len(ret) == 0 {
@@ -256,16 +256,16 @@ func (_m *mockGeneralConfigRepository) update(_a0 context.Context, _a1 configNam
 
 	var r0 config.Config
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) (config.Config, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)); ok {
 		return rf(_a0, _a1, _a2, _a3)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) config.Config); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, configName, dogu.SimpleName, config.Config) config.Config); ok {
 		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Get(0).(config.Config)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, configName, dogu.SimpleDoguName, config.Config) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, configName, dogu.SimpleName, config.Config) error); ok {
 		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
@@ -282,15 +282,15 @@ type mockGeneralConfigRepository_update_Call struct {
 // update is a helper method to define mock.On call
 //   - _a0 context.Context
 //   - _a1 configName
-//   - _a2 dogu.SimpleDoguName
+//   - _a2 dogu.SimpleName
 //   - _a3 config.Config
 func (_e *mockGeneralConfigRepository_Expecter) update(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}) *mockGeneralConfigRepository_update_Call {
 	return &mockGeneralConfigRepository_update_Call{Call: _e.mock.On("update", _a0, _a1, _a2, _a3)}
 }
 
-func (_c *mockGeneralConfigRepository_update_Call) Run(run func(_a0 context.Context, _a1 configName, _a2 dogu.SimpleDoguName, _a3 config.Config)) *mockGeneralConfigRepository_update_Call {
+func (_c *mockGeneralConfigRepository_update_Call) Run(run func(_a0 context.Context, _a1 configName, _a2 dogu.SimpleName, _a3 config.Config)) *mockGeneralConfigRepository_update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(configName), args[2].(dogu.SimpleDoguName), args[3].(config.Config))
+		run(args[0].(context.Context), args[1].(configName), args[2].(dogu.SimpleName), args[3].(config.Config))
 	})
 	return _c
 }
@@ -300,7 +300,7 @@ func (_c *mockGeneralConfigRepository_update_Call) Return(_a0 config.Config, _a1
 	return _c
 }
 
-func (_c *mockGeneralConfigRepository_update_Call) RunAndReturn(run func(context.Context, configName, dogu.SimpleDoguName, config.Config) (config.Config, error)) *mockGeneralConfigRepository_update_Call {
+func (_c *mockGeneralConfigRepository_update_Call) RunAndReturn(run func(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)) *mockGeneralConfigRepository_update_Call {
 	_c.Call.Return(run)
 	return _c
 }

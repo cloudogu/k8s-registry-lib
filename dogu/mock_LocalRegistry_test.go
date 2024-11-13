@@ -69,9 +69,9 @@ func (_c *MockLocalRegistry_Enable_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// GetCurrent provides a mock function with given fields: ctx, simpleDoguName
-func (_m *MockLocalRegistry) GetCurrent(ctx context.Context, simpleDoguName string) (*core.Dogu, error) {
-	ret := _m.Called(ctx, simpleDoguName)
+// GetCurrent provides a mock function with given fields: ctx, SimpleName
+func (_m *MockLocalRegistry) GetCurrent(ctx context.Context, SimpleName string) (*core.Dogu, error) {
+	ret := _m.Called(ctx, SimpleName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCurrent")
@@ -80,10 +80,10 @@ func (_m *MockLocalRegistry) GetCurrent(ctx context.Context, simpleDoguName stri
 	var r0 *core.Dogu
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.Dogu, error)); ok {
-		return rf(ctx, simpleDoguName)
+		return rf(ctx, SimpleName)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) *core.Dogu); ok {
-		r0 = rf(ctx, simpleDoguName)
+		r0 = rf(ctx, SimpleName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*core.Dogu)
@@ -91,7 +91,7 @@ func (_m *MockLocalRegistry) GetCurrent(ctx context.Context, simpleDoguName stri
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, simpleDoguName)
+		r1 = rf(ctx, SimpleName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -106,12 +106,12 @@ type MockLocalRegistry_GetCurrent_Call struct {
 
 // GetCurrent is a helper method to define mock.On call
 //   - ctx context.Context
-//   - simpleDoguName string
-func (_e *MockLocalRegistry_Expecter) GetCurrent(ctx interface{}, simpleDoguName interface{}) *MockLocalRegistry_GetCurrent_Call {
-	return &MockLocalRegistry_GetCurrent_Call{Call: _e.mock.On("GetCurrent", ctx, simpleDoguName)}
+//   - SimpleName string
+func (_e *MockLocalRegistry_Expecter) GetCurrent(ctx interface{}, SimpleName interface{}) *MockLocalRegistry_GetCurrent_Call {
+	return &MockLocalRegistry_GetCurrent_Call{Call: _e.mock.On("GetCurrent", ctx, SimpleName)}
 }
 
-func (_c *MockLocalRegistry_GetCurrent_Call) Run(run func(ctx context.Context, simpleDoguName string)) *MockLocalRegistry_GetCurrent_Call {
+func (_c *MockLocalRegistry_GetCurrent_Call) Run(run func(ctx context.Context, SimpleName string)) *MockLocalRegistry_GetCurrent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
@@ -186,9 +186,9 @@ func (_c *MockLocalRegistry_GetCurrentOfAll_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// IsEnabled provides a mock function with given fields: ctx, simpleDoguName
-func (_m *MockLocalRegistry) IsEnabled(ctx context.Context, simpleDoguName string) (bool, error) {
-	ret := _m.Called(ctx, simpleDoguName)
+// IsEnabled provides a mock function with given fields: ctx, SimpleName
+func (_m *MockLocalRegistry) IsEnabled(ctx context.Context, SimpleName string) (bool, error) {
+	ret := _m.Called(ctx, SimpleName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IsEnabled")
@@ -197,16 +197,16 @@ func (_m *MockLocalRegistry) IsEnabled(ctx context.Context, simpleDoguName strin
 	var r0 bool
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return rf(ctx, simpleDoguName)
+		return rf(ctx, SimpleName)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = rf(ctx, simpleDoguName)
+		r0 = rf(ctx, SimpleName)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, simpleDoguName)
+		r1 = rf(ctx, SimpleName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -221,12 +221,12 @@ type MockLocalRegistry_IsEnabled_Call struct {
 
 // IsEnabled is a helper method to define mock.On call
 //   - ctx context.Context
-//   - simpleDoguName string
-func (_e *MockLocalRegistry_Expecter) IsEnabled(ctx interface{}, simpleDoguName interface{}) *MockLocalRegistry_IsEnabled_Call {
-	return &MockLocalRegistry_IsEnabled_Call{Call: _e.mock.On("IsEnabled", ctx, simpleDoguName)}
+//   - SimpleName string
+func (_e *MockLocalRegistry_Expecter) IsEnabled(ctx interface{}, SimpleName interface{}) *MockLocalRegistry_IsEnabled_Call {
+	return &MockLocalRegistry_IsEnabled_Call{Call: _e.mock.On("IsEnabled", ctx, SimpleName)}
 }
 
-func (_c *MockLocalRegistry_IsEnabled_Call) Run(run func(ctx context.Context, simpleDoguName string)) *MockLocalRegistry_IsEnabled_Call {
+func (_c *MockLocalRegistry_IsEnabled_Call) Run(run func(ctx context.Context, SimpleName string)) *MockLocalRegistry_IsEnabled_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
@@ -290,9 +290,9 @@ func (_c *MockLocalRegistry_Register_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// UnregisterAllVersions provides a mock function with given fields: ctx, simpleDoguName
-func (_m *MockLocalRegistry) UnregisterAllVersions(ctx context.Context, simpleDoguName string) error {
-	ret := _m.Called(ctx, simpleDoguName)
+// UnregisterAllVersions provides a mock function with given fields: ctx, SimpleName
+func (_m *MockLocalRegistry) UnregisterAllVersions(ctx context.Context, SimpleName string) error {
+	ret := _m.Called(ctx, SimpleName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UnregisterAllVersions")
@@ -300,7 +300,7 @@ func (_m *MockLocalRegistry) UnregisterAllVersions(ctx context.Context, simpleDo
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, simpleDoguName)
+		r0 = rf(ctx, SimpleName)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -315,12 +315,12 @@ type MockLocalRegistry_UnregisterAllVersions_Call struct {
 
 // UnregisterAllVersions is a helper method to define mock.On call
 //   - ctx context.Context
-//   - simpleDoguName string
-func (_e *MockLocalRegistry_Expecter) UnregisterAllVersions(ctx interface{}, simpleDoguName interface{}) *MockLocalRegistry_UnregisterAllVersions_Call {
-	return &MockLocalRegistry_UnregisterAllVersions_Call{Call: _e.mock.On("UnregisterAllVersions", ctx, simpleDoguName)}
+//   - SimpleName string
+func (_e *MockLocalRegistry_Expecter) UnregisterAllVersions(ctx interface{}, SimpleName interface{}) *MockLocalRegistry_UnregisterAllVersions_Call {
+	return &MockLocalRegistry_UnregisterAllVersions_Call{Call: _e.mock.On("UnregisterAllVersions", ctx, SimpleName)}
 }
 
-func (_c *MockLocalRegistry_UnregisterAllVersions_Call) Run(run func(ctx context.Context, simpleDoguName string)) *MockLocalRegistry_UnregisterAllVersions_Call {
+func (_c *MockLocalRegistry_UnregisterAllVersions_Call) Run(run func(ctx context.Context, SimpleName string)) *MockLocalRegistry_UnregisterAllVersions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})

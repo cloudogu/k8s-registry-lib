@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	cescommon "github.com/cloudogu/ces-commons-lib/dogu"
+	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/cloudogu/k8s-registry-lib/errors"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func Test_defaultSwitcher_Activate(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
 		globalConfig := config.CreateConfig(config.Entries{})
 		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), cescommon.SimpleDoguName(""), mock.Anything).Return(globalConfig, nil)
+		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(globalConfig, nil)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -75,7 +75,7 @@ func Test_defaultSwitcher_Activate(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
 		globalConfig := config.CreateConfig(config.Entries{})
 		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
+		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, assert.AnError)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -227,7 +227,7 @@ func TestSwitch_Deactivate(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
 		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-blueprint-operator\"}"})
 		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{}, nil)
+		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, nil)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
@@ -252,7 +252,7 @@ func TestSwitch_Deactivate(t *testing.T) {
 		mConfigRepo := newMockGeneralConfigRepository(t)
 		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-blueprint-operator\"}"})
 		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), cescommon.SimpleDoguName(""), mock.Anything).Return(config.Config{}, assert.AnError)
+		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, assert.AnError)
 
 		repo := &GlobalConfigRepository{
 			generalConfigRepository: mConfigRepo,
