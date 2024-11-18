@@ -41,27 +41,23 @@ func NewDoguVersionRegistry(configMapClient configMapClient) *doguVersionRegistr
 	}
 }
 
-func (vr *doguVersionRegistry) GetCurrent(ctx context.Context, name dogu.SimpleName) (dogu.QualifiedVersion, error) {
+func (vr *doguVersionRegistry) GetCurrent(ctx context.Context, name dogu.SimpleName) (DoguVersion, error) {
 	descriptor, err := getDescriptorConfigMapForDogu(ctx, vr.configMapClient, name)
 	if err != nil {
-		return dogu.QualifiedVersion{}, err
+		return DoguVersion{}, err
 	}
 
 	currentDoguVersion, ok := descriptor.Data[currentVersionKey]
 	if !ok {
-		return dogu.QualifiedVersion{}, getDoguRegistryKeyNotFoundError(currentVersionKey, name)
+		return DoguVersion{}, getDoguRegistryKeyNotFoundError(currentVersionKey, name)
 	}
 
 	version, err := parseDoguVersion(currentDoguVersion, name)
 	if err != nil {
-		return dogu.QualifiedVersion{}, cloudoguerrors.NewGenericError(err)
+		return DoguVersion{}, cloudoguerrors.NewGenericError(err)
 	}
 
-	QualifiedName := dogu.QualifiedName{
-		SimpleName: name,
-	}
-
-	return dogu.QualifiedVersion{Name: QualifiedName, Version: version}, nil
+	return DoguVersion{Name: name, Version: version}, nil
 }
 
 func parseDoguVersion(version string, name dogu.SimpleName) (core.Version, error) {
@@ -89,14 +85,14 @@ func getDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMa
 	return get, nil
 }
 
-func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]dogu.QualifiedVersion, error) {
+func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]DoguVersion, error) {
 	registryList, err := getAllDescriptorConfigMaps(ctx, vr.configMapClient)
 	if err != nil {
 		return nil, err
 	}
 
 	var errs []error
-	doguVersions := make([]dogu.QualifiedVersion, 0, len(registryList.Items))
+	doguVersions := make([]DoguVersion, 0, len(registryList.Items))
 	for _, localRegistry := range registryList.Items {
 		currentVersion, ok := localRegistry.Data[currentVersionKey]
 		if !ok {
@@ -110,11 +106,7 @@ func (vr *doguVersionRegistry) GetCurrentOfAll(ctx context.Context) ([]dogu.Qual
 			continue
 		}
 
-		QualifiedName := dogu.QualifiedName{
-			SimpleName: doguName,
-		}
-
-		doguVersions = append(doguVersions, dogu.QualifiedVersion{Name: QualifiedName, Version: version})
+		doguVersions = append(doguVersions, DoguVersion{Name: doguName, Version: version})
 	}
 
 	err = errors.Join(errs...)

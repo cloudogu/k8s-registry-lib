@@ -12,9 +12,14 @@ type configMapClient interface {
 	corev1client.ConfigMapInterface
 }
 
+type DoguVersion struct {
+	Name    dogu.SimpleName
+	Version core.Version
+}
+
 type DoguVersionRegistry interface {
-	GetCurrent(context.Context, dogu.SimpleName) (dogu.QualifiedVersion, error)
-	GetCurrentOfAll(context.Context) ([]dogu.QualifiedVersion, error)
+	GetCurrent(context.Context, dogu.SimpleName) (DoguVersion, error)
+	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
 	IsEnabled(context.Context, dogu.QualifiedVersion) (bool, error)
 	Enable(context.Context, dogu.QualifiedVersion) error
 	WatchAllCurrent(context.Context) (<-chan CurrentVersionsWatchResult, error)

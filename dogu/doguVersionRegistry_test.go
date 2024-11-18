@@ -40,8 +40,8 @@ func TestNewDoguVersionRegistry(t *testing.T) {
 }
 
 func Test_versionRegistry_GetCurrent(t *testing.T) {
-	expectedDoguVersion := dogu.QualifiedVersion{
-		Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("cas")},
+	expectedDoguVersion := DoguVersion{
+		Name:    dogu.SimpleName("cas"),
 		Version: parseVersionStr(t, casVersionStr),
 	}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}}
@@ -58,7 +58,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 		name              string
 		configMapClientFn func(t *testing.T) configMapClient
 		args              args
-		want              dogu.QualifiedVersion
+		want              DoguVersion
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
@@ -82,7 +82,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: dogu.QualifiedVersion{},
+			want: DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"", i)
@@ -97,7 +97,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: dogu.QualifiedVersion{},
+			want: DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsNotFoundError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get value for key \"current\" for dogu registry \"cas\"", i)
@@ -112,7 +112,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: dogu.QualifiedVersion{},
+			want: DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to parse version \"abc\" for dogu \"cas\"", i)
@@ -135,12 +135,12 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 }
 
 func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
-	expectedCasDoguVersion := dogu.QualifiedVersion{
-		Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("cas")},
+	expectedCasDoguVersion := DoguVersion{
+		Name:    dogu.SimpleName("cas"),
 		Version: parseVersionStr(t, casVersionStr),
 	}
-	expectedLdapDoguVersion := dogu.QualifiedVersion{
-		Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("ldap")},
+	expectedLdapDoguVersion := DoguVersion{
+		Name:    dogu.SimpleName("ldap"),
 		Version: parseVersionStr(t, ldapVersionStr),
 	}
 	casRegistryCm := &corev1.ConfigMap{Data: map[string]string{"current": casVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
@@ -154,7 +154,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 		name              string
 		configMapClientFn func(t *testing.T) configMapClient
 		args              args
-		want              []dogu.QualifiedVersion
+		want              []DoguVersion
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
@@ -166,7 +166,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args:    args{ctx: testCtx},
-			want:    []dogu.QualifiedVersion{expectedCasDoguVersion, expectedLdapDoguVersion},
+			want:    []DoguVersion{expectedCasDoguVersion, expectedLdapDoguVersion},
 			wantErr: assert.NoError,
 		},
 		{
@@ -180,7 +180,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args:    args{ctx: testCtx},
-			want:    []dogu.QualifiedVersion{expectedLdapDoguVersion},
+			want:    []DoguVersion{expectedLdapDoguVersion},
 			wantErr: assert.NoError,
 		},
 		{
@@ -210,7 +210,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args: args{ctx: testCtx},
-			want: []dogu.QualifiedVersion{},
+			want: []DoguVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get some dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc: strconv.Atoi: parsing \"abc\": invalid syntax\nfailed to parse version \"abcd\" for dogu \"ldap\": failed to parse major version abcd: strconv.Atoi: parsing \"abcd\": invalid syntax")
@@ -228,9 +228,9 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args: args{ctx: testCtx},
-			want: []dogu.QualifiedVersion{
+			want: []DoguVersion{
 				{
-					Name:    dogu.QualifiedName{SimpleName: dogu.SimpleName("ldap")},
+					Name:    dogu.SimpleName("ldap"),
 					Version: parseVersionStr(t, "1.0.0"),
 				},
 			},
