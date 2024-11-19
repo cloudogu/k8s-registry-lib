@@ -20,22 +20,22 @@ type DoguVersion struct {
 type DoguVersionRegistry interface {
 	GetCurrent(context.Context, dogu.SimpleName) (DoguVersion, error)
 	GetCurrentOfAll(context.Context) ([]DoguVersion, error)
-	IsEnabled(context.Context, dogu.QualifiedVersion) (bool, error)
-	Enable(context.Context, dogu.QualifiedVersion) error
+	IsEnabled(context.Context, DoguVersion) (bool, error)
+	Enable(context.Context, DoguVersion) error
 	WatchAllCurrent(context.Context) (<-chan CurrentVersionsWatchResult, error)
 }
 
 type CurrentVersionsWatchResult struct {
 	Versions     map[dogu.SimpleName]core.Version
 	PrevVersions map[dogu.SimpleName]core.Version
-	Diff         []dogu.QualifiedVersion
+	Diff         []DoguVersion
 	Err          error
 }
 
 // LocalDoguDescriptorRepository is an append-only Repository, no updates will happen
 type LocalDoguDescriptorRepository interface {
-	Get(context.Context, dogu.QualifiedVersion) (*core.Dogu, error)
-	GetAll(context.Context, []dogu.QualifiedVersion) (map[dogu.QualifiedVersion]*core.Dogu, error)
+	Get(context.Context, DoguVersion) (*core.Dogu, error)
+	GetAll(context.Context, []DoguVersion) (map[DoguVersion]*core.Dogu, error)
 	Add(context.Context, dogu.SimpleName, *core.Dogu) error
 	DeleteAll(context.Context, dogu.SimpleName) error
 }
