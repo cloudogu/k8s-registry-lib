@@ -8,16 +8,10 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
-github.com/cloudogu/ces-commons-lib v0.0.0-20241113093231-55d3fef793db h1:PSaAXKQYc1OufKznP3/Sm2UY5QylgNxura6kV6zKXwg=
-github.com/cloudogu/ces-commons-lib v0.0.0-20241113093231-55d3fef793db/go.mod h1:Ldi/dVhgrZfsPkB2zaXs8IoT7ExhWvS36vcwx1ems2I=
 github.com/cloudogu/ces-commons-lib v0.1.0 h1:4ccgKDlt08Kxsk1V5Ch6poPCUagrO415XFYRAKwPxPo=
 github.com/cloudogu/ces-commons-lib v0.1.0/go.mod h1:4rvR2RTDDaz5a6OZ1fW27G0MOnl5I3ackeiHxt4gn3o=
-github.com/cloudogu/cesapp-lib v0.14.2 h1:AtRsQbS31d71DY7DXUhzwO07ZFI0Gz2+IHOhyeJdBhc=
-github.com/cloudogu/cesapp-lib v0.14.2/go.mod h1:52PfkrFYg54FjF8Se8P9b1zOfAhmg3PBFKr7YfS+Q+8=
 github.com/cloudogu/cesapp-lib v0.15.0 h1:5jcf3A0LQ2DUjoiLWMv1V/rHmV6m3u+8cYZiuvGLaSM=
 github.com/cloudogu/cesapp-lib v0.15.0/go.mod h1:52PfkrFYg54FjF8Se8P9b1zOfAhmg3PBFKr7YfS+Q+8=
-github.com/cloudogu/retry-lib v0.0.0-20241113091527-18b2721c6832 h1:UM3ixTDFJ/CRYmXimSavn2J7CskpMuQoskJUtUp31bo=
-github.com/cloudogu/retry-lib v0.0.0-20241113091527-18b2721c6832/go.mod h1:iG9y6zx8oJZT5ULtl9koZkYJLRsqam/2mTU+rgjxQ0g=
 github.com/cloudogu/retry-lib v0.1.0 h1:gaAmtyjUqgHbxfCWMeUn0qnGbDH4TtZVSQkbZ1Nq6eI=
 github.com/cloudogu/retry-lib v0.1.0/go.mod h1:iG9y6zx8oJZT5ULtl9koZkYJLRsqam/2mTU+rgjxQ0g=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
