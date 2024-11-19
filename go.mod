@@ -1,19 +1,19 @@
 module github.com/cloudogu/k8s-registry-lib
 
-go 1.22.0
-
-toolchain go1.22.5
+go 1.23.1
 
 require (
-	github.com/cloudogu/cesapp-lib v0.12.2
+	github.com/cloudogu/ces-commons-lib v0.2.0
+	github.com/cloudogu/cesapp-lib v0.15.0
+	github.com/cloudogu/retry-lib v0.1.0
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 	github.com/testcontainers/testcontainers-go/modules/k3s v0.33.0
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.31.0
-	k8s.io/apimachinery v0.31.0
-	k8s.io/client-go v0.31.0
+	k8s.io/api v0.31.2
+	k8s.io/apimachinery v0.31.2
+	k8s.io/client-go v0.31.2
 	sigs.k8s.io/controller-runtime v0.19.0
 )
 
@@ -36,6 +36,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/gammazero/toposort v0.1.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

@@ -1,9 +1,8 @@
 ARTIFACT_ID=k8s-registry-lib
 VERSION=0.5.0
-GOTAG?=1.22
-MAKEFILES_VERSION=9.1.0
+GOTAG?=1.23.1
+MAKEFILES_VERSION=9.3.2
 .DEFAULT_GOAL:=default
-LINT_VERSION=v1.57.2
 
 include build/make/variables.mk
 include build/make/self-update.mk

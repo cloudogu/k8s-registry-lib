@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"reflect"
 	"strings"
@@ -65,7 +66,7 @@ func (cr configRepository) delete(ctx context.Context, name configName) error {
 	return nil
 }
 
-func (cr configRepository) create(ctx context.Context, name configName, doguName config.SimpleDoguName, cfg config.Config) (config.Config, error) {
+func (cr configRepository) create(ctx context.Context, name configName, doguName dogu.SimpleName, cfg config.Config) (config.Config, error) {
 	var buf bytes.Buffer
 
 	if err := cr.converter.Write(&buf, cfg.GetAll()); err != nil {
@@ -82,7 +83,7 @@ func (cr configRepository) create(ctx context.Context, name configName, doguName
 	return cfg, nil
 }
 
-func (cr configRepository) update(ctx context.Context, name configName, doguName config.SimpleDoguName, cfg config.Config) (config.Config, error) {
+func (cr configRepository) update(ctx context.Context, name configName, doguName dogu.SimpleName, cfg config.Config) (config.Config, error) {
 	var buf bytes.Buffer
 
 	if err := cr.converter.Write(&buf, cfg.GetAll()); err != nil {
