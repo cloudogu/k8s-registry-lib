@@ -40,7 +40,7 @@ func TestNewDoguVersionRegistry(t *testing.T) {
 }
 
 func Test_versionRegistry_GetCurrent(t *testing.T) {
-	expectedDoguVersion := DoguVersion{
+	expectedDoguVersion := dogu.SimpleNameVersion{
 		Name:    dogu.SimpleName("cas"),
 		Version: parseVersionStr(t, casVersionStr),
 	}
@@ -58,7 +58,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 		name              string
 		configMapClientFn func(t *testing.T) configMapClient
 		args              args
-		want              DoguVersion
+		want              dogu.SimpleNameVersion
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
@@ -82,7 +82,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: DoguVersion{},
+			want: dogu.SimpleNameVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get dogu descriptor config map for dogu \"cas\"", i)
@@ -97,7 +97,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: DoguVersion{},
+			want: dogu.SimpleNameVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsNotFoundError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get value for key \"current\" for dogu registry \"cas\"", i)
@@ -112,7 +112,7 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 				return configMapClientMock
 			},
 			args: casArgs,
-			want: DoguVersion{},
+			want: dogu.SimpleNameVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to parse version \"abc\" for dogu \"cas\"", i)
@@ -135,11 +135,11 @@ func Test_versionRegistry_GetCurrent(t *testing.T) {
 }
 
 func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
-	expectedCasDoguVersion := DoguVersion{
+	expectedCasDoguVersion := dogu.SimpleNameVersion{
 		Name:    dogu.SimpleName("cas"),
 		Version: parseVersionStr(t, casVersionStr),
 	}
-	expectedLdapDoguVersion := DoguVersion{
+	expectedLdapDoguVersion := dogu.SimpleNameVersion{
 		Name:    dogu.SimpleName("ldap"),
 		Version: parseVersionStr(t, ldapVersionStr),
 	}
@@ -154,7 +154,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 		name              string
 		configMapClientFn func(t *testing.T) configMapClient
 		args              args
-		want              []DoguVersion
+		want              []dogu.SimpleNameVersion
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
@@ -166,7 +166,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args:    args{ctx: testCtx},
-			want:    []DoguVersion{expectedCasDoguVersion, expectedLdapDoguVersion},
+			want:    []dogu.SimpleNameVersion{expectedCasDoguVersion, expectedLdapDoguVersion},
 			wantErr: assert.NoError,
 		},
 		{
@@ -180,7 +180,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args:    args{ctx: testCtx},
-			want:    []DoguVersion{expectedLdapDoguVersion},
+			want:    []dogu.SimpleNameVersion{expectedLdapDoguVersion},
 			wantErr: assert.NoError,
 		},
 		{
@@ -210,7 +210,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args: args{ctx: testCtx},
-			want: []DoguVersion{},
+			want: []dogu.SimpleNameVersion{},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), i) &&
 					assert.ErrorContains(t, err, "failed to get some dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc: strconv.Atoi: parsing \"abc\": invalid syntax\nfailed to parse version \"abcd\" for dogu \"ldap\": failed to parse major version abcd: strconv.Atoi: parsing \"abcd\": invalid syntax")
@@ -228,7 +228,7 @@ func Test_versionRegistry_GetCurrentOfAll(t *testing.T) {
 				return configMapClientMock
 			},
 			args: args{ctx: testCtx},
-			want: []DoguVersion{
+			want: []dogu.SimpleNameVersion{
 				{
 					Name:    dogu.SimpleName("ldap"),
 					Version: parseVersionStr(t, "1.0.0"),
@@ -259,7 +259,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 	casRegistryCmWithOutCurrent := &corev1.ConfigMap{Data: map[string]string{casVersionStr: readCasDoguStr(t)}, ObjectMeta: metav1.ObjectMeta{Labels: casVersionRegistryLabelMap}}
 	type args struct {
 		ctx         context.Context
-		doguVersion DoguVersion
+		doguVersion dogu.SimpleNameVersion
 	}
 	tests := []struct {
 		name              string
@@ -276,7 +276,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, doguVersion: DoguVersion{
+			args: args{ctx: testCtx, doguVersion: dogu.SimpleNameVersion{
 				Name:    dogu.SimpleName("cas"),
 				Version: parseVersionStr(t, casVersionStr)}},
 			want:    true,
@@ -290,7 +290,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, doguVersion: DoguVersion{
+			args: args{ctx: testCtx, doguVersion: dogu.SimpleNameVersion{
 				Name:    dogu.SimpleName("cas"),
 				Version: parseVersionStr(t, casVersionStr)}},
 			want:    false,
@@ -304,7 +304,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, doguVersion: DoguVersion{
+			args: args{ctx: testCtx, doguVersion: dogu.SimpleNameVersion{
 				Name:    dogu.SimpleName("cas"),
 				Version: parseVersionStr(t, "7.0.5.1-2")}},
 			want:    false,
@@ -318,7 +318,7 @@ func Test_versionRegistry_IsEnabled(t *testing.T) {
 
 				return configMapClientMock
 			},
-			args: args{ctx: testCtx, doguVersion: DoguVersion{
+			args: args{ctx: testCtx, doguVersion: dogu.SimpleNameVersion{
 				Name:    dogu.SimpleName("cas"),
 				Version: parseVersionStr(t, casVersionStr)}},
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
@@ -347,11 +347,11 @@ func Test_versionRegistry_Enable(t *testing.T) {
 
 	type args struct {
 		ctx         context.Context
-		doguVersion DoguVersion
+		doguVersion dogu.SimpleNameVersion
 	}
 	casArgs := args{
 		ctx: testCtx,
-		doguVersion: DoguVersion{
+		doguVersion: dogu.SimpleNameVersion{
 			Name: dogu.SimpleName("cas"), Version: parseVersionStr(t, casVersionStr)},
 	}
 	tests := []struct {
@@ -445,7 +445,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 		configMapClientFn func(t *testing.T, watchInterface *watch.FakeWatcher) configMapClient
 		args              args
 		eventMockFn       func(watchInterface *watch.FakeWatcher)
-		expectFn          func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult)
+		expectFn          func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult)
 		wantErr           assert.ErrorAssertionFunc
 	}{
 		{
@@ -461,7 +461,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), "error is not generic error", i) &&
 					assert.ErrorContains(t, err, "failed to list initial descriptor configmaps: failed to get all cluster native local dogu registries", i)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				assert.Nil(t, watchCh)
 			},
 		},
@@ -480,7 +480,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				return assert.True(t, cloudoguerrors.IsGenericError(err), "error is not generic error", i) &&
 					assert.ErrorContains(t, err, "failed to create persistence context for current dogu versions: failed to parse version \"abc\" for dogu \"cas\": failed to parse major version abc", i)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				assert.Nil(t, watchCh)
 			},
 		},
@@ -499,7 +499,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				return assert.True(t, cloudoguerrors.IsGenericError(err)) &&
 					assert.ErrorContains(t, err, "failed to create watch for current dogu versions")
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				assert.Nil(t, watchCh)
 			},
 		},
@@ -516,13 +516,13 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 			eventMockFn: func(watchInterface *watch.FakeWatcher) {
 				watchInterface.Add(casRegistryCm)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				result := <-watchCh
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
 				assert.Equal(t, result.Versions, map[dogu.SimpleName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
-				assert.Equal(t, []DoguVersion{{
+				assert.Equal(t, []dogu.SimpleNameVersion{{
 					Name: "cas", Version: casVersion}}, result.Diff)
 
 				addCancelFunc()
@@ -544,13 +544,13 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				// We have to send two events because is not possible to check if no event is thrown.
 				watchInterface.Add(casRegistryCm)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				result := <-watchCh
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				casVersion := parseVersionStr(t, casVersionStr)
 				assert.Equal(t, result.Versions, map[dogu.SimpleName]core.Version{"ldap": parseVersionStr(t, ldapVersionStr), "cas": casVersion})
-				assert.Equal(t, []DoguVersion{{
+				assert.Equal(t, []dogu.SimpleNameVersion{{
 					Name: "cas", Version: casVersion}}, result.Diff)
 
 				emptyAddCancelFunc()
@@ -571,13 +571,13 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				configMap := &corev1.ConfigMap{Data: map[string]string{"current": upgradeLdapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "2"}}
 				watchInterface.Modify(configMap)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				result := <-watchCh
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				upgradedLdapVersion := parseVersionStr(t, upgradeLdapVersionStr)
 				assert.Equal(t, result.Versions, map[dogu.SimpleName]core.Version{"ldap": upgradedLdapVersion})
-				assert.Equal(t, []DoguVersion{{
+				assert.Equal(t, []dogu.SimpleNameVersion{{
 					Name: "ldap", Version: upgradedLdapVersion}}, result.Diff)
 
 				modifyCancelFunc()
@@ -598,13 +598,13 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				object := &corev1.ConfigMap{Data: map[string]string{"current": ldapVersionStr}, ObjectMeta: metav1.ObjectMeta{Labels: ldapVersionRegistryLabelMap, ResourceVersion: "2"}}
 				watchInterface.Delete(object)
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				result := <-watchCh
 				require.NoError(t, result.Err)
 				assert.Equal(t, initialDoguVersionCtx, result.PrevVersions)
 				ldapVersion := parseVersionStr(t, ldapVersionStr)
 				assert.Equal(t, result.Versions, map[dogu.SimpleName]core.Version{})
-				assert.Equal(t, []DoguVersion{{
+				assert.Equal(t, []dogu.SimpleNameVersion{{
 					Name: "ldap", Version: ldapVersion}}, result.Diff)
 
 				deleteCancelFunc()
@@ -625,7 +625,7 @@ func Test_versionRegistry_WatchAllCurrent(t *testing.T) {
 				watchInterface.Error(&metav1.Status{Status: "123", Message: "message"})
 				errorCancelFunc()
 			},
-			expectFn: func(t *testing.T, watchCh <-chan CurrentVersionsWatchResult) {
+			expectFn: func(t *testing.T, watchCh <-chan dogu.CurrentVersionsWatchResult) {
 				result := <-watchCh
 				require.NoError(t, result.Err)
 			},
@@ -770,7 +770,7 @@ func Test_handleEvent(t *testing.T) {
 			Object: &metav1.Status{},
 		}
 
-		channel := make(chan CurrentVersionsWatchResult)
+		channel := make(chan dogu.CurrentVersionsWatchResult)
 
 		// when
 		go handleEvent(testCtx, event, nil, channel)
@@ -790,7 +790,7 @@ func Test_handleEvent(t *testing.T) {
 			Object: nil,
 		}
 
-		channel := make(chan CurrentVersionsWatchResult)
+		channel := make(chan dogu.CurrentVersionsWatchResult)
 
 		// when
 		go handleEvent(testCtx, event, nil, channel)
@@ -852,7 +852,7 @@ func Test_handleModifiedWatchEvent(t *testing.T) {
 
 		persistentContext := map[dogu.SimpleName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
 		expectedOldVersions := map[dogu.SimpleName]core.Version{"ldap": parseVersionStr(t, "1.0.0")}
-		channel := make(chan CurrentVersionsWatchResult)
+		channel := make(chan dogu.CurrentVersionsWatchResult)
 
 		// when
 		go func() {
@@ -865,7 +865,7 @@ func Test_handleModifiedWatchEvent(t *testing.T) {
 		require.NoError(t, result.Err)
 		assert.Len(t, result.Versions, 0)
 		assert.Equal(t, result.PrevVersions, expectedOldVersions)
-		assert.Equal(t, result.Diff, []DoguVersion{{
+		assert.Equal(t, result.Diff, []dogu.SimpleNameVersion{{
 			Name: "ldap", Version: parseVersionStr(t, "1.0.0")}})
 		assert.Len(t, persistentContext, 0)
 	})

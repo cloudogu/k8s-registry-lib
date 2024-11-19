@@ -23,7 +23,7 @@ func NewLocalDoguDescriptorRepository(configMapClient configMapClient) *localDog
 	}
 }
 
-func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion DoguVersion) (*core.Dogu, error) {
+func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion dogu.SimpleNameVersion) (*core.Dogu, error) {
 	doguName := doguVersion.Name
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 	if err != nil {
@@ -44,21 +44,21 @@ func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion 
 }
 
 func unmarshalDoguJsonStr(doguStr string, doguName dogu.SimpleName, doguVersion string) (*core.Dogu, error) {
-	dogu := &core.Dogu{}
-	err := json.Unmarshal([]byte(doguStr), dogu)
+	doguToUnmarshal := &core.Dogu{}
+	err := json.Unmarshal([]byte(doguStr), doguToUnmarshal)
 	if err != nil {
 		return &core.Dogu{}, fmt.Errorf("failed to unmarshal descriptor for dogu %q with version %q: %w", doguName, doguVersion, err)
 	}
 
-	return dogu, nil
+	return doguToUnmarshal, nil
 }
 
-func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersions []DoguVersion) (map[DoguVersion]*core.Dogu, error) {
-	allDogus := make(map[DoguVersion]*core.Dogu, len(doguVersions))
-	versionsByDogu := map[dogu.SimpleName][]DoguVersion{}
+func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersions []dogu.SimpleNameVersion) (map[dogu.SimpleNameVersion]*core.Dogu, error) {
+	allDogus := make(map[dogu.SimpleNameVersion]*core.Dogu, len(doguVersions))
+	versionsByDogu := map[dogu.SimpleName][]dogu.SimpleNameVersion{}
 	for _, doguVersion := range doguVersions {
 		if versionsByDogu[doguVersion.Name] == nil {
-			versionsByDogu[doguVersion.Name] = []DoguVersion{}
+			versionsByDogu[doguVersion.Name] = []dogu.SimpleNameVersion{}
 		}
 		versionsByDogu[doguVersion.Name] = append(versionsByDogu[doguVersion.Name], doguVersion)
 	}
@@ -77,13 +77,13 @@ func (lddr *localDoguDescriptorRepository) GetAll(ctx context.Context, doguVersi
 				continue
 			}
 
-			dogu, unmarshalErr := unmarshalDoguJsonStr(doguStr, doguName, doguVersion.Version.Raw)
+			unmarshalledDogu, unmarshalErr := unmarshalDoguJsonStr(doguStr, doguName, doguVersion.Version.Raw)
 			if unmarshalErr != nil {
 				multiErr = append(multiErr, unmarshalErr)
 				continue
 			}
 
-			allDogus[doguVersion] = dogu
+			allDogus[doguVersion] = unmarshalledDogu
 		}
 	}
 

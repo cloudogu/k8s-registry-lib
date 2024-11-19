@@ -8,6 +8,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
+github.com/cloudogu/ces-commons-lib v0.0.0-20241119124157-42470c96b202 h1:1lq85ZHNag95dJQ188YZcNKB/pzauZvpZl0vfTjRRwc=
+github.com/cloudogu/ces-commons-lib v0.0.0-20241119124157-42470c96b202/go.mod h1:4rvR2RTDDaz5a6OZ1fW27G0MOnl5I3ackeiHxt4gn3o=
 github.com/cloudogu/ces-commons-lib v0.1.0 h1:4ccgKDlt08Kxsk1V5Ch6poPCUagrO415XFYRAKwPxPo=
 github.com/cloudogu/ces-commons-lib v0.1.0/go.mod h1:4rvR2RTDDaz5a6OZ1fW27G0MOnl5I3ackeiHxt4gn3o=
 github.com/cloudogu/cesapp-lib v0.15.0 h1:5jcf3A0LQ2DUjoiLWMv1V/rHmV6m3u+8cYZiuvGLaSM=
