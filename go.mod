@@ -3,7 +3,7 @@ module github.com/cloudogu/k8s-registry-lib
 go 1.23.1
 
 require (
-	github.com/cloudogu/ces-commons-lib v0.0.0-20241119124157-42470c96b202
+	github.com/cloudogu/ces-commons-lib v0.2.0
 	github.com/cloudogu/cesapp-lib v0.15.0
 	github.com/cloudogu/retry-lib v0.1.0
 	github.com/stretchr/testify v1.9.0
