@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -10,7 +11,7 @@ import (
 	"time"
 )
 
-const _DoguName = config.SimpleDoguName("test")
+const _DoguName = dogu.SimpleName("test")
 
 func TestNewDoguConfigRepository(t *testing.T) {
 	mClient := NewMockConfigMapClient(t)

@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.1] - 2024-11-19
+### Changed
+- [#24] use ces-commons-lib for common errors and common types
+- [#24] use retry-lib for retry mechanism
+
 ## [v0.5.0] - 2024-10-17
 ### Fixed
 - [#22] map every error coming from the repo to a domain error

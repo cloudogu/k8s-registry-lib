@@ -7,14 +7,6 @@ import (
 	"strings"
 )
 
-// SimpleDoguName represents a simple Dogu name as a string.
-type SimpleDoguName string
-
-// String returns the string representation of the SimpleDoguName.
-func (s SimpleDoguName) String() string {
-	return string(s)
-}
-
 // Key represents a configuration key as a string.
 type Key string
 

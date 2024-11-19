@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/cloudogu/k8s-registry-lib/errors"
+	"github.com/cloudogu/ces-commons-lib/errors"
 )
 
 type configType int

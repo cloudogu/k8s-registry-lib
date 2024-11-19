@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 )
 
@@ -28,7 +29,7 @@ func NewSensitiveDoguConfigRepository(client SecretClient) *DoguConfigRepository
 	}
 }
 
-func (dcr DoguConfigRepository) Get(ctx context.Context, name config.SimpleDoguName) (config.DoguConfig, error) {
+func (dcr DoguConfigRepository) Get(ctx context.Context, name dogu.SimpleName) (config.DoguConfig, error) {
 	cfg, err := dcr.get(ctx, createConfigName(name.String()))
 	if err != nil {
 		return config.DoguConfig{}, fmt.Errorf("could not get config for dogu %s: %w", name.String(), err)
@@ -80,7 +81,7 @@ func (dcr DoguConfigRepository) SaveOrMerge(ctx context.Context, doguConfig conf
 	}, nil
 }
 
-func (dcr DoguConfigRepository) Delete(ctx context.Context, name config.SimpleDoguName) error {
+func (dcr DoguConfigRepository) Delete(ctx context.Context, name dogu.SimpleName) error {
 	if err := dcr.delete(ctx, createConfigName(name.String())); err != nil {
 		return fmt.Errorf("could not delete config for dogu %s: %w", name, err)
 	}
@@ -94,7 +95,7 @@ type DoguConfigWatchResult struct {
 	Err       error
 }
 
-func (dcr DoguConfigRepository) Watch(ctx context.Context, dName config.SimpleDoguName, filters ...config.WatchFilter) (<-chan DoguConfigWatchResult, error) {
+func (dcr DoguConfigRepository) Watch(ctx context.Context, dName dogu.SimpleName, filters ...config.WatchFilter) (<-chan DoguConfigWatchResult, error) {
 	cfgWatch, err := dcr.watch(ctx, createConfigName(dName.String()), filters...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to start watch for config from dogu %s: %w", dName, err)
