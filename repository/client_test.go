@@ -30,6 +30,11 @@ const (
 
 const resourceVersion = "testVersion"
 
+var date2402 = metav1.NewTime(time.Date(2024, 2, 1, 12, 0, 0, 0, time.UTC))
+var date2405 = metav1.NewTime(time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC))
+var date2408 = metav1.NewTime(time.Date(2024, 8, 1, 12, 0, 0, 0, time.UTC))
+var date2409 = metav1.NewTime(time.Date(2024, 9, 1, 12, 0, 0, 0, time.UTC))
+
 func TestConfigType_String(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -189,6 +194,137 @@ func TestConfigMapClient_Get(t *testing.T) {
 			if tc.valErr != nil {
 				assert.True(t, tc.valErr(err))
 			}
+		})
+	}
+}
+
+func TestConfigMapClient_LastUpdated(t *testing.T) {
+	tests := []struct {
+		name         string
+		objectMeta   metav1.ObjectMeta
+		expectedTime *metav1.Time
+	}{
+		{
+			name: "No Updates -> CreationTimestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2408,
+			},
+			expectedTime: &date2408,
+		},
+		{
+			name: "One Update -> Update Timestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: &date2405},
+				},
+			},
+			expectedTime: &date2405,
+		},
+		{
+			name: "Multiple Updates -> Last Update Timestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: &date2405},
+					{Time: &date2409},
+					{Time: &date2408},
+				},
+			},
+			expectedTime: &date2409,
+		},
+		{
+			name: "Multiple Updates with no time-field -> ignored, so CreationTimestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: nil},
+					{Time: nil},
+				},
+			},
+			expectedTime: &date2402,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("cm:"+tc.name, func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			cm := &v1.ConfigMap{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string]string{dataKeyName: "testString"},
+			}
+			m.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(cm, nil)
+			client := configMapClient{
+				client: m,
+			}
+
+			result, err := client.Get(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("cm:"+tc.name+" [GetWithListResourceVersion]", func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			cm := v1.ConfigMap{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string]string{dataKeyName: "testString"},
+			}
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.ConfigMapList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.ConfigMap{cm},
+			}, nil)
+			client := configMapClient{
+				client: m,
+			}
+
+			result, _, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("secret:"+tc.name, func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			secret := &v1.Secret{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string][]byte{dataKeyName: []byte("testString")},
+			}
+			m.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(secret, nil)
+			client := secretClient{
+				client: m,
+			}
+
+			result, err := client.Get(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("secret:"+tc.name+" [GetWithListResourceVersion]", func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			secret := v1.Secret{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string][]byte{dataKeyName: []byte("testString")},
+			}
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.SecretList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.Secret{secret},
+			}, nil)
+			client := secretClient{
+				client: m,
+			}
+
+			result, _, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
 		})
 	}
 }
@@ -925,12 +1061,16 @@ func Test_watchWithClient(t *testing.T) {
 
 		go func() {
 			fakeWatcher.Modify(&v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion, CreationTimestamp: date2402},
 				Data:       map[string][]byte{dataKeyName: []byte("test-data-secret")},
 			})
 			fakeWatcher.Modify(&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
-				Data:       map[string]string{dataKeyName: "test-data-configmap"},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion:   resourceVersion,
+					CreationTimestamp: date2402,
+					ManagedFields:     []metav1.ManagedFieldsEntry{{Time: &date2405}},
+				},
+				Data: map[string]string{dataKeyName: "test-data-configmap"},
 			})
 			fakeWatcher.Modify(&v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
@@ -943,12 +1083,14 @@ func Test_watchWithClient(t *testing.T) {
 				if i == 0 {
 					assert.NoError(t, result.err)
 					assert.Equal(t, resourceVersion, result.persistentContext)
+					assert.Equal(t, &date2402, result.lastUpdated)
 					assert.Equal(t, "test-data-secret", result.dataStr)
 				}
 
 				if i == 1 {
 					assert.NoError(t, result.err)
 					assert.Equal(t, resourceVersion, result.persistentContext)
+					assert.Equal(t, &date2405, result.lastUpdated)
 					assert.Equal(t, "test-data-configmap", result.dataStr)
 				}
 

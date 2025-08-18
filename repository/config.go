@@ -53,6 +53,7 @@ func (cr configRepository) get(ctx context.Context, name configName) (config.Con
 		cfgData,
 		config.WithPersistenceContext(getPersistentContext(cd.rawData)),
 		config.WithInitialListResourceVersion(listResourceVersion),
+		config.WithLastUpdated(cd.lastUpdated),
 	)
 
 	return cfg, nil
@@ -79,6 +80,7 @@ func (cr configRepository) create(ctx context.Context, name configName, doguName
 	}
 
 	cfg.PersistenceContext = resource.GetResourceVersion()
+	cfg.LastUpdated = getLastUpdated(resource)
 
 	return cfg, nil
 }
@@ -96,6 +98,7 @@ func (cr configRepository) update(ctx context.Context, name configName, doguName
 	}
 
 	cfg.PersistenceContext = resource.GetResourceVersion()
+	cfg.LastUpdated = getLastUpdated(resource)
 
 	return cfg, nil
 }
@@ -142,6 +145,7 @@ func (cr configRepository) saveOrMerge(ctx context.Context, name configName, cfg
 	updatedConfig := config.CreateConfig(
 		updatedRemoteConfigData,
 		config.WithPersistenceContext(getPersistentContext(updatedResource)),
+		config.WithLastUpdated(getLastUpdated(updatedResource)),
 	)
 
 	return updatedConfig, nil
@@ -238,8 +242,12 @@ func createConfigWatchResult(lastCfg config.Config, result clientWatchResult, co
 
 	return configWatchResult{
 		prevState: lastCfg,
-		newState:  config.CreateConfig(cfgData, config.WithPersistenceContext(result.persistentContext)),
-		err:       nil,
+		newState: config.CreateConfig(
+			cfgData,
+			config.WithPersistenceContext(result.persistentContext),
+			config.WithLastUpdated(result.lastUpdated),
+		),
+		err: nil,
 	}
 }
 
@@ -247,7 +255,7 @@ func getPersistentContext(rawData any) string {
 	switch r := rawData.(type) {
 	case string:
 		return r
-	case resourceVersionGetter:
+	case resourceMetaAccessor:
 		return r.GetResourceVersion()
 	default:
 		return ""
