@@ -3,6 +3,7 @@ VERSION=0.5.1
 GOTAG?=1.24.6
 MAKEFILES_VERSION=10.2.0
 .DEFAULT_GOAL:=default
+MOCKERY_VERSION=v2.52.3
 
 include build/make/variables.mk
 include build/make/self-update.mk
