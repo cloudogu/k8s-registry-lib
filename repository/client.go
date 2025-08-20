@@ -204,6 +204,21 @@ func (cmc configMapClient) Update(ctx context.Context, pCtx string, name string,
 	return updatedConfigMap, nil
 }
 
+func (cmc configMapClient) SetOwnerReference(ctx context.Context, cmName string, owner []metav1.OwnerReference) (resourceMetaAccessor, error) {
+	cm, err := cmc.client.Get(ctx, cmName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get config-map from cluster: %w", handleError(err))
+	}
+	cm.OwnerReferences = owner
+
+	updatedConfigMap, err := cmc.client.Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not update configmap in cluster: %w", handleError(err))
+	}
+
+	return updatedConfigMap, nil
+}
+
 func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error) {
 	cm, ok := update.rawData.(*v1.ConfigMap)
 	if !ok {
@@ -335,6 +350,20 @@ func (sc secretClient) Update(ctx context.Context, pCtx string, name string, dog
 	}
 
 	return updatedSecret, nil
+}
+func (sc secretClient) SetOwnerReference(ctx context.Context, name string, owner []metav1.OwnerReference) (resourceMetaAccessor, error) {
+	cm, err := sc.client.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret from cluster: %w", handleError(err))
+	}
+	cm.OwnerReferences = owner
+
+	updatedConfigMap, err := sc.client.Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not update secret in cluster: %w", handleError(err))
+	}
+
+	return updatedConfigMap, nil
 }
 
 func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error) {

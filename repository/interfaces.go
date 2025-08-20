@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +13,7 @@ type generalConfigRepository interface {
 	delete(context.Context, configName) error
 	create(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)
 	update(context.Context, configName, dogu.SimpleName, config.Config) (config.Config, error)
+	setOwnerReference(ctx context.Context, name configName, owners []metav1.OwnerReference) error
 	saveOrMerge(context.Context, configName, config.Config) (config.Config, error)
 	watch(ctx context.Context, name configName, filters ...config.WatchFilter) (<-chan configWatchResult, error)
 }
@@ -30,4 +32,5 @@ type configClient interface {
 	Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceMetaAccessor, error)
 	UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error)
 	Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error)
+	SetOwnerReference(ctx context.Context, cmName string, owner []metav1.OwnerReference) (resourceMetaAccessor, error)
 }

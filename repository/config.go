@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/cloudogu/ces-commons-lib/dogu"
-	"github.com/cloudogu/k8s-registry-lib/config"
 	"reflect"
 	"strings"
+
+	"github.com/cloudogu/ces-commons-lib/dogu"
+	"github.com/cloudogu/k8s-registry-lib/config"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type configName string
@@ -101,6 +103,14 @@ func (cr configRepository) update(ctx context.Context, name configName, doguName
 	cfg.LastUpdated = getLastUpdated(resource)
 
 	return cfg, nil
+}
+
+func (cr configRepository) setOwnerReference(ctx context.Context, name configName, owners []v1.OwnerReference) error {
+	_, err := cr.client.SetOwnerReference(ctx, name.String(), owners)
+	if err != nil {
+		return fmt.Errorf("could not set owner Reference: %w", err)
+	}
+	return nil
 }
 
 func (cr configRepository) saveOrMerge(ctx context.Context, name configName, cfg config.Config) (config.Config, error) {
