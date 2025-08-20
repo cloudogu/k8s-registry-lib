@@ -3,6 +3,10 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"testing"
+	"time"
+
 	liberrors "github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -13,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"testing"
-	"time"
 )
 
 type testcase int
@@ -1360,6 +1362,89 @@ func Test_handleError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := handleError(tc.err)
 			assert.True(t, tc.valErr(err))
+		})
+	}
+}
+
+func Test_configMapClient_SetOwnerReference(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		cmName string
+		owner  []metav1.OwnerReference
+	}
+	tests := []struct {
+		name     string
+		clientFn func(t *testing.T) ConfigMapClient
+		args     args
+		want     resourceMetaAccessor
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "should fail to get config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(nil, assert.AnError)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorContains(t, err, "unable to get config-map from cluster: ")
+			},
+		},
+		{
+			name: "should fail to update config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				cm := &v1.ConfigMap{}
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(cm, nil)
+				clientMock.EXPECT().Update(testCtx, cm, metav1.UpdateOptions{}).Return(nil, assert.AnError)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorContains(t, err, "could not update configmap in cluster:")
+			},
+		},
+		{
+			name: "should successfully update config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				cm := &v1.ConfigMap{}
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(cm, nil)
+				clientMock.EXPECT().Update(testCtx, cm, metav1.UpdateOptions{}).Return(cm, nil)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.NoError(t, err)
+			},
+			want: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{OwnerReferences: make([]metav1.OwnerReference, 0)},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmc := configMapClient{
+				client: tt.clientFn(t),
+			}
+			got, err := cmc.SetOwnerReference(tt.args.ctx, tt.args.cmName, tt.args.owner)
+			if !tt.wantErr(t, err, fmt.Sprintf("SetOwnerReference(%v, %v, %v)", tt.args.ctx, tt.args.cmName, tt.args.owner)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "SetOwnerReference(%v, %v, %v)", tt.args.ctx, tt.args.cmName, tt.args.owner)
 		})
 	}
 }

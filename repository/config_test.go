@@ -2,15 +2,16 @@ package repository
 
 import (
 	"context"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sync"
-	"testing"
-	"time"
 )
 
 type configRepo_testcase int
@@ -844,6 +845,56 @@ func Test_configRepo_watch(t *testing.T) {
 		case <-ctxTimeout.Done():
 			t.Errorf("did not reach all evente in time")
 		}
+	})
+}
+
+func Test_configRepo_setOwnerReference(t *testing.T) {
+	t.Run("should fail to set owner reference", func(t *testing.T) {
+		// given
+		cName := configName("test-config")
+		owner := metav1.OwnerReference{
+			Name:       "admin",
+			Kind:       "Dogu",
+			UID:        "test-uid",
+			APIVersion: resourceVersion,
+		}
+		owners := []metav1.OwnerReference{owner}
+
+		clientMock := newMockConfigClient(t)
+		clientMock.EXPECT().SetOwnerReference(testCtx, "test-config", owners).Return(nil, assert.AnError)
+		sut := configRepository{
+			client: clientMock,
+		}
+
+		// when
+		err := sut.setOwnerReference(testCtx, cName, owners)
+
+		// then
+		assert.Error(t, err)
+	})
+
+	t.Run("should successfully set owner reference", func(t *testing.T) {
+		// given
+		cName := configName("test-config")
+		owner := metav1.OwnerReference{
+			Name:       "admin",
+			Kind:       "Dogu",
+			UID:        "test-uid",
+			APIVersion: resourceVersion,
+		}
+		owners := []metav1.OwnerReference{owner}
+
+		clientMock := newMockConfigClient(t)
+		clientMock.EXPECT().SetOwnerReference(testCtx, "test-config", owners).Return(nil, nil)
+		sut := configRepository{
+			client: clientMock,
+		}
+
+		// when
+		err := sut.setOwnerReference(testCtx, cName, owners)
+
+		// then
+		assert.NoError(t, err)
 	})
 }
 

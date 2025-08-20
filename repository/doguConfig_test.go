@@ -2,13 +2,15 @@ package repository
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const _DoguName = dogu.SimpleName("test")
@@ -237,5 +239,32 @@ func TestDoguConfigRepository_Watch(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, assert.AnError)
 		assert.ErrorContains(t, err, "unable to start watch for config from dogu myDogu:")
+	})
+}
+
+func TestDoguConfigRepository_SetOwnerReference(t *testing.T) {
+	t.Run("Set owner reference of config", func(t *testing.T) {
+		mConfigRepo := newMockGeneralConfigRepository(t)
+		owner := []metav1.OwnerReference{}
+		mConfigRepo.EXPECT().setOwnerReference(context.TODO(), createConfigName(_DoguName.String()), owner).Return(nil)
+
+		repo := &DoguConfigRepository{
+			generalConfigRepository: mConfigRepo,
+		}
+
+		err := repo.SetOwnerReference(context.TODO(), _DoguName, owner)
+		assert.NoError(t, err)
+	})
+
+	t.Run("should fail to set owner reference of config", func(t *testing.T) {
+		mConfigRepo := newMockGeneralConfigRepository(t)
+		mConfigRepo.EXPECT().setOwnerReference(context.TODO(), createConfigName(_DoguName.String()), []metav1.OwnerReference{}).Return(assert.AnError)
+
+		repo := &DoguConfigRepository{
+			generalConfigRepository: mConfigRepo,
+		}
+
+		err := repo.SetOwnerReference(context.TODO(), _DoguName, []metav1.OwnerReference{})
+		assert.Error(t, err)
 	})
 }
