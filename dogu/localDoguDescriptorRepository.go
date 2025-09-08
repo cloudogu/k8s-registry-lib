@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	cloudoguerrors "github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/cloudogu/cesapp-lib/core"
@@ -148,6 +149,21 @@ func getOrCreateDescriptorConfigMapForDogu(ctx context.Context, configMapClient 
 	}
 
 	return descriptorConfigMap, nil
+}
+
+func (lddr *localDoguDescriptorRepository) SetOwnerReference(ctx context.Context, dName dogu.SimpleName, owners []metav1.OwnerReference) error {
+	descriptorMap, err := getDescriptorConfigMapForDogu(ctx, lddr.configMapClient, dName)
+	if err != nil {
+		return fmt.Errorf("failed to set owner reference for descriptor configmap of dogu %q: %w", dName, err)
+	}
+
+	descriptorMap.OwnerReferences = owners
+	_, err = lddr.configMapClient.Update(ctx, descriptorMap, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to set owner reference for descriptor configmap of dogu %q: %w", dName, err)
+	}
+
+	return nil
 }
 
 func createDescriptorConfigMapForDogu(ctx context.Context, configMapClient configMapClient, SimpleName dogu.SimpleName) (*corev1.ConfigMap, error) {
