@@ -28,7 +28,7 @@ func (lddr *localDoguDescriptorRepository) Get(ctx context.Context, doguVersion 
 	doguName := doguVersion.Name
 	descriptorConfigMap, err := getDescriptorConfigMapForDogu(ctx, lddr.configMapClient, doguName)
 	if err != nil {
-		return nil, handleK8sError(err)
+		return nil, err
 	}
 
 	versionStr := doguVersion.Version.Raw
