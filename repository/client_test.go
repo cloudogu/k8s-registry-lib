@@ -1448,3 +1448,87 @@ func Test_configMapClient_SetOwnerReference(t *testing.T) {
 		})
 	}
 }
+
+func Test_secretClient_SetOwnerReference(t *testing.T) {
+	t.Run("should set owner references", func(t *testing.T) {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SecretMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "aName",
+				Namespace: "aNamespace",
+			},
+		}
+
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(secret, nil)
+		secClientMock.EXPECT().Update(testCtx, secret, mock.Anything).Return(nil, nil)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(secret.OwnerReferences))
+		assert.Equal(t, "aName", secret.OwnerReferences[0].Name)
+		assert.Equal(t, "aName2", secret.OwnerReferences[1].Name)
+	})
+
+	t.Run("should fail if secret map can't be read", func(t *testing.T) {
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(nil, assert.AnError)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("should fail if secret map can't be updated", func(t *testing.T) {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SecretMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "aName",
+				Namespace: "aNamespace",
+			},
+		}
+
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(secret, nil)
+		secClientMock.EXPECT().Update(testCtx, secret, mock.Anything).Return(nil, assert.AnError)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.Error(t, err)
+	})
+
+}
