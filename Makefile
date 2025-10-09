@@ -1,8 +1,9 @@
 ARTIFACT_ID=k8s-registry-lib
-VERSION=0.5.1
-GOTAG?=1.23.1
-MAKEFILES_VERSION=9.3.2
+VERSION=0.6.0
+GOTAG?=1.24.6
+MAKEFILES_VERSION=10.2.0
 .DEFAULT_GOAL:=default
+MOCKERY_VERSION=v2.52.3
 
 include build/make/variables.mk
 include build/make/self-update.mk

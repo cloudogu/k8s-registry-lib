@@ -1,9 +1,11 @@
 package config
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
-	"testing"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCreateConfig(t *testing.T) {
@@ -503,4 +505,21 @@ func TestConfig_Diff(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateConfig1(t *testing.T) {
+	type aStruct struct{}
+	pc := &aStruct{}
+	lastUpdated := &metav1.Time{}
+
+	cfg := CreateConfig(
+		Entries{"key1": "value1", "key2": "value2"},
+		WithPersistenceContext(pc),
+		WithInitialListResourceVersion("1234"),
+		WithLastUpdated(lastUpdated),
+	)
+
+	assert.Same(t, pc, cfg.PersistenceContext)
+	assert.Equal(t, "1234", cfg.InitialListResourceVersion)
+	assert.Same(t, lastUpdated, cfg.LastUpdated)
 }

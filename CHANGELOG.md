@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.6.0] - 2025-10-09
+### Added
+- [#28] set owner reference of config map and secrets of dogu config
+- [#28] set owner reference of dogu descriptor config map
+
 ## [v0.5.1] - 2024-11-19
 ### Changed
 - [#24] use ces-commons-lib for common errors and common types

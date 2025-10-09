@@ -3,6 +3,10 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
+	"testing"
+	"time"
+
 	liberrors "github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -13,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"testing"
-	"time"
 )
 
 type testcase int
@@ -29,6 +31,11 @@ const (
 )
 
 const resourceVersion = "testVersion"
+
+var date2402 = metav1.NewTime(time.Date(2024, 2, 1, 12, 0, 0, 0, time.UTC))
+var date2405 = metav1.NewTime(time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC))
+var date2408 = metav1.NewTime(time.Date(2024, 8, 1, 12, 0, 0, 0, time.UTC))
+var date2409 = metav1.NewTime(time.Date(2024, 9, 1, 12, 0, 0, 0, time.UTC))
 
 func TestConfigType_String(t *testing.T) {
 	tests := []struct {
@@ -189,6 +196,137 @@ func TestConfigMapClient_Get(t *testing.T) {
 			if tc.valErr != nil {
 				assert.True(t, tc.valErr(err))
 			}
+		})
+	}
+}
+
+func TestConfigMapClient_LastUpdated(t *testing.T) {
+	tests := []struct {
+		name         string
+		objectMeta   metav1.ObjectMeta
+		expectedTime *metav1.Time
+	}{
+		{
+			name: "No Updates -> CreationTimestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2408,
+			},
+			expectedTime: &date2408,
+		},
+		{
+			name: "One Update -> Update Timestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: &date2405},
+				},
+			},
+			expectedTime: &date2405,
+		},
+		{
+			name: "Multiple Updates -> Last Update Timestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: &date2405},
+					{Time: &date2409},
+					{Time: &date2408},
+				},
+			},
+			expectedTime: &date2409,
+		},
+		{
+			name: "Multiple Updates with no time-field -> ignored, so CreationTimestamp",
+			objectMeta: metav1.ObjectMeta{
+				CreationTimestamp: date2402,
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{Time: nil},
+					{Time: nil},
+				},
+			},
+			expectedTime: &date2402,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("cm:"+tc.name, func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			cm := &v1.ConfigMap{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string]string{dataKeyName: "testString"},
+			}
+			m.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(cm, nil)
+			client := configMapClient{
+				client: m,
+			}
+
+			result, err := client.Get(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("cm:"+tc.name+" [GetWithListResourceVersion]", func(t *testing.T) {
+			m := NewMockConfigMapClient(t)
+			cm := v1.ConfigMap{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string]string{dataKeyName: "testString"},
+			}
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.ConfigMapList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.ConfigMap{cm},
+			}, nil)
+			client := configMapClient{
+				client: m,
+			}
+
+			result, _, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("secret:"+tc.name, func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			secret := &v1.Secret{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string][]byte{dataKeyName: []byte("testString")},
+			}
+			m.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(secret, nil)
+			client := secretClient{
+				client: m,
+			}
+
+			result, err := client.Get(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run("secret:"+tc.name+" [GetWithListResourceVersion]", func(t *testing.T) {
+			m := NewMockSecretClient(t)
+			secret := v1.Secret{
+				ObjectMeta: tc.objectMeta,
+				Data:       map[string][]byte{dataKeyName: []byte("testString")},
+			}
+			m.EXPECT().List(mock.Anything, mock.Anything).Return(&v1.SecretList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "resourceVersion",
+				},
+				Items: []v1.Secret{secret},
+			}, nil)
+			client := secretClient{
+				client: m,
+			}
+
+			result, _, err := client.GetWithListResourceVersion(context.TODO(), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTime, result.lastUpdated)
 		})
 	}
 }
@@ -925,12 +1063,16 @@ func Test_watchWithClient(t *testing.T) {
 
 		go func() {
 			fakeWatcher.Modify(&v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
+				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion, CreationTimestamp: date2402},
 				Data:       map[string][]byte{dataKeyName: []byte("test-data-secret")},
 			})
 			fakeWatcher.Modify(&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
-				Data:       map[string]string{dataKeyName: "test-data-configmap"},
+				ObjectMeta: metav1.ObjectMeta{
+					ResourceVersion:   resourceVersion,
+					CreationTimestamp: date2402,
+					ManagedFields:     []metav1.ManagedFieldsEntry{{Time: &date2405}},
+				},
+				Data: map[string]string{dataKeyName: "test-data-configmap"},
 			})
 			fakeWatcher.Modify(&v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
@@ -943,12 +1085,14 @@ func Test_watchWithClient(t *testing.T) {
 				if i == 0 {
 					assert.NoError(t, result.err)
 					assert.Equal(t, resourceVersion, result.persistentContext)
+					assert.Equal(t, &date2402, result.lastUpdated)
 					assert.Equal(t, "test-data-secret", result.dataStr)
 				}
 
 				if i == 1 {
 					assert.NoError(t, result.err)
 					assert.Equal(t, resourceVersion, result.persistentContext)
+					assert.Equal(t, &date2405, result.lastUpdated)
 					assert.Equal(t, "test-data-configmap", result.dataStr)
 				}
 
@@ -1220,4 +1364,171 @@ func Test_handleError(t *testing.T) {
 			assert.True(t, tc.valErr(err))
 		})
 	}
+}
+
+func Test_configMapClient_SetOwnerReference(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		cmName string
+		owner  []metav1.OwnerReference
+	}
+	tests := []struct {
+		name     string
+		clientFn func(t *testing.T) ConfigMapClient
+		args     args
+		want     resourceMetaAccessor
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "should fail to get config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(nil, assert.AnError)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorContains(t, err, "unable to get config-map from cluster: ")
+			},
+		},
+		{
+			name: "should fail to update config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				cm := &v1.ConfigMap{}
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(cm, nil)
+				clientMock.EXPECT().Update(testCtx, cm, metav1.UpdateOptions{}).Return(nil, assert.AnError)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorContains(t, err, "could not update configmap in cluster:")
+			},
+		},
+		{
+			name: "should successfully update config map",
+			args: args{
+				ctx:    testCtx,
+				cmName: "test-config",
+				owner:  make([]metav1.OwnerReference, 0),
+			},
+			clientFn: func(t *testing.T) ConfigMapClient {
+				clientMock := NewMockConfigMapClient(t)
+				cm := &v1.ConfigMap{}
+				clientMock.EXPECT().Get(testCtx, "test-config", metav1.GetOptions{}).Return(cm, nil)
+				clientMock.EXPECT().Update(testCtx, cm, metav1.UpdateOptions{}).Return(cm, nil)
+				return clientMock
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.NoError(t, err)
+			},
+			want: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{OwnerReferences: make([]metav1.OwnerReference, 0)},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmc := configMapClient{
+				client: tt.clientFn(t),
+			}
+			got, err := cmc.SetOwnerReference(tt.args.ctx, tt.args.cmName, tt.args.owner)
+			if !tt.wantErr(t, err, fmt.Sprintf("SetOwnerReference(%v, %v, %v)", tt.args.ctx, tt.args.cmName, tt.args.owner)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "SetOwnerReference(%v, %v, %v)", tt.args.ctx, tt.args.cmName, tt.args.owner)
+		})
+	}
+}
+
+func Test_secretClient_SetOwnerReference(t *testing.T) {
+	t.Run("should set owner references", func(t *testing.T) {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SecretMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "aName",
+				Namespace: "aNamespace",
+			},
+		}
+
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(secret, nil)
+		secClientMock.EXPECT().Update(testCtx, secret, mock.Anything).Return(nil, nil)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(secret.OwnerReferences))
+		assert.Equal(t, "aName", secret.OwnerReferences[0].Name)
+		assert.Equal(t, "aName2", secret.OwnerReferences[1].Name)
+	})
+
+	t.Run("should fail if secret map can't be read", func(t *testing.T) {
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(nil, assert.AnError)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("should fail if secret map can't be updated", func(t *testing.T) {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SecretMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "aName",
+				Namespace: "aNamespace",
+			},
+		}
+
+		secClientMock := NewMockSecretClient(t)
+		secClientMock.EXPECT().Get(testCtx, "aName", mock.Anything).Return(secret, nil)
+		secClientMock.EXPECT().Update(testCtx, secret, mock.Anything).Return(nil, assert.AnError)
+
+		secClient := createSecretClient(secClientMock, sensitiveConfigType)
+
+		_, err := secClient.SetOwnerReference(
+			testCtx,
+			"aName",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			},
+		)
+
+		assert.Error(t, err)
+	})
+
 }

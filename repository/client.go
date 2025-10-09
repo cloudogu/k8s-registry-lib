@@ -54,8 +54,9 @@ type ConfigMapClient interface {
 }
 
 type clientData struct {
-	dataStr string
-	rawData any
+	dataStr     string
+	lastUpdated *metav1.Time
+	rawData     any
 }
 
 type configMapClient struct {
@@ -107,8 +108,9 @@ func (cmc configMapClient) Get(ctx context.Context, name string) (clientData, er
 	}
 
 	return clientData{
-		dataStr: dataStr,
-		rawData: cm,
+		dataStr:     dataStr,
+		lastUpdated: getLastUpdated(cm),
+		rawData:     cm,
 	}, nil
 }
 
@@ -126,14 +128,31 @@ func (cmc configMapClient) GetWithListResourceVersion(ctx context.Context, name 
 
 	configMap := list.Items[0]
 	dataStr, ok := configMap.Data[dataKeyName]
+
 	if !ok {
 		return clientData{}, "", errors.NewNotFoundError(fmt.Errorf("could not find data for key %s", dataKeyName))
 	}
 
 	return clientData{
-		dataStr: dataStr,
-		rawData: configMap,
+		dataStr:     dataStr,
+		lastUpdated: getLastUpdated(&configMap),
+		rawData:     configMap,
 	}, list.ResourceVersion, nil
+}
+
+// getLastUpdated returns the latest known update time based on ManagedFields,
+// or falls back to the object's CreationTimestamp if ManagedFields are empty
+// or have no times.
+func getLastUpdated(obj resourceMetaAccessor) *metav1.Time {
+	timestamp := obj.GetCreationTimestamp()
+	latest := &timestamp
+
+	for _, managedFields := range obj.GetManagedFields() {
+		if managedFields.Time != nil && managedFields.Time.After(latest.Time) {
+			latest = managedFields.Time
+		}
+	}
+	return latest
 }
 
 func (cmc configMapClient) Delete(ctx context.Context, name string) error {
@@ -163,7 +182,7 @@ func (cmc configMapClient) createConfigMap(pCtx string, name string, doguName st
 	return configMap
 }
 
-func (cmc configMapClient) Create(ctx context.Context, name string, doguName string, dataStr string) (resourceVersionGetter, error) {
+func (cmc configMapClient) Create(ctx context.Context, name string, doguName string, dataStr string) (resourceMetaAccessor, error) {
 	configMap := cmc.createConfigMap("", name, doguName, dataStr)
 
 	cm, err := cmc.client.Create(ctx, configMap, metav1.CreateOptions{})
@@ -174,7 +193,7 @@ func (cmc configMapClient) Create(ctx context.Context, name string, doguName str
 	return cm, nil
 }
 
-func (cmc configMapClient) Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error) {
+func (cmc configMapClient) Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceMetaAccessor, error) {
 	configMap := cmc.createConfigMap(pCtx, name, doguName, dataStr)
 
 	updatedConfigMap, err := cmc.client.Update(ctx, configMap, metav1.UpdateOptions{})
@@ -185,7 +204,22 @@ func (cmc configMapClient) Update(ctx context.Context, pCtx string, name string,
 	return updatedConfigMap, nil
 }
 
-func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientData) (resourceVersionGetter, error) {
+func (cmc configMapClient) SetOwnerReference(ctx context.Context, cmName string, owner []metav1.OwnerReference) (resourceMetaAccessor, error) {
+	cm, err := cmc.client.Get(ctx, cmName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get config-map from cluster: %w", handleError(err))
+	}
+	cm.OwnerReferences = owner
+
+	updatedConfigMap, err := cmc.client.Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not update configmap in cluster: %w", handleError(err))
+	}
+
+	return updatedConfigMap, nil
+}
+
+func (cmc configMapClient) UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error) {
 	cm, ok := update.rawData.(*v1.ConfigMap)
 	if !ok {
 		return nil, fmt.Errorf("configData cannot be used as configMap")
@@ -238,8 +272,9 @@ func (sc secretClient) Get(ctx context.Context, name string) (clientData, error)
 	}
 
 	return clientData{
-		dataStr: string(dataBytes),
-		rawData: secret,
+		dataStr:     string(dataBytes),
+		lastUpdated: getLastUpdated(secret),
+		rawData:     secret,
 	}, nil
 }
 
@@ -262,8 +297,9 @@ func (sc secretClient) GetWithListResourceVersion(ctx context.Context, name stri
 	}
 
 	return clientData{
-		dataStr: string(dataBytes),
-		rawData: secret,
+		dataStr:     string(dataBytes),
+		lastUpdated: getLastUpdated(&secret),
+		rawData:     secret,
 	}, list.ResourceVersion, nil
 }
 
@@ -294,7 +330,7 @@ func (sc secretClient) createSecret(pCtx string, name string, doguName string, d
 	return secret
 }
 
-func (sc secretClient) Create(ctx context.Context, name string, doguName string, dataStr string) (resourceVersionGetter, error) {
+func (sc secretClient) Create(ctx context.Context, name string, doguName string, dataStr string) (resourceMetaAccessor, error) {
 	secret := sc.createSecret("", name, doguName, dataStr)
 
 	cm, err := sc.client.Create(ctx, secret, metav1.CreateOptions{})
@@ -305,7 +341,7 @@ func (sc secretClient) Create(ctx context.Context, name string, doguName string,
 	return cm, nil
 }
 
-func (sc secretClient) Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceVersionGetter, error) {
+func (sc secretClient) Update(ctx context.Context, pCtx string, name string, doguName string, dataStr string) (resourceMetaAccessor, error) {
 	secret := sc.createSecret(pCtx, name, doguName, dataStr)
 
 	updatedSecret, err := sc.client.Update(ctx, secret, metav1.UpdateOptions{})
@@ -315,8 +351,22 @@ func (sc secretClient) Update(ctx context.Context, pCtx string, name string, dog
 
 	return updatedSecret, nil
 }
+func (sc secretClient) SetOwnerReference(ctx context.Context, name string, owner []metav1.OwnerReference) (resourceMetaAccessor, error) {
+	cm, err := sc.client.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret from cluster: %w", handleError(err))
+	}
+	cm.OwnerReferences = owner
 
-func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) (resourceVersionGetter, error) {
+	updatedConfigMap, err := sc.client.Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not update secret in cluster: %w", handleError(err))
+	}
+
+	return updatedConfigMap, nil
+}
+
+func (sc secretClient) UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error) {
 	secret, ok := update.rawData.(*v1.Secret)
 	if !ok {
 		return nil, fmt.Errorf("configData cannot be used as secret")
@@ -345,6 +395,7 @@ type clientWatcher interface {
 type clientWatchResult struct {
 	dataStr           string
 	persistentContext string
+	lastUpdated       *metav1.Time
 	err               error
 }
 
@@ -431,6 +482,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 		return clientWatchResult{
 			dataStr:           string(dataBytes),
 			persistentContext: r.GetResourceVersion(),
+			lastUpdated:       getLastUpdated(r),
 			err:               nil,
 		}
 	case *v1.ConfigMap:
@@ -446,6 +498,7 @@ func handleWatchEvent(cfgName string, event watch.Event) clientWatchResult {
 		return clientWatchResult{
 			dataStr:           dataString,
 			persistentContext: r.GetResourceVersion(),
+			lastUpdated:       getLastUpdated(r),
 			err:               nil,
 		}
 	default:

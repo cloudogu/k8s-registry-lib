@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"maps"
 	"slices"
 	"strings"
@@ -53,6 +54,7 @@ type Config struct {
 	PersistenceContext any
 	// this is needed for the RetryWatcher that operates on ListResourceVersions and needs an initial starting point
 	InitialListResourceVersion string
+	LastUpdated                *metav1.Time
 }
 
 type ConfigOption func(config *Config)
@@ -68,6 +70,12 @@ func WithPersistenceContext(pCtx any) ConfigOption {
 func WithInitialListResourceVersion(resourceVersion string) ConfigOption {
 	return func(config *Config) {
 		config.InitialListResourceVersion = resourceVersion
+	}
+}
+
+func WithLastUpdated(lastUpdated *metav1.Time) ConfigOption {
+	return func(config *Config) {
+		config.LastUpdated = lastUpdated
 	}
 }
 

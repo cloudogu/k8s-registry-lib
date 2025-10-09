@@ -1,6 +1,6 @@
 module github.com/cloudogu/k8s-registry-lib
 
-go 1.23.1
+go 1.24.6
 
 require (
 	github.com/cloudogu/ces-commons-lib v0.2.0
