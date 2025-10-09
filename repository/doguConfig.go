@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
+
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type DoguConfigRepository struct {
@@ -121,4 +123,12 @@ func (dcr DoguConfigRepository) Watch(ctx context.Context, dName dogu.SimpleName
 	}()
 
 	return watchChan, nil
+}
+
+func (dcr DoguConfigRepository) SetOwnerReference(ctx context.Context, dName dogu.SimpleName, owners []metav1.OwnerReference) error {
+	err := dcr.setOwnerReference(ctx, createConfigName(dName.String()), owners)
+	if err != nil {
+		return fmt.Errorf("failed to update owner reference for dogu config for dogu %s: %w", dName, err)
+	}
+	return nil
 }

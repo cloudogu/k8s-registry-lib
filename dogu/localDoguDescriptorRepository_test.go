@@ -4,16 +4,18 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"testing"
+
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/ces-commons-lib/errors"
 	"github.com/cloudogu/cesapp-lib/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"testing"
 )
 
 const (
@@ -416,4 +418,86 @@ func Test_localDoguDescriptorRepository_GetAll(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "GetAll(%v, %v)", tt.args.ctx, tt.args.doguVersions)
 		})
 	}
+}
+
+func Test_localDoguDescriptorRepository_SetOwnerReference(t *testing.T) {
+	t.Run("should set owner references", func(t *testing.T) {
+		cfgMap := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dogu-spec-aDogu",
+				Namespace: "aNamespace",
+			},
+		}
+
+		configMapClientMock := newMockConfigMapClient(t)
+		configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-aDogu", mock.Anything).Return(cfgMap, nil)
+		configMapClientMock.EXPECT().Update(testCtx, cfgMap, mock.Anything).Return(nil, nil)
+
+		localDoguDescRepo := NewLocalDoguDescriptorRepository(configMapClientMock)
+
+		err := localDoguDescRepo.SetOwnerReference(
+			testCtx,
+			"aDogu",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			})
+
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(cfgMap.OwnerReferences))
+		assert.Equal(t, "aName", cfgMap.OwnerReferences[0].Name)
+		assert.Equal(t, "aName2", cfgMap.OwnerReferences[1].Name)
+	})
+
+	t.Run("should fail if config map can't be read", func(t *testing.T) {
+		configMapClientMock := newMockConfigMapClient(t)
+		configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-aDogu", mock.Anything).Return(nil, assert.AnError)
+
+		localDoguDescRepo := NewLocalDoguDescriptorRepository(configMapClientMock)
+
+		err := localDoguDescRepo.SetOwnerReference(
+			testCtx,
+			"aDogu",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			})
+
+		assert.Error(t, err)
+
+	})
+
+	t.Run("should fail if config map can't be updated", func(t *testing.T) {
+		cfgMap := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dogu-spec-aDogu",
+				Namespace: "aNamespace",
+			},
+		}
+
+		configMapClientMock := newMockConfigMapClient(t)
+		configMapClientMock.EXPECT().Get(testCtx, "dogu-spec-aDogu", mock.Anything).Return(cfgMap, nil)
+		configMapClientMock.EXPECT().Update(testCtx, cfgMap, mock.Anything).Return(nil, assert.AnError)
+
+		localDoguDescRepo := NewLocalDoguDescriptorRepository(configMapClientMock)
+
+		err := localDoguDescRepo.SetOwnerReference(
+			testCtx,
+			"aDogu",
+			[]metav1.OwnerReference{
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName"},
+				{APIVersion: "api/v1", Kind: "aKind", Name: "aName2"},
+			})
+
+		assert.Error(t, err)
+	})
+
 }
