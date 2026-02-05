@@ -2,13 +2,27 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/cloudogu/ces-commons-lib/errors"
-	"github.com/cloudogu/k8s-registry-lib/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	corev1 "k8s.io/api/core/v1"
+	k8sErrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-const registryKeyMaintenance = "maintenance"
+const (
+	maintenanceConfigMapName = "maintenance"
+	maintenanceActiveKey     = "active"
+	maintenanceTitleKey      = "title"
+	maintenanceTextKey       = "text"
+	maintenanceHolderKey     = "holder"
+	maintenanceActiveTrue    = "true"
+)
 
 // MaintenanceModeDescription contains data that gets displayed when the maintenance mode is active.
 type MaintenanceModeDescription struct {
@@ -17,30 +31,36 @@ type MaintenanceModeDescription struct {
 }
 
 type MaintenanceModeAdapter struct {
-	owner            string
-	globalConfigRepo *GlobalConfigRepository
+	owner     string
+	client    k8sClient
+	namespace string
 }
 
 // NewMaintenanceModeAdapter creates a new adapter to handel the maintenance mode
-func NewMaintenanceModeAdapter(owner string, client ConfigMapClient) *MaintenanceModeAdapter {
+func NewMaintenanceModeAdapter(owner string, client client.Client, namespace string) *MaintenanceModeAdapter {
 	return &MaintenanceModeAdapter{
-		owner:            owner,
-		globalConfigRepo: NewGlobalConfigRepository(client),
+		owner:     owner,
+		client:    client,
+		namespace: namespace,
 	}
 }
 
-type maintenanceConfig struct {
-	Title  string `json:"title"`
-	Text   string `json:"text"`
-	Holder string `json:"holder,omitempty"`
+// IsActive checks if the maintenance mode is active.
+func (mma *MaintenanceModeAdapter) IsActive(ctx context.Context) (bool, error) {
+	maintenanceConfig := &corev1.ConfigMap{}
+	err := mma.client.Get(ctx, types.NamespacedName{Name: maintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfig)
+	if k8sErrs.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get config for maintenance mode: %w", handleError(err))
+	}
+
+	return IsMaintenanceModeActive(maintenanceConfig), nil
 }
 
-func newMaintenanceConfig(owner string, description MaintenanceModeDescription) *maintenanceConfig {
-	return &maintenanceConfig{
-		Title:  description.Title,
-		Text:   description.Text,
-		Holder: owner,
-	}
+func IsMaintenanceModeActive(config *corev1.ConfigMap) bool {
+	activeString, ok := config.Data[maintenanceActiveKey]
+	return ok && strings.ToLower(strings.TrimSpace(activeString)) == maintenanceActiveTrue
 }
 
 // Activate enables the maintenance mode and blocks the execution until the maintenance mode is activated.
@@ -49,47 +69,8 @@ func newMaintenanceConfig(owner string, description MaintenanceModeDescription) 
 // ConnectionError at any connection issues
 // Generic Error at any other issue
 func (mma *MaintenanceModeAdapter) Activate(ctx context.Context, content MaintenanceModeDescription) error {
-	globalConfig, err := mma.globalConfigRepo.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("could not get contents of global config-map for activating maintenance mode: %w", handleError(err))
-	}
-
-	if rawValue, isActive := globalConfig.Get(registryKeyMaintenance); !isActive {
-		return mma.setMaintenanceModeInConfig(ctx, globalConfig, content)
-	} else {
-		return mma.checkForConflict(rawValue)
-	}
-}
-
-func (mma *MaintenanceModeAdapter) setMaintenanceModeInConfig(ctx context.Context, globalConfig config.GlobalConfig, content MaintenanceModeDescription) error {
-	maintenanceConf := newMaintenanceConfig(mma.owner, content)
-	jsonBytes, err := json.Marshal(maintenanceConf)
-	if err != nil {
-		return errors.NewGenericError(fmt.Errorf("failed to serialize maintenance mode config: %w", err))
-	}
-
-	updatedConfig, err := globalConfig.Set(registryKeyMaintenance, config.Value(jsonBytes))
-	if err != nil {
-		return errors.NewGenericError(fmt.Errorf("failed to set maintenance mode registry key: %w", err))
-	}
-
-	_, err = mma.globalConfigRepo.Update(ctx, config.GlobalConfig{Config: updatedConfig})
-	if err != nil {
-		return fmt.Errorf("could not update global config-map for activating maintenance mode: %w", handleError(err))
-	}
-	return nil
-}
-
-func (mma *MaintenanceModeAdapter) checkForConflict(rawValue config.Value) error {
-	var value maintenanceConfig
-	err := json.Unmarshal([]byte(rawValue), &value)
-	if err != nil {
-		return errors.NewGenericError(fmt.Errorf("failed to parse json of maintenance mode config: %w", err))
-	}
-	if value.Holder != mma.owner {
-		return errors.NewConflictError(fmt.Errorf("maintenance mode %s is already activated by another owner: %s", rawValue, value.Holder))
-	}
-	return nil
+	newConfig := newActiveMaintenanceConfig(mma.owner, content)
+	return mma.setMaintenanceMode(ctx, newConfig)
 }
 
 // Deactivate disables the maintenance mode if it is active.
@@ -97,23 +78,103 @@ func (mma *MaintenanceModeAdapter) checkForConflict(rawValue config.Value) error
 // ConnectionError at any connection issues
 // Generic Error at any other issue
 func (mma *MaintenanceModeAdapter) Deactivate(ctx context.Context) error {
-	globalConfig, err := mma.globalConfigRepo.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("could not get contents of global config-map for deactivating maintenance mode: %w", handleError(err))
+	newConfig := newInactiveMaintenanceConfig()
+	return mma.setMaintenanceMode(ctx, newConfig)
+}
+
+func (mma *MaintenanceModeAdapter) setMaintenanceMode(ctx context.Context, config *maintenanceConfig) error {
+	maintenanceConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      maintenanceConfigMapName,
+			Namespace: mma.namespace,
+		},
+	}
+	err := mma.client.Get(ctx, types.NamespacedName{Name: maintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
+	if client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("could not maintenance config-map: %w", handleError(err))
 	}
 
-	if rawValue, isActive := globalConfig.Get(registryKeyMaintenance); isActive {
-		err = mma.checkForConflict(rawValue)
+	shouldCreate := k8sErrs.IsNotFound(err)
+
+	if !shouldCreate {
+		existingConfig := newMaintenanceConfigFromConfigMap(maintenanceConfigMap)
+		err = mma.checkForConflict(existingConfig)
 		if err != nil {
 			return err
 		}
+	}
 
-		updatedConfig := globalConfig.Delete(registryKeyMaintenance)
-		_, err = mma.globalConfigRepo.Update(ctx, config.GlobalConfig{Config: updatedConfig})
+	config.setInConfigMap(maintenanceConfigMap)
+	return mma.updateMaintenanceConfigMap(ctx, maintenanceConfigMap, shouldCreate)
+}
+
+func (mma *MaintenanceModeAdapter) updateMaintenanceConfigMap(ctx context.Context, configMap *corev1.ConfigMap, shouldCreate bool) error {
+	if shouldCreate {
+		err := mma.client.Create(ctx, configMap)
 		if err != nil {
-			return fmt.Errorf("could not update global config-map for activating maintenance mode: %w", handleError(err))
+			return fmt.Errorf("could not create maintenance config-map: %w", handleError(err))
+		}
+	} else {
+		err := mma.client.Update(ctx, configMap)
+		if err != nil {
+			return fmt.Errorf("could not update maintenance config-map: %w", handleError(err))
 		}
 	}
 
 	return nil
+}
+
+func (mma *MaintenanceModeAdapter) checkForConflict(config *maintenanceConfig) error {
+	if config.holder != mma.owner {
+		return errors.NewConflictError(fmt.Errorf("maintenance mode is already activated by another owner: %s", config.holder))
+	}
+	return nil
+}
+
+type maintenanceConfig struct {
+	active bool
+	title  string
+	text   string
+	holder string
+}
+
+func newActiveMaintenanceConfig(owner string, description MaintenanceModeDescription) *maintenanceConfig {
+	return &maintenanceConfig{
+		active: true,
+		title:  description.Title,
+		text:   description.Text,
+		holder: owner,
+	}
+}
+
+func newInactiveMaintenanceConfig() *maintenanceConfig {
+	return &maintenanceConfig{active: false}
+}
+
+func newMaintenanceConfigFromConfigMap(configMap *corev1.ConfigMap) *maintenanceConfig {
+	return &maintenanceConfig{
+		active: configMap.Data[maintenanceActiveKey] == maintenanceActiveTrue,
+		title:  configMap.Data[maintenanceTitleKey],
+		text:   configMap.Data[maintenanceTextKey],
+		holder: configMap.Data[maintenanceHolderKey],
+	}
+}
+
+func (m *maintenanceConfig) setInConfigMap(configMap *corev1.ConfigMap) {
+	if configMap.Data == nil {
+		configMap.Data = map[string]string{}
+	}
+
+	configMap.Data[maintenanceActiveKey] = strconv.FormatBool(m.active)
+
+	if m.active {
+		configMap.Data[maintenanceTitleKey] = m.title
+		configMap.Data[maintenanceTextKey] = m.text
+		configMap.Data[maintenanceHolderKey] = m.holder
+		return
+	}
+
+	delete(configMap.Data, maintenanceTitleKey)
+	delete(configMap.Data, maintenanceTextKey)
+	delete(configMap.Data, maintenanceHolderKey)
 }

@@ -2,308 +2,385 @@ package repository
 
 import (
 	"context"
-	"github.com/cloudogu/ces-commons-lib/dogu"
+	"testing"
+
 	"github.com/cloudogu/ces-commons-lib/errors"
-	"github.com/cloudogu/k8s-registry-lib/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"testing"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+const testNamespace = "test-namespace"
 
 var testCtx = context.Background()
 
-func Test_defaultSwitcher_Activate(t *testing.T) {
-	t.Run("should fail to activate maintenance mode", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(config.Config{}, assert.AnError)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.Error(t, err)
-		assert.True(t, errors.IsGenericError(err))
-		assert.ErrorContains(t, err, "could not get contents of global config-map for activating maintenance mode")
-	})
-
-	t.Run("should activate maintenance mode if it is currently not active", func(t *testing.T) {
-		// given
-		expectedJson := `{"title":"myTitle","text":"myText","holder":"k8s-blueprint-operator"}`
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(globalConfig, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.NoError(t, err)
-		title, b := globalConfig.Get("maintenance")
-		require.True(t, b)
-		assert.Equal(t, config.Value(expectedJson), title)
-	})
-
-	t.Run("should return error on error updating global config", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, assert.AnError)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.Error(t, err)
-		require.ErrorContains(t, err, "could not update global config-map for activating maintenance mode")
-		assert.True(t, errors.IsGenericError(err))
-	})
-
-	t.Run("should return conflict error if the maintenance is activated from another user", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-backup-operator\"}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "maintenance mode {\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-backup-operator\"} is already activated by another owner: k8s-backup-operator")
-		assert.True(t, errors.IsConflictError(err))
-	})
-
-	t.Run("should return generic error if the actual maintenance mode value can't be parsed", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": 1}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "failed to parse json of maintenance mode config")
-		assert.True(t, errors.IsGenericError(err))
-	})
-
-	t.Run("should return nil and do nothing if a component already holds the maintenance mode", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-blueprint-operator\"}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Activate(testCtx, MaintenanceModeDescription{
-			Title: "myTitle",
-			Text:  "myText",
-		})
-
-		// then
-		require.NoError(t, err)
-	})
-}
-
-func TestSwitch_Deactivate(t *testing.T) {
-	t.Run("should fail to deactivate maintenance mode", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(config.Config{}, assert.AnError)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Deactivate(testCtx)
-
-		// then
-		require.Error(t, err)
-		assert.True(t, errors.IsGenericError(err))
-		assert.ErrorContains(t, err, "could not get contents of global config-map for deactivating maintenance mode")
-	})
-	t.Run("should do nothing if the maintenance mode is not activated", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(config.Config{}, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Deactivate(testCtx)
-
-		// then
-		require.NoError(t, err)
-	})
-
-	t.Run("should deactivate if no conflict occurs", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-blueprint-operator\"}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Deactivate(testCtx)
-
-		// then
-		require.NoError(t, err)
-		_, ok := globalConfig.Get("maintenance")
-		assert.False(t, ok)
-	})
-
-	t.Run("should return error on error updating config", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-blueprint-operator\"}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-		mConfigRepo.EXPECT().update(testCtx, configName("global-config"), dogu.SimpleName(""), mock.Anything).Return(config.Config{}, assert.AnError)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Deactivate(testCtx)
-
-		// then
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "could not update global config-map for activating maintenance mode")
-		assert.True(t, errors.IsGenericError(err))
-	})
-
-	t.Run("should return error if another component holds the maintenance mode", func(t *testing.T) {
-		// given
-		mConfigRepo := newMockGeneralConfigRepository(t)
-		globalConfig := config.CreateConfig(config.Entries{"maintenance": "{\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-backup-operator\"}"})
-		mConfigRepo.EXPECT().get(mock.Anything, createConfigName(_SimpleGlobalConfigName)).Return(globalConfig, nil)
-
-		repo := &GlobalConfigRepository{
-			generalConfigRepository: mConfigRepo,
-		}
-
-		sut := &MaintenanceModeAdapter{
-			owner:            "k8s-blueprint-operator",
-			globalConfigRepo: repo,
-		}
-
-		// when
-		err := sut.Deactivate(testCtx)
-
-		// then
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "maintenance mode {\"title\": \"title\", \"text\": \"text\", \"holder\": \"k8s-backup-operator\"} is already activated by another owner: k8s-backup-operator")
-		assert.True(t, errors.IsConflictError(err))
-	})
-}
-
 func TestNewMaintenanceModeAdapter(t *testing.T) {
-	t.Run("should succeed", func(t *testing.T) {
-		// when
-		owner := "k8s-blueprint-operator"
-		adapter := NewMaintenanceModeAdapter(owner, nil)
+	adapter := NewMaintenanceModeAdapter("k8s-service-discovery", nil, testNamespace)
+	assert.NotEmpty(t, adapter)
+}
 
-		// then
-		assert.Equal(t, owner, adapter.owner)
-	})
+func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
+	tests := []struct {
+		name     string
+		clientFn func(t *testing.T) k8sClient
+		want     bool
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "fail to get maintenance config",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{}).
+					Return(assert.AnError)
+				return mck
+			},
+			want: false,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "failed to get config for maintenance mode")
+			},
+		},
+		{
+			name: "succeed with false if not found",
+			clientFn: func(t *testing.T) k8sClient {
+				return fake.NewClientBuilder().Build()
+			},
+			want:    false,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "succeed with active",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "TRuE",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			want:    true,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "succeed with inactive",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "notTRuE",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			want:    false,
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mma := &MaintenanceModeAdapter{
+				client:    tt.clientFn(t),
+				namespace: testNamespace,
+			}
+			got, err := mma.IsActive(testCtx)
+			if !tt.wantErr(t, err) {
+				return
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestMaintenanceModeAdapter_Activate(t *testing.T) {
+	tests := []struct {
+		name     string
+		clientFn func(t *testing.T) k8sClient
+		content  MaintenanceModeDescription
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "fail to get maintenance config-map",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Return(assert.AnError)
+				return mck
+			},
+			content: MaintenanceModeDescription{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not maintenance config-map")
+			},
+		},
+		{
+			name: "fail with conflict",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-ces-control",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			content: MaintenanceModeDescription{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return errors.IsConflictError(err) &&
+					assert.ErrorContains(t, err, "maintenance mode is already activated by another owner: k8s-ces-control")
+			},
+		},
+		{
+			name: "fail to update",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Run(func(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) {
+						obj.(*corev1.ConfigMap).Data = map[string]string{
+							"active": "true",
+							"holder": "k8s-service-discovery",
+							"title":  "Restore",
+							"text":   "A backup is currently being restored",
+						}
+					}).
+					Return(nil)
+				mck.EXPECT().Update(testCtx, mock.AnythingOfType("*v1.ConfigMap")).
+					Return(assert.AnError)
+				return mck
+			},
+			content: MaintenanceModeDescription{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not update maintenance config-map")
+			},
+		},
+		{
+			name: "succeed to update",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-service-discovery",
+						"title":  "Backup",
+						"text":   "Backup in progress",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			content: MaintenanceModeDescription{
+				Title: "Backup",
+				Text:  "Backup in progress",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "fail to create",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Return(&apierrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonNotFound}})
+				mck.EXPECT().Create(testCtx, mock.AnythingOfType("*v1.ConfigMap")).
+					Return(assert.AnError)
+				return mck
+			},
+			content: MaintenanceModeDescription{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not create maintenance config-map")
+			},
+		},
+		{
+			name: "succeed to create",
+			clientFn: func(t *testing.T) k8sClient {
+				return fake.NewClientBuilder().Build()
+			},
+			content: MaintenanceModeDescription{
+				Title: "Backup",
+				Text:  "Backup in progress",
+			},
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mma := &MaintenanceModeAdapter{
+				owner:     "k8s-service-discovery",
+				client:    tt.clientFn(t),
+				namespace: testNamespace,
+			}
+			tt.wantErr(t, mma.Activate(testCtx, tt.content))
+		})
+	}
+}
+
+func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
+	tests := []struct {
+		name     string
+		clientFn func(t *testing.T) k8sClient
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "fail to get maintenance config-map",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Return(assert.AnError)
+				return mck
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not maintenance config-map")
+			},
+		},
+		{
+			name: "fail with conflict",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-ces-control",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return errors.IsConflictError(err) &&
+					assert.ErrorContains(t, err, "maintenance mode is already activated by another owner: k8s-ces-control")
+			},
+		},
+		{
+			name: "fail to update",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Run(func(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) {
+						obj.(*corev1.ConfigMap).Data = map[string]string{
+							"active": "true",
+							"holder": "k8s-service-discovery",
+							"title":  "Restore",
+							"text":   "A backup is currently being restored",
+						}
+					}).
+					Return(nil)
+				mck.EXPECT().Update(testCtx, mock.AnythingOfType("*v1.ConfigMap")).
+					Return(assert.AnError)
+				return mck
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not update maintenance config-map")
+			},
+		},
+		{
+			name: "succeed to update",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-service-discovery",
+						"title":  "Backup",
+						"text":   "Backup in progress",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "fail to create",
+			clientFn: func(t *testing.T) k8sClient {
+				mck := newMockK8sClient(t)
+				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      maintenanceConfigMapName,
+						Namespace: testNamespace,
+					},
+				}).
+					Return(&apierrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonNotFound}})
+				mck.EXPECT().Create(testCtx, mock.AnythingOfType("*v1.ConfigMap")).
+					Return(assert.AnError)
+				return mck
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, assert.AnError, i) &&
+					errors.IsGenericError(err) &&
+					assert.ErrorContains(t, err, "could not create maintenance config-map")
+			},
+		},
+		{
+			name: "succeed to create",
+			clientFn: func(t *testing.T) k8sClient {
+				return fake.NewClientBuilder().Build()
+			},
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mma := &MaintenanceModeAdapter{
+				owner:     "k8s-service-discovery",
+				client:    tt.clientFn(t),
+				namespace: testNamespace,
+			}
+			tt.wantErr(t, mma.Deactivate(testCtx))
+		})
+	}
 }
