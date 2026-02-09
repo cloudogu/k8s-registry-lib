@@ -45,20 +45,27 @@ func NewMaintenanceModeAdapter(owner string, client client.Client, namespace str
 	}
 }
 
-// IsActive checks if the maintenance mode is active.
-func (mma *MaintenanceModeAdapter) IsActive(ctx context.Context) (bool, error) {
-	maintenanceConfig := &corev1.ConfigMap{}
-	err := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfig)
+// GetStatus checks if the maintenance mode is active and returns its contents.
+func (mma *MaintenanceModeAdapter) GetStatus(ctx context.Context) (MaintenanceModeDescription, bool, error) {
+	maintenanceConfigMap := &corev1.ConfigMap{}
+	err := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
 	if k8sErrs.IsNotFound(err) {
-		return false, nil
+		return MaintenanceModeDescription{}, false, nil
 	} else if err != nil {
-		return false, fmt.Errorf("failed to get config for maintenance mode: %w", handleError(err))
+		return MaintenanceModeDescription{}, false, fmt.Errorf("failed to get config for maintenance mode: %w", handleError(err))
 	}
 
-	return IsMaintenanceModeActive(maintenanceConfig), nil
+	if isMaintenanceModeActive(maintenanceConfigMap) {
+		return MaintenanceModeDescription{
+			Title: maintenanceConfigMap.Data[maintenanceTitleKey],
+			Text:  maintenanceConfigMap.Data[maintenanceTextKey],
+		}, true, nil
+	}
+
+	return MaintenanceModeDescription{}, false, nil
 }
 
-func IsMaintenanceModeActive(config *corev1.ConfigMap) bool {
+func isMaintenanceModeActive(config *corev1.ConfigMap) bool {
 	activeString, ok := config.Data[maintenanceActiveKey]
 	return ok && strings.ToLower(strings.TrimSpace(activeString)) == maintenanceActiveTrue
 }

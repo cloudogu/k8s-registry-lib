@@ -24,11 +24,12 @@ func TestNewMaintenanceModeAdapter(t *testing.T) {
 	assert.NotEmpty(t, adapter)
 }
 
-func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
+func TestMaintenanceModeAdapter_GetStatus(t *testing.T) {
 	tests := []struct {
 		name     string
 		clientFn func(t *testing.T) k8sClient
-		want     bool
+		want1    MaintenanceModeDescription
+		want2    bool
 		wantErr  assert.ErrorAssertionFunc
 	}{
 		{
@@ -39,7 +40,8 @@ func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
 					Return(assert.AnError)
 				return mck
 			},
-			want: false,
+			want1: MaintenanceModeDescription{},
+			want2: false,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
 				return assert.ErrorIs(t, err, assert.AnError, i) &&
 					errors.IsGenericError(err) &&
@@ -51,7 +53,8 @@ func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
 			clientFn: func(t *testing.T) k8sClient {
 				return fake.NewClientBuilder().Build()
 			},
-			want:    false,
+			want1:   MaintenanceModeDescription{},
+			want2:   false,
 			wantErr: assert.NoError,
 		},
 		{
@@ -64,11 +67,17 @@ func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
 					},
 					Data: map[string]string{
 						"active": "TRuE",
+						"title":  "Backup",
+						"text":   "Backup in progress",
 					},
 				}
 				return fake.NewClientBuilder().WithObjects(config).Build()
 			},
-			want:    true,
+			want1: MaintenanceModeDescription{
+				Title: "Backup",
+				Text:  "Backup in progress",
+			},
+			want2:   true,
 			wantErr: assert.NoError,
 		},
 		{
@@ -81,11 +90,14 @@ func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
 					},
 					Data: map[string]string{
 						"active": "notTRuE",
+						"title":  "Backup",
+						"text":   "Backup in progress",
 					},
 				}
 				return fake.NewClientBuilder().WithObjects(config).Build()
 			},
-			want:    false,
+			want1:   MaintenanceModeDescription{},
+			want2:   false,
 			wantErr: assert.NoError,
 		},
 	}
@@ -95,11 +107,12 @@ func TestMaintenanceModeAdapter_IsActive(t *testing.T) {
 				client:    tt.clientFn(t),
 				namespace: testNamespace,
 			}
-			got, err := mma.IsActive(testCtx)
+			got1, got2, err := mma.GetStatus(testCtx)
 			if !tt.wantErr(t, err) {
 				return
 			}
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want1, got1)
+			assert.Equal(t, tt.want2, got2)
 		})
 	}
 }
