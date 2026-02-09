@@ -117,7 +117,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).
@@ -158,7 +158,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).
@@ -211,7 +211,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).
@@ -263,7 +263,7 @@ func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).
@@ -302,7 +302,7 @@ func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).
@@ -350,7 +350,7 @@ func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 				mck := newMockK8sClient(t)
 				mck.EXPECT().Get(testCtx, types.NamespacedName{Name: "maintenance", Namespace: testNamespace}, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      maintenanceConfigMapName,
+						Name:      MaintenanceConfigMapName,
 						Namespace: testNamespace,
 					},
 				}).

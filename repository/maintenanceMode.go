@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	maintenanceConfigMapName = "maintenance"
+	MaintenanceConfigMapName = "maintenance"
 	maintenanceActiveKey     = "active"
 	maintenanceTitleKey      = "title"
 	maintenanceTextKey       = "text"
@@ -48,7 +48,7 @@ func NewMaintenanceModeAdapter(owner string, client client.Client, namespace str
 // IsActive checks if the maintenance mode is active.
 func (mma *MaintenanceModeAdapter) IsActive(ctx context.Context) (bool, error) {
 	maintenanceConfig := &corev1.ConfigMap{}
-	err := mma.client.Get(ctx, types.NamespacedName{Name: maintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfig)
+	err := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfig)
 	if k8sErrs.IsNotFound(err) {
 		return false, nil
 	} else if err != nil {
@@ -85,11 +85,11 @@ func (mma *MaintenanceModeAdapter) Deactivate(ctx context.Context) error {
 func (mma *MaintenanceModeAdapter) setMaintenanceMode(ctx context.Context, config *maintenanceConfig) error {
 	maintenanceConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      maintenanceConfigMapName,
+			Name:      MaintenanceConfigMapName,
 			Namespace: mma.namespace,
 		},
 	}
-	err := mma.client.Get(ctx, types.NamespacedName{Name: maintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
+	err := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
 	if client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("could not maintenance config-map: %w", handleError(err))
 	}
