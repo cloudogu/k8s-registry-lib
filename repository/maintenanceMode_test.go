@@ -122,6 +122,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 		name     string
 		clientFn func(t *testing.T) k8sClient
 		content  MaintenanceModeDescription
+		force    bool
 		wantErr  assert.ErrorAssertionFunc
 	}{
 		{
@@ -164,6 +165,28 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 				return errors.IsConflictError(err) &&
 					assert.ErrorContains(t, err, "maintenance mode is already activated by another owner: k8s-ces-control")
 			},
+		},
+		{
+			name: "no conflict with force",
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-ces-control",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			content: MaintenanceModeDescription{
+				Title: "Backup",
+				Text:  "Backup in progress",
+			},
+			force:   true,
+			wantErr: assert.NoError,
 		},
 		{
 			name: "fail to update",
@@ -259,7 +282,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 				client:    tt.clientFn(t),
 				namespace: testNamespace,
 			}
-			tt.wantErr(t, mma.Activate(testCtx, tt.content))
+			tt.wantErr(t, mma.Activate(testCtx, tt.content, tt.force))
 		})
 	}
 }
@@ -267,6 +290,7 @@ func TestMaintenanceModeAdapter_Activate(t *testing.T) {
 func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 	tests := []struct {
 		name     string
+		force    bool
 		clientFn func(t *testing.T) k8sClient
 		wantErr  assert.ErrorAssertionFunc
 	}{
@@ -310,6 +334,24 @@ func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 			},
 		},
 		{
+			name:  "no conflict with force",
+			force: true,
+			clientFn: func(t *testing.T) k8sClient {
+				config := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "maintenance",
+					},
+					Data: map[string]string{
+						"active": "true",
+						"holder": "k8s-ces-control",
+					},
+				}
+				return fake.NewClientBuilder().WithObjects(config).Build()
+			},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "fail to update",
 			clientFn: func(t *testing.T) k8sClient {
 				mck := newMockK8sClient(t)
@@ -393,7 +435,7 @@ func TestMaintenanceModeAdapter_Deactivate(t *testing.T) {
 				client:    tt.clientFn(t),
 				namespace: testNamespace,
 			}
-			tt.wantErr(t, mma.Deactivate(testCtx))
+			tt.wantErr(t, mma.Deactivate(testCtx, tt.force))
 		})
 	}
 }
