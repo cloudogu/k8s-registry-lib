@@ -71,47 +71,46 @@ func isMaintenanceModeActive(config *corev1.ConfigMap) bool {
 }
 
 // Activate enables the maintenance mode and blocks the execution until the maintenance mode is activated.
-// You can set timeouts via the go context.
+// You can skip ownership/holder validation with force.
 // ConflictError if another component already activated the maintenance mode
 // ConnectionError at any connection issues
 // Generic Error at any other issue
-func (mma *MaintenanceModeAdapter) Activate(ctx context.Context, content MaintenanceModeDescription) error {
+func (mma *MaintenanceModeAdapter) Activate(ctx context.Context, content MaintenanceModeDescription, force bool) error {
 	newConfig := newActiveMaintenanceConfig(mma.owner, content)
-	return mma.setMaintenanceMode(ctx, newConfig)
+	return mma.setMaintenanceMode(ctx, newConfig, force)
 }
 
 // Deactivate disables the maintenance mode if it is active.
+// You can skip ownership/holder validation with force.
 // ConflictError if another component activated the maintenance mode
 // ConnectionError at any connection issues
 // Generic Error at any other issue
-func (mma *MaintenanceModeAdapter) Deactivate(ctx context.Context) error {
+func (mma *MaintenanceModeAdapter) Deactivate(ctx context.Context, force bool) error {
 	newConfig := newInactiveMaintenanceConfig()
-	return mma.setMaintenanceMode(ctx, newConfig)
+	return mma.setMaintenanceMode(ctx, newConfig, force)
 }
 
-func (mma *MaintenanceModeAdapter) setMaintenanceMode(ctx context.Context, config *maintenanceConfig) error {
+func (mma *MaintenanceModeAdapter) setMaintenanceMode(ctx context.Context, newConfig *maintenanceConfig, force bool) error {
 	maintenanceConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MaintenanceConfigMapName,
 			Namespace: mma.namespace,
 		},
 	}
-	err := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
-	if client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("could not maintenance config-map: %w", handleError(err))
+	getErr := mma.client.Get(ctx, types.NamespacedName{Name: MaintenanceConfigMapName, Namespace: mma.namespace}, maintenanceConfigMap)
+	if client.IgnoreNotFound(getErr) != nil {
+		return fmt.Errorf("could not maintenance config-map: %w", handleError(getErr))
 	}
 
-	shouldCreate := k8sErrs.IsNotFound(err)
+	shouldCreate := k8sErrs.IsNotFound(getErr)
 
-	if !shouldCreate {
-		existingConfig := newMaintenanceConfigFromConfigMap(maintenanceConfigMap)
-		err = mma.checkForConflict(existingConfig)
-		if err != nil {
-			return err
-		}
+	existingConfig := newMaintenanceConfigFromConfigMap(maintenanceConfigMap)
+	conflictErr := mma.checkForConflict(existingConfig, force)
+	if conflictErr != nil {
+		return conflictErr
 	}
 
-	config.setInConfigMap(maintenanceConfigMap)
+	newConfig.setInConfigMap(maintenanceConfigMap)
 	return mma.updateMaintenanceConfigMap(ctx, maintenanceConfigMap, shouldCreate)
 }
 
@@ -131,9 +130,9 @@ func (mma *MaintenanceModeAdapter) updateMaintenanceConfigMap(ctx context.Contex
 	return nil
 }
 
-func (mma *MaintenanceModeAdapter) checkForConflict(config *maintenanceConfig) error {
-	if config.holder != mma.owner {
-		return errors.NewConflictError(fmt.Errorf("maintenance mode is already activated by another owner: %s", config.holder))
+func (mma *MaintenanceModeAdapter) checkForConflict(oldConfig *maintenanceConfig, force bool) error {
+	if !force && oldConfig.active && oldConfig.holder != mma.owner {
+		return errors.NewConflictError(fmt.Errorf("maintenance mode is already activated by another owner: %s", oldConfig.holder))
 	}
 	return nil
 }
