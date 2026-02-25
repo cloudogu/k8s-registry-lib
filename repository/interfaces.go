@@ -6,6 +6,7 @@ import (
 	"github.com/cloudogu/ces-commons-lib/dogu"
 	"github.com/cloudogu/k8s-registry-lib/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type generalConfigRepository interface {
@@ -33,4 +34,8 @@ type configClient interface {
 	UpdateClientData(ctx context.Context, update clientData) (resourceMetaAccessor, error)
 	Watch(ctx context.Context, name string, resourceVersion string) (<-chan clientWatchResult, error)
 	SetOwnerReference(ctx context.Context, cmName string, owner []metav1.OwnerReference) (resourceMetaAccessor, error)
+}
+
+type k8sClient interface {
+	client.Client
 }
