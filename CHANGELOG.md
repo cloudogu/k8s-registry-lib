@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.0] - 2026-02-25
+### Changed
+- [#30] use separate config map for maintenance mode
+- [#30] bump version of ces-common-lib to v0.3.0
+
 ## [v0.6.0] - 2025-10-09
 ### Added
 - [#28] set owner reference of config map and secrets of dogu config
